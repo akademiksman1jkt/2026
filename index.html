@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Akademik - SMAN 1 Jakarta</title>
-    <link rel="icon" type="image/png" href="./favicon.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1215,6 +1214,18 @@
             <div class="content-header">
                 <h1>Manajemen Profil & Biodata Lengkap Siswa</h1>
                 <p>Informasi Identitas Riwayat Siswa, Data Orang Tua/Wali, dan Alamat Rumah</p>
+            </div>
+
+            <!-- ===== LINK KE GOOGLE SHEET BIODATA ===== -->
+            <div style="background:#eff6ff; border:1.5px solid #93c5fd; border-radius:10px; padding:16px 20px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <div style="font-size:13px; font-weight:800; color:#1d4ed8; margin-bottom:4px;"><i class="ri-database-2-line"></i> Input & Pengelolaan Data Biodata</div>
+                    <div style="font-size:12px; color:#3b82f6;">Data biodata siswa dikelola langsung di Google Sheets. Klik tombol untuk membuka sheet <strong>Biodata</strong> dan melakukan penambahan atau pengeditan data.</div>
+                </div>
+                <a href="https://docs.google.com/spreadsheets/d/1AXfHu142bWpeOHb2aJpEmZI-AT_doa62fIVJVvJCrlY/edit" target="_blank"
+                   style="padding:10px 22px; background:#2563eb; color:white; border-radius:8px; font-weight:700; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:8px; white-space:nowrap; flex-shrink:0;">
+                    <i class="ri-external-link-line"></i> Buka Sheet Biodata
+                </a>
             </div>
 
             <div class="search-card" style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 20px;">
@@ -2446,6 +2457,7 @@
     let dbEraporCloudCache   = {};
     let cloudUsersCache      = [];
     let cloudPlottingCache   = [];
+    let bioBioColMap = { no:-1, nama:1, kelas:2, nisn:3, nis:-1, alamat:4, status:5, anakKe:6, asal:7, diterima:8, ayah:9, ibu:10, alamatOrtu:11, telpOrtu:12, wali:13, alamatWali:14, telpWali:15 };
     let sessionUserAktif     = null;
     let cloudDataLoaded      = false;   // true setelah cloud data selesai dimuat
     let menuAktifSebelumnya  = "personalTab";
@@ -3276,11 +3288,44 @@
                 } catch(e) { console.warn('[Portal] Users parse err:', e); }
             }),
             // 🌟 BERHASIL DIMASUKKAN: Pengunduh Tab Biodata Secara Mandiri & Paralel
-            downloadCloudSheet("Biodata", function(rows) {
+            downloadCloudSheet("Sheet_Biodata", function(rows) {
                 try {
                     dataBiodataGlobal = []; 
                     if (!rows || rows.length === 0) return;
-                    
+
+                    // ── Deteksi header kolom otomatis dari baris pertama ──
+                    let firstRow = rows[0];
+                    if (firstRow && firstRow.c) {
+                        let hcells = firstRow.c.map(function(c){ return c ? String(c.v || '').trim().toUpperCase() : ''; });
+                        function fi(tests) { return hcells.findIndex(function(h){ return tests.some(function(t){ return h.includes(t); }); }); }
+                        let detected = {
+                            nisn:       fi(['NISN']),
+                            nama:       hcells.findIndex(function(h){ return h.includes('NAMA') && !h.includes('AYAH') && !h.includes('IBU') && !h.includes('WALI') && !h.includes('ORTU'); }),
+                            kelas:      fi(['KELAS']),
+                            nis:        hcells.findIndex(function(h){ return h === 'NIS'; }),
+                            alamat:     hcells.findIndex(function(h){ return h.includes('ALAMAT') && !h.includes('ORTU') && !h.includes('WALI'); }),
+                            status:     fi(['STATUS']),
+                            anakKe:     fi(['ANAK']),
+                            asal:       fi(['ASAL']),
+                            diterima:   fi(['DITERIMA','MASUK']),
+                            ayah:       fi(['AYAH']),
+                            ibu:        fi(['IBU']),
+                            alamatOrtu: hcells.findIndex(function(h){ return h.includes('ALAMAT') && (h.includes('ORTU') || h.includes('OT') || h.includes('TUA')); }),
+                            telpOrtu:   hcells.findIndex(function(h){ return (h.includes('TELP')||h.includes('HP')||h.includes('NO.H')) && (h.includes('ORTU')||h.includes('OT')||h.includes('TUA')); }),
+                            wali:       hcells.findIndex(function(h){ return h.includes('WALI') && !h.includes('ALAMAT') && !h.includes('TELP') && !h.includes('HP'); }),
+                            alamatWali: hcells.findIndex(function(h){ return h.includes('ALAMAT') && h.includes('WALI'); }),
+                            telpWali:   hcells.findIndex(function(h){ return (h.includes('TELP')||h.includes('HP')) && h.includes('WALI'); }),
+                        };
+                        // Terapkan hasil deteksi, fallback ke default jika tidak ditemukan
+                        Object.keys(detected).forEach(function(k){
+                            if (detected[k] >= 0) bioBioColMap[k] = detected[k];
+                        });
+                        if (bioBioColMap.nisn < 0) bioBioColMap.nisn = 3;
+                        if (bioBioColMap.nama < 0) bioBioColMap.nama = 1;
+                        if (bioBioColMap.kelas < 0) bioBioColMap.kelas = 2;
+                        console.log("🟡 [Portal] Biodata kolom terdeteksi:", JSON.stringify(bioBioColMap));
+                    }
+
                     rows.forEach(function(row) {
                         if (!row || !row.c) return;
                         let cells = row.c.map(function(cell) { 
@@ -3288,14 +3333,34 @@
                             let val = cell.f ? cell.f : (cell.v !== null ? cell.v : "");
                             return String(val).trim(); 
                         });
-                        // PENGAMAN LONGGAR: Selama kolom NISN (cells[3]) berisi angka, masukkan!
-                        if (cells[3] && cells[3] !== "NISN" && cells[3].match(/\d+/)) {
+                        let nisnIdx = bioBioColMap.nisn >= 0 ? bioBioColMap.nisn : 3;
+                        let nisnVal = cells[nisnIdx] || "";
+                        // Terima baris yang punya NISN numerik (minimal 5 digit), tolak header
+                        if (nisnVal && !nisnVal.match(/NISN|NAMA|KELAS|NO/i) && nisnVal.replace(/\D/g,'').length >= 5) {
                             dataBiodataGlobal.push(cells);
                         }
                     });
                     console.log("🟢 [Portal] Berhasil memuat " + dataBiodataGlobal.length + " data biodata.");
                 } catch(errBio) { 
                     console.warn('[Portal] Gagal memproses baris biodata:', errBio); 
+                }
+            }),
+            // 🌟 PLOTTING GURU: Muat hak akses mengajar per guru dari sheet Sistem_Plotting
+            downloadCloudSheet("Sistem_Plotting", function(rows) {
+                try {
+                    cloudPlottingCache = [];
+                    if (!rows || rows.length === 0) return;
+                    rows.forEach(function(row) {
+                        if (!row || !row.c) return;
+                        let cells = row.c.map(function(cell) { return cell ? String(cell.v || "").trim() : ""; });
+                        // Kolom: [0]Username [1]Kelas [2]Mapel
+                        if (cells[0] && cells[0].toLowerCase() !== "username" && cells[0].toLowerCase() !== "Username") {
+                            cloudPlottingCache.push({ username: cells[0], kelas: cells[1], mapel: cells[2] });
+                        }
+                    });
+                    console.log("🟢 [Portal] Berhasil memuat " + cloudPlottingCache.length + " data plotting guru.");
+                } catch(errPlot) {
+                    console.warn('[Portal] Gagal memproses plotting:', errPlot);
                 }
             })
         ]); 
@@ -3396,18 +3461,25 @@ finally {
         let isAdmin = (sessionUserAktif && sessionUserAktif.role === 'AdminSMAN1');
 
         if (!isAdmin) {
-            // Guru: filter by their own plotting assignments, or show all if no plotting data
+            // Guru: tampilkan HANYA mapel & kelas yang sudah diplotting
             let myPlots = (cloudPlottingCache||[]).filter(p => p.username === sessionUserAktif.username && p.mapel !== 'WALI');
+            // Hapus pesan peringatan plotting lama jika ada
+            document.getElementById('epPlottingWarning')?.remove();
             if (myPlots.length > 0) {
-                [...new Set(myPlots.map(p => p.kelas))].forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
+                [...new Set(myPlots.map(p => p.kelas))].sort().forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
                 [...new Set(myPlots.map(p => p.mapel))].forEach(m => {
                     let inf = daftarMapel.find(dm => dm.kode === m);
                     if (inf) selectM.innerHTML += `<option value="${m}">${inf.namaLengkap}</option>`;
                 });
             } else {
-                // Fallback: show all (no plotting assigned yet)
-                daftarMapel.forEach(m => { selectM.innerHTML += `<option value="${m.kode}">${m.namaLengkap}</option>`; });
-                listKelasSemua.forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
+                // TIDAK ada fallback — tampilkan peringatan, blokir akses
+                let warnEl = document.createElement('div');
+                warnEl.id = 'epPlottingWarning';
+                warnEl.style.cssText = 'background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#92400e;display:flex;align-items:flex-start;gap:12px;';
+                warnEl.innerHTML = '<i class="ri-lock-2-line" style="font-size:22px;flex-shrink:0;margin-top:1px;"></i>'
+                    + '<div><strong style="font-size:14px;">Belum ada plotting mengajar untuk akun Anda.</strong><br>'
+                    + '<span style="font-size:12px;">Hubungi Admin agar hak akses mata pelajaran Anda segera dikonfigurasi di Panel Manajemen Akun &amp; Plotting.</span></div>';
+                document.getElementById('epSection_inputNilai')?.prepend(warnEl);
             }
         } else {
             // Admin: see all kelas and mapel
@@ -3491,20 +3563,54 @@ finally {
 
     function renderTabelUserAdmin() {
         const tBody = document.getElementById('adminUserTableBody');
-        tBody.innerHTML = "";
-        cloudUsersCache.forEach(user => {
-            let plots = cloudPlottingCache
-                .filter(p => p.username === user.username)
-                .map(p => `<span class="plotting-tag">${p.mapel === 'WALI' ? 'Wali Kelas ' + p.kelas : p.mapel + ' (' + p.kelas + ')'}</span>`)
-                .join('');
-            tBody.innerHTML += `<tr>
-                <td><strong>${user.username}</strong></td>
-                <td><code>${user.pass}</code></td>
-                <td>${user.role}</td>
-                <td>${plots || '<span style="color:#94a3b8; font-style:italic;">Belum diplot</span>'}</td>
-                <td style="text-align:center;"><button class="btn-danger" style="padding:4px 8px;" onclick="hapusUserCloud('${user.username}')"><i class="ri-delete-bin-line"></i></button></td>
-            </tr>`;
-        });
+        if (tBody) {
+            tBody.innerHTML = "";
+            cloudUsersCache.forEach(user => {
+                let plots = cloudPlottingCache
+                    .filter(p => p.username === user.username)
+                    .map(p => `<span class="plotting-tag">${p.mapel === 'WALI' ? 'Wali Kelas ' + p.kelas : p.mapel + ' (' + p.kelas + ')'}</span>`)
+                    .join('');
+                tBody.innerHTML += `<tr>
+                    <td><strong>${user.username}</strong></td>
+                    <td><code>${user.pass}</code></td>
+                    <td>${user.role}</td>
+                    <td>${plots || '<span style="color:#94a3b8; font-style:italic;">Belum diplot</span>'}</td>
+                    <td style="text-align:center;"><button class="btn-danger" style="padding:4px 8px;" onclick="hapusUserCloud('${user.username}')"><i class="ri-delete-bin-line"></i></button></td>
+                </tr>`;
+            });
+        }
+
+        // Isi dropdown Pilih Guru untuk plotting
+        const plotGuruEl = document.getElementById('plotSelectGuru');
+        if (plotGuruEl) {
+            plotGuruEl.innerHTML = '<option value="">-- Pilih --</option>';
+            cloudUsersCache
+                .filter(u => ['GuruSMAN1','WaliSMAN1'].includes(u.role))
+                .sort((a,b) => a.username.localeCompare(b.username))
+                .forEach(u => {
+                    plotGuruEl.innerHTML += `<option value="${u.username}">${u.username} (${u.role})</option>`;
+                });
+        }
+
+        // Isi dropdown Pilih Kelas untuk plotting
+        const plotKelasEl = document.getElementById('plotSelectKelas');
+        if (plotKelasEl) {
+            plotKelasEl.innerHTML = '';
+            [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(k => k).sort().forEach(k => {
+                plotKelasEl.innerHTML += `<option value="${k}">${k}</option>`;
+            });
+            // Tambah opsi WALI untuk penugasan wali kelas
+            plotKelasEl.innerHTML += `<option value="__WALI__">WALI (Wali Kelas)</option>`;
+        }
+
+        // Isi dropdown Pilih Mapel untuk plotting
+        const plotMapelEl = document.getElementById('plotSelectMapel');
+        if (plotMapelEl && plotMapelEl.options.length === 0) {
+            daftarMapel.forEach(m => {
+                plotMapelEl.innerHTML += `<option value="${m.kode}">${m.namaLengkap}</option>`;
+            });
+            plotMapelEl.innerHTML += `<option value="WALI">WALI KELAS</option>`;
+        }
     }
 
     function renderAdminValidasiSistem() {
@@ -3535,6 +3641,137 @@ finally {
                 </td>
             </tr>`;
         });
+    }
+
+    // ============================================================
+    // PLOTTING GURU — SIMPAN, HAPUS, IMPORT MASSAL
+    // ============================================================
+    function simpanPlottingGuruInstanCloud() {
+        const guruSel  = document.getElementById('plotSelectGuru');
+        const kelasSel = document.getElementById('plotSelectKelas');
+        const mapelSel = document.getElementById('plotSelectMapel');
+        if (!guruSel || !kelasSel || !mapelSel) return;
+
+        const username = guruSel.value;
+        if (!username) { alert('Pilih guru terlebih dahulu!'); return; }
+
+        // Handle WALI assignment: jika kelas __WALI__ dipilih, gunakan mapel WALI
+        const kelasList = Array.from(kelasSel.selectedOptions).map(o => o.value).filter(v => v);
+        const mapelList = Array.from(mapelSel.selectedOptions).map(o => o.value).filter(v => v);
+
+        if (kelasList.length === 0) { alert('Pilih minimal satu kelas!'); return; }
+        if (mapelList.length === 0) { alert('Pilih minimal satu mata pelajaran!'); return; }
+
+        if (!confirm(`Sinkronkan plotting ${kelasList.length} kelas × ${mapelList.length} mapel untuk akun "${username}"?`)) return;
+
+        // Bangun entri plotting
+        const newEntries = [];
+        kelasList.forEach(k => {
+            if (k === '__WALI__') {
+                // Wali kelas: gunakan kelas pertama dari kelas yang ada, atau biarkan admin memilih kelas normal
+                newEntries.push({ username, kelas: kelasList.filter(x => x !== '__WALI__')[0] || '', mapel: 'WALI' });
+            } else {
+                mapelList.forEach(m => {
+                    if (m === 'WALI') {
+                        newEntries.push({ username, kelas: k, mapel: 'WALI' });
+                    } else {
+                        newEntries.push({ username, kelas: k, mapel: m });
+                    }
+                });
+            }
+        });
+
+        // Hapus duplikat
+        const unique = newEntries.filter((e, i, self) =>
+            e.kelas && e.mapel && i === self.findIndex(x => x.username === e.username && x.kelas === e.kelas && x.mapel === e.mapel)
+        );
+
+        document.getElementById('loading').style.display = 'block';
+        fetch(URL_GOOGLE_APPS_SCRIPT, {
+            method: 'POST',
+            body: JSON.stringify({ aksi: 'simpanPlotting', username, entries: unique })
+        })
+        .then(r => r.json())
+        .catch(() => ({}))
+        .finally(() => {
+            // Tambahkan ke cache lokal (hindari duplikat)
+            unique.forEach(e => {
+                if (!cloudPlottingCache.find(p => p.username === e.username && p.kelas === e.kelas && p.mapel === e.mapel)) {
+                    cloudPlottingCache.push(e);
+                }
+            });
+            renderTabelUserAdmin();
+            document.getElementById('loading').style.display = 'none';
+            alert(`✅ Plotting "${username}" berhasil disinkronkan! (${unique.length} entri ditambahkan)`);
+        });
+    }
+
+    async function hapusUserCloud(username) {
+        if (!confirm(`Hapus akun "${username}" dari sistem? Seluruh data plotting akun ini juga akan dihapus.`)) return;
+        document.getElementById('loading').style.display = 'block';
+        try {
+            await fetch(URL_GOOGLE_APPS_SCRIPT, {
+                method: 'POST',
+                body: JSON.stringify({ aksi: 'hapusUser', username })
+            });
+        } catch(e) { /* tetap lanjutkan hapus lokal */ }
+        cloudUsersCache    = cloudUsersCache.filter(u => u.username !== username);
+        cloudPlottingCache = cloudPlottingCache.filter(p => p.username !== username);
+        renderTabelUserAdmin();
+        document.getElementById('loading').style.display = 'none';
+        alert(`✅ Akun "${username}" berhasil dihapus dari sistem.`);
+    }
+
+    function prosesImportAkunMassal() {
+        const fileEl = document.getElementById('importFileExcel');
+        const file   = fileEl?.files?.[0];
+        if (!file) { alert('Pilih file Excel (.xlsx) terlebih dahulu!'); return; }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const wb   = XLSX.read(e.target.result, { type: 'array' });
+                const ws   = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                if (rows.length < 2) { alert('File tidak memiliki data (minimal 2 baris: header + data).'); return; }
+
+                let added = 0, skipped = 0, toAdd = [];
+                rows.slice(1).forEach(row => {
+                    if (!row || !row[0]) return;
+                    let u = String(row[0]).trim();
+                    let p = String(row[1] || '').trim();
+                    let r = String(row[2] || 'GuruSMAN1').trim();
+                    if (!u || !p) return;
+                    if (cloudUsersCache.find(x => x.username.toLowerCase() === u.toLowerCase())) { skipped++; return; }
+                    toAdd.push({ username: u, pass: p, role: r });
+                    added++;
+                });
+
+                if (toAdd.length === 0) {
+                    alert(`Tidak ada akun baru untuk diimport.\n${skipped} akun sudah terdaftar di sistem.`);
+                    return;
+                }
+                if (!confirm(`Import ${toAdd.length} akun baru? (${skipped} dilewati karena sudah ada)`)) return;
+
+                document.getElementById('loading').style.display = 'block';
+                fetch(URL_GOOGLE_APPS_SCRIPT, {
+                    method: 'POST',
+                    body: JSON.stringify({ aksi: 'importAkunMassal', users: toAdd })
+                })
+                .catch(() => ({}))
+                .finally(() => {
+                    toAdd.forEach(u => cloudUsersCache.push(u));
+                    renderTabelUserAdmin();
+                    if (fileEl) fileEl.value = '';
+                    document.getElementById('loading').style.display = 'none';
+                    alert(`✅ Berhasil import ${toAdd.length} akun baru ke sistem!`);
+                });
+            } catch(err) {
+                console.error(err);
+                alert('Gagal membaca file Excel. Pastikan format file valid (.xlsx). Gunakan kolom: Username | Password | Role');
+            }
+        };
+        reader.readAsArrayBuffer(file);
     }
 
     // ============================================================
@@ -5097,9 +5334,31 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
 
         if (typeof URL_GOOGLE_APPS_SCRIPT!=='undefined') {
             document.getElementById('loading').style.display='block';
-            fetch(URL_GOOGLE_APPS_SCRIPT, {method:'POST',body:JSON.stringify({action:'simpanNilaiGuru',kelas,mapel,semester:smt,
-                data:fSiswa.map(s=>({nisn:s[0],nilai:document.getElementById('ep_akhir_'+s[0])?.textContent||'-'}))})})
-            .catch(e=>console.error(e)).finally(()=>{document.getElementById('loading').style.display='none';});
+            const guruUsername = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.username : 'Unknown';
+            const mapelNama    = mapelInfo ? (mapelInfo.namaLengkap || mapelInfo.kode) : mapel;
+            const legerData    = fSiswa.map(s => {
+                let rowData = { nisn: s[0], nama: s[2] };
+                kolom.forEach(k => {
+                    rowData[k.nama] = (document.getElementById('ep_'+k.id+'_'+s[0])?.value || '').trim();
+                });
+                rowData['Nilai Akhir Rapor'] = document.getElementById('ep_akhir_'+s[0])?.textContent || '-';
+                return rowData;
+            });
+            fetch(URL_GOOGLE_APPS_SCRIPT, {
+                method: 'POST',
+                body: JSON.stringify({
+                    aksi:      'simpanLegerNilai',
+                    guru:      guruUsername,
+                    kelas,
+                    mapel,
+                    mapelNama,
+                    semester:  smt,
+                    kolom:     kolom.map(k => k.nama),
+                    data:      legerData
+                })
+            })
+            .catch(e => console.error(e))
+            .finally(() => { document.getElementById('loading').style.display='none'; });
         }
         alert('Berhasil menyimpan nilai '+saved+' siswa ke draft lokal & cloud. Data ter-update di sistem!');
     }
@@ -7190,213 +7449,334 @@ function eksporAbsenGuruExcel() {
 }
 
 
-// 1. FUNGSI JEMBATAN BIODATA (VERSI PERBAIKAN TOTAL)
+// ====================================================================
+// A. KONFIGURASI URL SCRIPT INDEPENDEN & PEMUATAN DATA VIA JSONP
+// ====================================================================
+const URL_SCRIPT_BIODATA = "https://script.google.com/macros/s/AKfycbya8CMoUzqZho_mmUGlpbtlhOJF1pDomU8C5U4t2Rsybft3HW0cK9bmsIh4_tLDVJw/exec";
+
+// Pemuatan data otomatis saat halaman selesai di-render (Anti CORS Block)
+window.addEventListener('DOMContentLoaded', (event) => {
+    // Membuat elemen script dinamis untuk menembus proteksi CORS browser
+    let scriptTag = document.createElement("script");
+    scriptTag.src = URL_SCRIPT_BIODATA + "?callback=tangkapDataBiodataBaru";
+    
+    scriptTag.onerror = function() {
+        console.error("❌ Kritis: Gagal memuat database biodata baru dari Google Apps Script.");
+    };
+    document.body.appendChild(scriptTag);
+});
+
+// Fungsi Callback Penerima Paket Data Cloud dari Spreadsheet Baru
+function tangkapDataBiodataBaru(response) {
+    dataBiodataGlobal = response.biodata || [];
+    console.log("🚀 Database Biodata Baru Berhasil Sinkron! Total Record:", dataBiodataGlobal.length);
+}
+
+// ====================================================================
+// B. GERBANG UTAMA: JEMBATAN PEMETAAN PROFIL SISWA HURUF KECIL
+// ====================================================================
 function dapatkanMockBiodataLengkap(siswaRow) {
     if (!siswaRow) return null;
-    
-    let nisnSiswa = siswaRow.find(cell => cell && cell.toString().trim().length === 10) || siswaRow[0];
 
-    // Normalisasi numerik agar leading zero tidak menggagalkan pencocokan NISN
-    let nisnNum = Number(nisnSiswa.toString().replace(/\D/g, ''));
-    let bioRow = dataBiodataGlobal.find(row => {
-        if (!row || !row[3]) return false;
-        let bioNisnNum = Number(row[3].toString().replace(/\D/g, ''));
-        return bioNisnNum > 0 && bioNisnNum === nisnNum;
+    let kataKunciNisn = Array.isArray(siswaRow) ? (siswaRow[0] || "") : siswaRow.toString();
+    let nisnNum = Number(kataKunciNisn.toString().replace(/\D/g, ''));
+    let namaUtama = Array.isArray(siswaRow) && siswaRow[2] ? siswaRow[2].toString().trim().toLowerCase() : "";
+
+    // Cari data di dalam variabel global database baru menggunakan pencocokan NISN
+    let bioRow = dataBiodataGlobal.find(function(row) {
+        if (!row) return false;
+        let bNisn = row.nisn || "";
+        return Number(bNisn.toString().replace(/\D/g, '')) === nisnNum && nisnNum > 0;
     });
 
-    // Fallback: cocokkan berdasarkan nama jika NISN tidak ketemu
-    if (!bioRow && siswaRow[2]) {
-        let namaCari = siswaRow[2].toString().trim().toLowerCase();
-        bioRow = dataBiodataGlobal.find(row => row && row[1] && row[1].toString().trim().toLowerCase() === namaCari);
+    // Jalur Cadangan jika nomor NISN luput, cocokkan berdasarkan properti nama huruf kecil
+    if (!bioRow && namaUtama) {
+        bioRow = dataBiodataGlobal.find(function(row) {
+            if (!row) return false;
+            let bNama = row.nama || "";
+            return bNama.toString().trim().toLowerCase() === namaUtama;
+        });
     }
 
+    // Helper pembaca properti objek aman anti-undefined
+    function ambil(row, key) {
+        return (row && row[key] !== undefined && row[key] !== null && row[key].toString().trim() !== '') 
+            ? row[key].toString().trim() : "-";
+    }
+
+    // Proteksi Mutlak: Jika siswa tidak terdaftar di spreadsheet, otomatis kembalikan strip (-)
     if (!bioRow) {
         return {
-            nisn: nisnSiswa, nis: siswaRow[1] || "-", nama: siswaRow[2] || "-", kelas: siswaRow[3] || "-",
-            alamatSiswa: "-", statusKeluarga: "-", anakKe: "-", asalSekolah: "-", diterimaDiKelas: "-",
-            kerjaAyah: "-", kerjaIbu: "-", alamatOrtu: "-", telpOrtu: "-", kerjaWali: "-", alamatWali: "-", telpWali: "-"
+            nisn: "-", nis: "-", nama: "-", kelas: "-",
+            alamatSiswa: "-", statusKeluarga: "-", anakKe: "-", asalSekolah: "-",
+            diterimaDiKelas: "-", kerjaAyah: "-", kerjaIbu: "-", alamatOrtu: "-",
+            telpOrtu: "-", kerjaWali: "-", alamatWali: "-", telpWali: "-"
         };
     }
 
-    // Menyelaraskan nama properti dengan yang dicari oleh elemen UI HTML Anda
+    // Ekstraktor variabel murni dari kolom huruf kecil spreadsheet baru Anda (Gambar Rekomendasi)
     return {
-        nisn:            bioRow[3] || "-", 
-        nis:             siswaRow[1] || "-", 
-        nama:            bioRow[1] || "-", 
-        kelas:           bioRow[2] || "-", 
-        alamatSiswa:     bioRow[4] || "-",   // <-- diubah dari 'alamat' menjadi 'alamatSiswa'
-        statusKeluarga:  bioRow[5] || "-",   // <-- diubah dari 'status' menjadi 'statusKeluarga'
-        anakKe:          bioRow[6] || "-",   // <-- diubah dari 'anak_ke' menjadi 'anakKe'
-        asalSekolah:     bioRow[7] || "-",   // <-- diubah dari 'asal_sekolah' menjadi 'asalSekolah'
-        diterimaDiKelas: bioRow[8] || "-",   // <-- diubah dari 'diterima_kelas' menjadi 'diterimaDiKelas'
-        kerjaAyah:       bioRow[9] || "-",   // <-- diubah dari 'ayah' menjadi 'kerjaAyah'
-        kerjaIbu:        bioRow[10] || "-",  // <-- diubah dari 'ibu' menjadi 'kerjaIbu'
-        alamatOrtu:      bioRow[11] || "-",  // <-- diubah dari 'alamat_ortu' menjadi 'alamatOrtu'
-        telpOrtu:        bioRow[12] || "-",  // <-- diubah dari 'telp_ortu' menjadi 'telpOrtu'
-        kerjaWali:       bioRow[13] || "-",  // <-- diubah dari 'wali' menjadi 'kerjaWali'
-        alamatWali:      bioRow[14] || "-",  // <-- diubah dari 'alamat_wali' menjadi 'alamatWali'
-        telpWali:        bioRow[15] || "-"   // <-- diubah dari 'telp_wali' menjadi 'telpWali'
+        nisn:            ambil(bioRow, "nisn"),
+        nis:             Array.isArray(siswaRow) ? (siswaRow[1] || "-") : "-", 
+        nama:            ambil(bioRow, "nama"),
+        kelas:           ambil(bioRow, "kelas"),
+        alamatSiswa:     ambil(bioRow, "alamat"),
+        statusKeluarga:  ambil(bioRow, "status"),
+        anakKe:          ambil(bioRow, "anakke"),
+        asalSekolah:     ambil(bioRow, "asal"),
+        diterimaDiKelas: ambil(bioRow, "diterima"),
+        kerjaAyah:       ambil(bioRow, "ayah"),
+        kerjaIbu:        ambil(bioRow, "ibu"),
+        alamatOrtu:      ambil(bioRow, "alamatortu"),
+        telpOrtu:        ambil(bioRow, "telepon"),
+        kerjaWali:       ambil(bioRow, "wali"),
+        alamatWali:      ambil(bioRow, "alamatwali"),
+        telpWali:        ambil(bioRow, "teleponwali")
     };
 }
 
+// ====================================================================
+// C. FUNGSI EKSEKUSI TOMBOL CARI BIODATA PADA HALAMAN WEB
+// ====================================================================
 function cariBiodataSiswaIndividu() {
     let key = document.getElementById('searchKeyBiodata').value.trim().toLowerCase();
     if (!key) return;
     
-    // 1. Cari data dasar dari memori lokal (Master Nilai)
-    let siswa = dataSiswaGlobal.find(row => {
+    // Scan pencarian awal berdasarkan kata kunci ke memori database baru
+    let targetBioRow = dataBiodataGlobal.find(row => {
         if (!row) return false;
-        return row.some(cell => cell && cell.toString().trim().toLowerCase().includes(key));
+        let bNama = row.nama ? row.nama.toString().toLowerCase() : "";
+        let bNisn = row.nisn ? row.nisn.toString().toLowerCase() : "";
+        return bNama.includes(key) || bNisn.includes(key);
     });
-    
-    // Jika tidak ada di master nilai, coba cari langsung di dataBiodataGlobal
-    if (!siswa) {
-        let bioFallback = dataBiodataGlobal.find(row => {
-            if (!row) return false;
-            return row.some(cell => cell && cell.toString().trim().toLowerCase().includes(key));
-        });
-        if (bioFallback) {
-            // Buat siswa dummy dari biodata agar bisa diproses
-            siswa = [bioFallback[3], "", bioFallback[1], bioFallback[2]];
+
+    // Umpankan hasil temuan ke fungsi pembentuk objek profil
+    let b = dapatkanMockBiodataLengkap(targetBioRow ? [targetBioRow.nisn, "-", targetBioRow.nama, targetBioRow.kelas] : null);
+
+    // CETAK IDENTITAS PANEL UTAMA (Sesuai Layout Tabel Asli agar Sejajar, Font Sama, dan Rapi)
+    if (b && b.nama !== "-") {
+        // 1. Kembalikan Nama Lengkap murni di barisnya sendiri
+        document.getElementById('bioNama').innerText = b.nama.toUpperCase();
+        
+        // 2. Tembak elemen kelas bawaan tabel Anda agar font dan letaknya sejajar persis seperti NISN
+        if (document.getElementById('bioBadgeKelas')) {
+            document.getElementById('bioBadgeKelas').innerText = b.kelas.toUpperCase();
+            // Reset style jika sebelumnya sempat diubah-ubah
+            document.getElementById('bioBadgeKelas').style.display = ""; 
+            document.getElementById('bioBadgeKelas').style.fontSize = "";
+            document.getElementById('bioBadgeKelas').style.color = "";
+            document.getElementById('bioBadgeKelas').style.fontWeight = "";
         }
-    }
 
-    if (!siswa) { 
-        alert("Siswa tidak ditemukan. Pastikan data Biodata sudah termuat dari Google Sheets."); 
-        return; 
-    }
-    
-    let namaTarget  = (siswa[2] || "").toString().trim();
-    let nisTarget   = (siswa[1] || "").toString().trim();
-    let nisnTarget  = (siswa[0] || "").toString().trim();
-    let kelasTarget = (siswa[3] || "").toString().trim();
-
-    // 2. Tampilkan data identitas dasar terlebih dahulu
-    document.getElementById('bioNama').innerText       = namaTarget.toUpperCase();
-    document.getElementById('bioBadgeKelas').innerText = kelasTarget.toUpperCase();
-    document.getElementById('bioNisn').innerText       = nisnTarget;
-    document.getElementById('bioNis').innerText        = nisTarget;
-
-    // 3. Isi semua kolom detail langsung dari dataBiodataGlobal (sudah dimuat saat login)
-    let b = dapatkanMockBiodataLengkap(siswa);
-    if (b) {
-        if (document.getElementById('bioAlamat'))         document.getElementById('bioAlamat').innerText         = b.alamatSiswa;
-        if (document.getElementById('bioStatusKeluarga')) document.getElementById('bioStatusKeluarga').innerText = b.statusKeluarga;
-        if (document.getElementById('bioAnakKe'))         document.getElementById('bioAnakKe').innerText         = b.anakKe;
-        if (document.getElementById('bioAsalSekolah'))    document.getElementById('bioAsalSekolah').innerText    = b.asalSekolah;
-        if (document.getElementById('bioDiterimaKelas'))  document.getElementById('bioDiterimaKelas').innerText  = b.diterimaDiKelas;
-        if (document.getElementById('bioAyah'))           document.getElementById('bioAyah').innerText           = b.kerjaAyah;
-        if (document.getElementById('bioIbu'))            document.getElementById('bioIbu').innerText            = b.kerjaIbu;
-        if (document.getElementById('bioAlamatOrtu'))     document.getElementById('bioAlamatOrtu').innerText     = b.alamatOrtu;
-        if (document.getElementById('bioTelpOrtu'))       document.getElementById('bioTelpOrtu').innerText       = b.telpOrtu;
-        if (document.getElementById('bioKerjaWali'))      document.getElementById('bioKerjaWali').innerText      = b.kerjaWali;
-        if (document.getElementById('bioAlamatWali'))     document.getElementById('bioAlamatWali').innerText     = b.alamatWali;
-        if (document.getElementById('bioTelpWali'))       document.getElementById('bioTelpWali').innerText       = b.telpWali;
-
-        // Jika biodata tidak ditemukan di sheet Biodata, tampilkan pesan info
-        if (b.alamatSiswa === "-" && dataBiodataGlobal.length > 0) {
-            if (document.getElementById('bioAlamat')) 
-                document.getElementById('bioAlamat').innerText = "— (Data belum tersedia di sheet Biodata) —";
-        }
+        if (document.getElementById('bioNisn')) document.getElementById('bioNisn').innerText = b.nisn;
+        if (document.getElementById('bioNis'))  document.getElementById('bioNis').innerText  = b.nis; 
     } else {
-        clearFieldsBiodata();
+        document.getElementById('bioNama').innerText = "-";
+        if (document.getElementById('bioBadgeKelas')) document.getElementById('bioBadgeKelas').innerText = "-";
+        if (document.getElementById('bioNisn'))       document.getElementById('bioNisn').innerText       = "-";
+        if (document.getElementById('bioNis'))        document.getElementById('bioNis').innerText        = "-";
     }
+
+    // CETAK SEKTOR PANEL DETAIL BAWAH WEBSITE
+    if (document.getElementById('bioAlamat'))         document.getElementById('bioAlamat').innerText         = b.alamatSiswa;
+    if (document.getElementById('bioStatusKeluarga')) document.getElementById('bioStatusKeluarga').innerText = b.statusKeluarga;
+    if (document.getElementById('bioAnakKe'))         document.getElementById('bioAnakKe').innerText         = b.anakKe;
+    if (document.getElementById('bioAsalSekolah'))    document.getElementById('bioAsalSekolah').innerText    = b.asalSekolah;
+    if (document.getElementById('bioDiterimaKelas'))  document.getElementById('bioDiterimaKelas').innerText  = b.diterimaDiKelas;
+    if (document.getElementById('bioAyah'))           document.getElementById('bioAyah').innerText           = b.kerjaAyah;
+    if (document.getElementById('bioIbu'))            document.getElementById('bioIbu').innerText            = b.kerjaIbu;
+    if (document.getElementById('bioAlamatOrtu'))     document.getElementById('bioAlamatOrtu').innerText     = b.alamatOrtu;
+    if (document.getElementById('bioTelpOrtu'))       document.getElementById('bioTelpOrtu').innerText       = b.telpOrtu;
+    if (document.getElementById('bioKerjaWali'))      document.getElementById('bioKerjaWali').innerText      = b.kerjaWali;
+    if (document.getElementById('bioAlamatWali'))     document.getElementById('bioAlamatWali').innerText     = b.alamatWali;
+    if (document.getElementById('bioTelpWali'))       document.getElementById('bioTelpWali').innerText       = b.telpWali;
 
     document.getElementById('resultBiodataIndividu').style.display = 'block';
 }
 
-function clearFieldsBiodata() {
-    let fields = ['bioAlamat', 'bioStatusKeluarga', 'bioAnakKe', 'bioAsalSekolah', 'bioDiterimaKelas', 'bioAyah', 'bioIbu', 'bioAlamatOrtu', 'bioTelpOrtu', 'bioKerjaWali', 'bioAlamatWali', 'bioTelpWali'];
-    fields.forEach(f => { if(document.getElementById(f)) document.getElementById(f).innerText = "-"; });
-}
-
-// Unduh Format File Excel (.xlsx) per Siswa Tunggal (Format Vertikal Profil)
-function eksporBiodataIndividuExcel() {
-    let nisn = document.getElementById('bioNisn').innerText;
-    let siswa = dataSiswaGlobal.find(row => row[0] === nisn);
-    if (!siswa) return;
+// ====================================================================
+// SOLUSI TOTAL: FUNGSI EKSPOR EXCEL DENGAN SISTEM DETEKSI ERROR NYATA
+// ====================================================================
+function eksporBiodataExcel() {
+    console.log("=== MEMULAI PROSES EKSPOR EXCEL ===");
     
-    let b = dapatkanMockBiodataLengkap(siswa);
-    let matrix = [
-        ["FORMULIR DATA PROFIL BIODATA PESERTA DIDIK LENGKAP"],
-        ["SMAN 1 JAKARTA"],
-        [],
-        ["A. IDENTITAS PRIBADI SISWA"],
-        ["Nama Lengkap Siswa", ": " + b.nama.toUpperCase()],
-        ["NISN (Nomor Induk Siswa Nasional)", ": " + b.nisn],
-        ["NIS (Nomor Induk Sekolah)", ": " + b.nis],
-        ["Rombongan Belajar / Kelas", ": " + b.kelas.toUpperCase()],
-        ["Alamat Rumah Tinggal Siswa", ": " + b.alamatSiswa],
-        ["Status Dalam Keluarga", ": " + b.statusKeluarga],
-        ["Anak Ke-", ": " + b.anakKe],
-        ["Asal Sekolah SMP/Mts", ": " + b.asalSekolah],
-        ["Diterima Di Kelas", ": " + b.diterimaDiKelas],
-        [],
-        ["B. DATA ORANG TUA KANDUNG"],
-        ["Pekerjaan Ayah", ": " + b.kerjaAyah],
-        ["Pekerjaan Ibu", ": " + b.kerjaIbu],
-        ["Alamat Rumah Orang Tua", ": " + b.alamatOrtu],
-        ["Nomor Telepon Orang Tua", ": " + b.telpOrtu],
-        [],
-        ["C. DATA WALI SISWA (JIKA ADA)"],
-        ["Pekerjaan Wali", ": " + b.kerjaWali],
-        ["Alamat Rumah Wali", ": " + b.alamatWali],
-        ["Nomor Telepon Wali", ": " + b.telpWali]
-    ];
+    // 1. Ambil nilai kelas dari dropdown filter di halaman web Anda
+    let selectKelas = document.getElementById('selectKelasBiodata');
+    if (!selectKelas) {
+        alert("Sistem Error: Elemen dropdown dengan ID 'selectKelasBiodata' tidak ditemukan di HTML!");
+        return;
+    }
     
-    let ws = XLSX.utils.aoa_to_sheet(matrix);
-    let wb = XLSX.utils.book_new();
-    ws['!cols'] = [{wch: 35}, {wch: 55}];
-    XLSX.utils.book_append_sheet(wb, ws, "Profil_Siswa");
-    XLSX.writeFile(wb, `Biodata_Lengkap_${b.nisn}_${b.nama.replace(/ /g, "_")}.xlsx`);
-}
+    let kelasPilihan = selectKelas.value;
+    if (!kelasPilihan) {
+        alert("Silakan pilih kelas terlebih dahulu di menu dropdown sebelum mengeklik Ekspor!");
+        return;
+    }
 
-// Unduh Kompilasi Master Berkas Satu Kelas Sekaligus (Format Horizontal Lengkap)
-function eksporBiodataKolektifExcel() {
-    let kelas = document.getElementById('selectKelasBiodata').value;
-    if (!kelas) { alert("Pilih kelas terlebih dahulu!"); return; }
-    
-    let filterSiswa = dataSiswaGlobal.filter(row => row[3] === kelas);
-    if (filterSiswa.length === 0) { alert("Tidak ada rekaman data siswa di kelas ini."); return; }
+    // 2. Ambil list biodata murni dari memori global
+    let listBiodata = [];
+    if (Array.isArray(dataBiodataGlobal)) {
+        listBiodata = dataBiodataGlobal;
+    } else if (dataBiodataGlobal && Array.isArray(dataBiodataGlobal.biodata)) {
+        listBiodata = dataBiodataGlobal.biodata;
+    }
 
-    // Header tabel disesuaikan penuh dengan format kolom spreadsheet Anda
+    console.log("Isi mentah database global saat ini:", dataBiodataGlobal);
+    console.log("Total baris data yang siap di-filter:", listBiodata.length);
+
+    if (!listBiodata || listBiodata.length === 0) {
+        alert("Gagal Ekspor: Database biodata masih kosong []. Website belum selesai mengunduh data dari Google Sheets. Silakan tunggu 3 detik lalu coba lagi.");
+        return;
+    }
+
+    // 3. Proses Penyaringan Siswa Berdasarkan Kelas (Anti-Error Spasi)
+    let filterSiswa = listBiodata.filter(row => {
+        if (!row) return false;
+        // Membaca property 'kelas' dari baris spreadsheet baru Anda
+        let kelasSiswa = row.kelas || row.KELAS || "";
+        return kelasSiswa.toString().trim().toUpperCase() === kelasPilihan.toString().trim().toUpperCase();
+    });
+
+    console.log(`Jumlah siswa yang cocok dengan kelas "${kelasPilihan}":`, filterSiswa.length);
+
+    if (filterSiswa.length === 0) {
+        // Tampilkan contoh data kelas yang ada di spreadsheet biar Anda tahu format yang benar
+        let contohKelasDiSheet = listBiodata[0] ? (listBiodata[0].kelas || "Kosong") : "Kosong";
+        alert(`Gagal Ekspor: Tidak ada satu pun siswa yang cocok dengan kelas "${kelasPilihan}" di Spreadsheet.\n\nPeriksa tulisan di Google Sheets Anda!\nContoh tulisan kelas di spreadsheet Anda saat ini adalah: "${contohKelasDiSheet}"`);
+        return;
+    }
+
+    // 4. Susun Struktur Matriks Excel
     let header = [
-        "NO", "NAMA LENGKAP", "KELAS", "NISN", "ALAMAT SISWA", "STATUS DALAM KELUARGA", 
+        "NO", "NAMA SISWA", "KELAS", "NISN", "ALAMAT SISWA", "STATUS DLM KELUARGA", 
         "ANAK KE", "ASAL SEKOLAH", "DITERIMA DI KELAS", "PEKERJAAN AYAH", "PEKERJAAN IBU", 
         "ALAMAT ORANG TUA", "TELEPON ORANG TUA", "PEKERJAAN WALI", "ALAMAT WALI", "TELEPON WALI"
     ];
     
     let matrixData = [
-        [`MASTER REKAPITULASI BIODATA COMPREHENSIVE SISWA`],
-        [`ROMBONGAN BELAJAR: KELAS ${kelas.toUpperCase()} - SMAN 1 JAKARTA`],
-        [`Total Record: ${filterSiswa.length} Siswa Terdaftar`],
+        [`MASTER REKAPITULASI BIODATA SISWA`],
+        [`ROMBONGAN BELAJAR: KELAS ${kelasPilihan.toUpperCase()}`],
+        [`Total: ${filterSiswa.length} Siswa Ditemukan`],
         [],
         header
     ];
 
+    // 5. Pemetaan Variabel Berdasarkan Judul Kolom Huruf Kecil Spreadsheet Baru Anda
     filterSiswa.forEach((siswa, index) => {
-        let b = dapatkanMockBiodataLengkap(siswa);
         matrixData.push([
-            (index + 1), b.nama.toUpperCase(), b.kelas.toUpperCase(), b.nisn, b.alamatSiswa, b.statusKeluarga,
-            b.anakKe, b.asalSekolah, b.diterimaDiKelas, b.kerjaAyah, b.kerjaIbu, 
-            b.alamatOrtu, b.telpOrtu, b.kerjaWali, b.alamatWali, b.telpWali
+            (index + 1), 
+            (siswa.nama || "-").toString().toUpperCase(), 
+            (siswa.kelas || "-").toString().toUpperCase(), 
+            siswa.nisn ? String(siswa.nisn).replace("'", "") : "-", // Paksa teks agar 0 depan tidak lenyap
+            siswa.alamat || "-", 
+            siswa.status || "-",
+            siswa.anakke || "-", 
+            siswa.asal || "-", 
+            siswa.diterima || "-", 
+            siswa.ayah || "-", 
+            siswa.ibu || "-", 
+            siswa.alamatortu || "-", 
+            siswa.telepon || "-", 
+            siswa.wali || "-", 
+            siswa.alamatwali || "-", 
+            siswa.teleponwali || "-"
         ]);
     });
 
-    let ws = XLSX.utils.aoa_to_sheet(matrixData);
-    let wb = XLSX.utils.book_new();
-    
-    // Konfigurasi lebar kolom otomatis agar rapi di Microsoft Excel/Google Sheets
-    ws['!cols'] = [
-        {wch:5}, {wch:30}, {wch:10}, {wch:15}, {wch:40}, {wch:22}, 
-        {wch:10}, {wch:25}, {wch:16}, {wch:20}, {wch:20}, 
-        {wch:40}, {wch:16}, {wch:20}, {wch:40}, {wch:16}
-    ];
-    
-    XLSX.utils.book_append_sheet(wb, ws, "Master_Biodata_Kelas");
-    XLSX.writeFile(wb, `Master_Biodata_Kolektif_Kelas_${kelas.toUpperCase()}.xlsx`);
+    // 6. Pembuatan & Pengunduhan File File Excel via Library XLSX
+    try {
+        let ws = XLSX.utils.aoa_to_sheet(matrixData);
+        let wb = XLSX.utils.book_new();
+        
+        // Atur lebar kolom otomatis biar rapi
+        ws['!cols'] = [
+            {wch: 5},  {wch: 30}, {wch: 15}, {wch: 15}, {wch: 35}, {wch: 20},
+            {wch: 10}, {wch: 25}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 35},
+            {wch: 20}, {wch: 20}, {wch: 35}, {wch: 20}
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, "Rekap_Biodata_Siswa");
+        
+        let namaFile = `BIODATA_SISWA_KELAS_${kelasPilihan.toUpperCase().replace(/\s+/g, '_')}.xlsx`;
+        XLSX.writeFile(wb, namaFile);
+        console.log("=== EXCEL BERHASIL DI-GENERATE ===");
+    } catch (err) {
+        console.error("Crash saat membuat Excel:", err);
+        alert("Library XLSX Error: Gagal membuat file Excel. Pesan Error: " + err.message);
+    }
 }
 
+// ====================================================================
+// ALIAS: eksporBiodataKolektifExcel -> memanggil eksporBiodataExcel
+// ====================================================================
+function eksporBiodataKolektifExcel() {
+    eksporBiodataExcel();
+}
+
+// ====================================================================
+// FUNGSI EKSPOR EXCEL BIODATA INDIVIDU (dari hasil pencarian)
+// ====================================================================
+function eksporBiodataIndividuExcel() {
+    let nama       = (document.getElementById('bioNama')           || {}).innerText || "-";
+    let nisn       = (document.getElementById('bioNisn')           || {}).innerText || "-";
+    let nis        = (document.getElementById('bioNis')            || {}).innerText || "-";
+    let kelas      = (document.getElementById('bioBadgeKelas')     || {}).innerText || "-";
+    let alamat     = (document.getElementById('bioAlamat')         || {}).innerText || "-";
+    let status     = (document.getElementById('bioStatusKeluarga') || {}).innerText || "-";
+    let anakke     = (document.getElementById('bioAnakKe')         || {}).innerText || "-";
+    let asal       = (document.getElementById('bioAsalSekolah')    || {}).innerText || "-";
+    let diterima   = (document.getElementById('bioDiterimaKelas')  || {}).innerText || "-";
+    let ayah       = (document.getElementById('bioAyah')           || {}).innerText || "-";
+    let ibu        = (document.getElementById('bioIbu')            || {}).innerText || "-";
+    let alamatortu = (document.getElementById('bioAlamatOrtu')     || {}).innerText || "-";
+    let telepon    = (document.getElementById('bioTelpOrtu')       || {}).innerText || "-";
+    let wali       = (document.getElementById('bioKerjaWali')      || {}).innerText || "-";
+    let alamatwali = (document.getElementById('bioAlamatWali')     || {}).innerText || "-";
+    let teleponwali= (document.getElementById('bioTelpWali')       || {}).innerText || "-";
+
+    if (!nama || nama.trim() === "-" || nama.trim() === "") {
+        alert("Tidak ada data biodata yang ditampilkan. Silakan cari siswa terlebih dahulu.");
+        return;
+    }
+
+    let matrixData = [
+        ["BIODATA RESMI PESERTA DIDIK"],
+        [],
+        ["NAMA LENGKAP",         nama],
+        ["NISN",                 nisn],
+        ["NIS / Nomor Induk",    nis],
+        ["KELAS",                kelas],
+        [],
+        ["A. IDENTITAS PRIBADI"],
+        ["Alamat Rumah Siswa",   alamat],
+        ["Status dlm Keluarga",  status],
+        ["Anak ke-",             anakke],
+        ["Asal Sekolah",         asal],
+        ["Diterima di Kelas",    diterima],
+        [],
+        ["B. DATA ORANG TUA"],
+        ["Pekerjaan Ayah",       ayah],
+        ["Pekerjaan Ibu",        ibu],
+        ["Alamat Orang Tua",     alamatortu],
+        ["Telepon Orang Tua",    telepon],
+        [],
+        ["C. DATA WALI"],
+        ["Pekerjaan Wali",       wali],
+        ["Alamat Wali",          alamatwali],
+        ["Telepon Wali",         teleponwali]
+    ];
+
+    try {
+        let ws = XLSX.utils.aoa_to_sheet(matrixData);
+        ws['!cols'] = [{wch: 25}, {wch: 45}];
+        let wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Biodata_Individu");
+        let namaFile = "BIODATA_" + nama.toUpperCase().replace(/\s+/g, '_') + ".xlsx";
+        XLSX.writeFile(wb, namaFile);
+    } catch (err) {
+        alert("Gagal membuat file Excel. Error: " + err.message);
+    }
+}
 </script>
 
 <!-- static.js dihapus — hanya untuk preview Replit, tidak diperlukan di luar Replit -->
