@@ -1261,14 +1261,16 @@
                         <span id="bioBadgeKelas" style="background: #0f172a; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 700; font-size: 13px;">-</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px;">
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 30px;">
+                        
                         <div>
                             <h3 style="font-size: 14px; border-bottom: 1.5px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 12px; color: #2563eb; font-weight: 700; margin-top:0;">A. IDENTITAS PRIBADI SISWA</h3>
-                            <table style="width: 100%; font-size: 13px;" cellspacing="0" cellpadding="6">
-                                <tr><td style="width: 140px; font-weight: 600;">Nama Lengkap</td><td>: <span id="bioNama">-</span></td></tr>
+                            <table style="width: 100%; font-size: 13px; table-layout: fixed;" cellspacing="0" cellpadding="6">
+                                <tr><td style="width: 160px; font-weight: 600;">Nama Lengkap</td><td>: <span id="bioNama">-</span></td></tr>
+                                <tr><td style="font-weight: 600;">Kelas</td><td>: <span id="bioKelas">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">NISN</td><td>: <span id="bioNisn">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">NIS / Nomor Induk</td><td>: <span id="bioNis">-</span></td></tr>
-                                <tr><td style="font-weight: 600;">Alamat Rumah Siswa</td><td>: <span id="bioAlamat">-</span></td></tr>
+                                <tr><td style="font-weight: 600; vertical-align: top;">Alamat Rumah Siswa</td><td style="word-break: break-word; white-space: normal;">: <span id="bioAlamat">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">Status dlm Keluarga</td><td>: <span id="bioStatusKeluarga">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">Anak Ke-</td><td>: <span id="bioAnakKe">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">Asal Sekolah (SMP)</td><td>: <span id="bioAsalSekolah">-</span></td></tr>
@@ -1278,24 +1280,26 @@
 
                         <div>
                             <h3 style="font-size: 14px; border-bottom: 1.5px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 12px; color: #2563eb; font-weight: 700; margin-top:0;">B. DATA ORANG TUA KANDUNG</h3>
-                            <table style="width: 100%; font-size: 13px;" cellspacing="0" cellpadding="6">
-                                <tr><td style="width: 140px; font-weight: 600;">Nama Ayah</td><td>: <span id="bioAyah">-</span></td></tr>
+                            <table style="width: 100%; font-size: 13px; table-layout: fixed;" cellspacing="0" cellpadding="6">
+                                <tr><td style="width: 160px; font-weight: 600;">Nama Ayah</td><td>: <span id="bioAyah">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">Nama Ibu</td><td>: <span id="bioIbu">-</span></td></tr>
-                                <tr><td style="font-weight: 600;">Alamat Orang Tua</td><td>: <span id="bioAlamatOrtu">-</span></td></tr>
+                                <tr><td style="font-weight: 600; vertical-align: top;">Alamat Orang Tua</td><td style="word-break: break-word; white-space: normal;">: <span id="bioAlamatOrtu">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">No. Telepon Ortu</td><td>: <span id="bioTelpOrtu">-</span></td></tr>
                             </table>
+                        </div>
 
-                            <h3 style="font-size: 14px; border-bottom: 1.5px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 12px; color: #0284c7; font-weight: 700; margin-top:20px;">C. DATA WALI SISWA (PILIHAN)</h3>
-                            <table style="width: 100%; font-size: 13px;" cellspacing="0" cellpadding="6">
-                                <tr><td style="width: 140px; font-weight: 600;">Nama Wali</td><td>: <span id="bioKerjaWali">-</span></td></tr>
-                                <tr><td style="font-weight: 600;">Alamat Rumah Wali</td><td>: <span id="bioAlamatWali">-</span></td></tr>
+                        <div>
+                            <h3 style="font-size: 14px; border-bottom: 1.5px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 12px; color: #0284c7; font-weight: 700; margin-top:0;">C. DATA WALI SISWA (PILIHAN)</h3>
+                            <table style="width: 100%; font-size: 13px; table-layout: fixed;" cellspacing="0" cellpadding="6">
+                                <tr><td style="width: 160px; font-weight: 600;">Nama Wali</td><td>: <span id="bioKerjaWali">-</span></td></tr>
+                                <tr><td style="font-weight: 600; vertical-align: top;">Alamat Rumah Wali</td><td style="word-break: break-word; white-space: normal;">: <span id="bioAlamatWali">-</span></td></tr>
                                 <tr><td style="font-weight: 600;">No. Telepon Wali</td><td>: <span id="bioTelpWali">-</span></td></tr>
                             </table>
                         </div>
+
                     </div>
                 </div>
             </div>
-        </div>
 
         <!-- ==========================================
              TAB: KEHADIRAN SISWA
@@ -7550,15 +7554,30 @@ function cariBiodataSiswaIndividu() {
         return bNama.includes(key) || bNisn.includes(key);
     });
 
-    // Umpankan hasil temuan ke fungsi pembentuk objek profil
-    let b = dapatkanMockBiodataLengkap(targetBioRow ? [targetBioRow.nisn, "-", targetBioRow.nama, targetBioRow.kelas] : null);
+    // PERBAIKAN DI SINI: Menyusun array data dengan urutan yang benar agar fungsi pembentuk mock objek dapat membaca properti kelas
+    let b = null;
+    if (targetBioRow) {
+        b = dapatkanMockBiodataLengkap([
+            targetBioRow.nisn || "-",
+            targetBioRow.nis || "-",
+            targetBioRow.nama || "-",
+            targetBioRow.kelas || "-" // Kelas ditaruh di sini agar dibaca oleh objek mock
+        ]);
+    } else {
+        b = dapatkanMockBiodataLengkap(null);
+    }
 
     // CETAK IDENTITAS PANEL UTAMA (Sesuai Layout Tabel Asli agar Sejajar, Font Sama, dan Rapi)
     if (b && b.nama !== "-") {
         // 1. Kembalikan Nama Lengkap murni di barisnya sendiri
         document.getElementById('bioNama').innerText = b.nama.toUpperCase();
         
-        // 2. Tembak elemen kelas bawaan tabel Anda agar font dan letaknya sejajar persis seperti NISN
+        // 2. Tembak elemen kelas bawaan di bawah Nama Lengkap agar terisi otomatis
+        if (document.getElementById('bioKelas')) {
+            document.getElementById('bioKelas').innerText = b.kelas.toUpperCase();
+        }
+        
+        // 3. Tembak elemen kelas bawaan tabel Anda agar font dan letaknya sejajar persis seperti NISN
         if (document.getElementById('bioBadgeKelas')) {
             document.getElementById('bioBadgeKelas').innerText = b.kelas.toUpperCase();
             // Reset style jika sebelumnya sempat diubah-ubah
@@ -7572,6 +7591,7 @@ function cariBiodataSiswaIndividu() {
         if (document.getElementById('bioNis'))  document.getElementById('bioNis').innerText  = b.nis; 
     } else {
         document.getElementById('bioNama').innerText = "-";
+        if (document.getElementById('bioKelas'))      document.getElementById('bioKelas').innerText = "-";
         if (document.getElementById('bioBadgeKelas')) document.getElementById('bioBadgeKelas').innerText = "-";
         if (document.getElementById('bioNisn'))       document.getElementById('bioNisn').innerText       = "-";
         if (document.getElementById('bioNis'))        document.getElementById('bioNis').innerText        = "-";
