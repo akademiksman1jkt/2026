@@ -2562,12 +2562,12 @@
     // =========================================================================
     // 🌟 KUNCI UTAMA: KEMBALIKAN SEMUA FUNGSI RENDER BAWAAN ASLI APLIKASI ANDA
     // =========================================================================
-    if (viewId === 'kelasTab')           kunciDropdownKelasWali();
-    if (viewId === 'eraporTab')          { renderDropdownEraporKunci(); updateTabVisibilityErapor(); }
-    if (viewId === 'koreksiTab')         renderRiwayatKoreksiSistem();
-    if (viewId === 'adminPanelSection')  renderTabelUserAdmin();
-    if (viewId === 'adminValidasiSection') renderAdminValidasiSistem();
-    if (viewId === 'evaluasiTab')        SinkronDropdownEvaluasiKelas();
+    try { if (viewId === 'kelasTab')             kunciDropdownKelasWali(); }          catch(e){ console.error('[kelasTab]',e); }
+    try { if (viewId === 'eraporTab')            { renderDropdownEraporKunci(); updateTabVisibilityErapor(); } } catch(e){ console.error('[eraporTab]',e); }
+    try { if (viewId === 'koreksiTab')           renderRiwayatKoreksiSistem(); }    catch(e){ console.error('[koreksiTab]',e); }
+    try { if (viewId === 'adminPanelSection')    renderTabelUserAdmin(); }           catch(e){ console.error('[adminPanel]',e); }
+    try { if (viewId === 'adminValidasiSection') renderAdminValidasiSistem(); }      catch(e){ console.error('[adminValidasi]',e); }
+    try { if (viewId === 'evaluasiTab')          SinkronDropdownEvaluasiKelas(); }   catch(e){ console.error('[evaluasiTab]',e); }
 
     if (viewId === 'angkatanTab') {
         const selectJenjang = document.getElementById('selectAngkatanJenjang');
@@ -2749,6 +2749,8 @@
     }
 
     function tegakkanHakAksesSistem() {
+        if (!Array.isArray(cloudUsersCache))   cloudUsersCache   = [];
+        if (!Array.isArray(cloudPlottingCache)) cloudPlottingCache = [];
         const role = sessionUserAktif.role;
         const sembunyikan = ['btnNavPersonal','btnNavKelas','btnNavAngkatan','btnNavErapor','btnNavKoreksi','btnNavEvaluasi','btnNavAIHub','btnNavVoting','sidebarAdminGroup'];
         sembunyikan.forEach(id => { document.getElementById(id).style.display = 'none'; });
@@ -3500,7 +3502,8 @@ finally {
     // RIWAYAT KOREKSI
     // ============================================================
     function renderRiwayatKoreksiSistem() {
-        const tBody      = document.getElementById('tableRiwayatKoreksiBody');
+        const tBody = document.getElementById('tableRiwayatKoreksiBody');
+        if (!tBody) return;
         tBody.innerHTML  = "";
         const listKoreksi = JSON.parse(localStorage.getItem("db_koreksi_sman1")) || [];
         let filterList   = (sessionUserAktif.role === 'AdminSMAN1')
@@ -3568,6 +3571,8 @@ finally {
     }
 
     function renderTabelUserAdmin() {
+        if (!Array.isArray(cloudUsersCache))   cloudUsersCache   = [];
+        if (!Array.isArray(cloudPlottingCache)) cloudPlottingCache = [];
         const tBody = document.getElementById('adminUserTableBody');
         if (tBody) {
             tBody.innerHTML = "";
@@ -3621,8 +3626,9 @@ finally {
     }
 
     function renderAdminValidasiSistem() {
-        const tBody       = document.getElementById('adminValidasiTableBody');
-        tBody.innerHTML   = "";
+        const tBody = document.getElementById('adminValidasiTableBody');
+        if (!tBody) return;
+        tBody.innerHTML = "";
         const listKoreksi = JSON.parse(localStorage.getItem("db_koreksi_sman1")) || [];
         let waitingList   = listKoreksi.filter(k => k.status === "MENUNGGU PERSETUJUAN");
 
