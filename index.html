@@ -2976,115 +2976,153 @@
     // LEGER KELAS
     // ============================================================
     function tampilkanLegerKelas() {
-        const kelas    = document.getElementById('selectKelas').value;
-        const mode     = document.getElementById('selectModeTampilan').value;
-        const smt      = parseInt(document.getElementById('selectSemester').value) || 1;
-        const sortMode = document.getElementById('selectSortMode').value;
+    const kelas    = document.getElementById('selectKelas').value;
+    const mode     = document.getElementById('selectModeTampilan').value;
+    const smt      = parseInt(document.getElementById('selectSemester').value) || 1;
+    const sortMode = document.getElementById('selectSortMode').value;
 
-        if (!kelas) { alert("Silakan pilih kelas terlebih dahulu!"); return; }
+    if (!kelas) { alert("Silakan pilih kelas terlebih dahulu!"); return; }
 
-        const tHeader = document.getElementById('legerTableHeader');
-        const tBody   = document.getElementById('legerTableBody');
-        tHeader.innerHTML = '';
-        tBody.innerHTML   = '';
+    const tHeader = document.getElementById('legerTableHeader');
+    const tBody   = document.getElementById('legerTableBody');
+    tHeader.innerHTML = '';
+    tBody.innerHTML   = '';
 
-        let fSiswa = dataSiswaGlobal.filter(row => row[3] === kelas);
-        if (sortMode === 'rank_kelas') {
-            fSiswa.sort((a, b) => parseFloat(hitungStatistikSiswa(b).average) - parseFloat(hitungStatistikSiswa(a).average));
-        } else {
-            fSiswa.sort((a, b) => (a[2] || "").localeCompare(b[2] || ""));
-        }
+    // Filter siswa berdasarkan kelas terpilih
+    let fSiswa = dataSiswaGlobal.filter(row => row[3] === kelas);
 
-        if (fSiswa.length === 0) {
-            tBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">Tidak ada data siswa di kelas ini atau data belum tersinkron.</td></tr>`;
-            document.getElementById('resultKelasSection').style.display = 'block';
-            return;
-        }
+    if (fSiswa.length === 0) {
+        tBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">Tidak ada data siswa di kelas ini atau data belum tersinkron.</td></tr>`;
+        document.getElementById('resultKelasSection').style.display = 'block';
+        return;
+    }
 
-        const fragment = document.createDocumentFragment();
+    // ============================================================
+    // 🌟 SELEKSI PERINGKAT ASLI KELAS (BERDASARKAN RATA-RATA TERTINGGI)
+    // ============================================================
+    // Membuat salinan array terpisah untuk menyimpan urutan rangking yang absolut
+    let siswaPeringkatAsli = [...fSiswa].sort((a, b) => {
+        return parseFloat(hitungStatistikSiswa(b).average) - parseFloat(hitungStatistikSiswa(a).average);
+    });
 
-        if (mode === 'summary') {
-            tHeader.innerHTML = `<tr>
-                <th class="freeze-col-1" style="width:70px; text-align:center;">Rank</th>
-                <th class="freeze-col-2">Nama Siswa</th>
-                <th style="text-align:center;">Nomor NISN</th>
-                <th style="text-align:center;">SUM TOTAL</th>
-                <th style="text-align:center;">RATA-RATA KUMULATIF</th>
-                <th style="text-align:center;">MAPEL &lt; 75</th>
-            </tr>`;
+    // ============================================================
+    // 🌟 PROSES PENGURUTAN MENU TAMPILAN (SORT MODE)
+    // ============================================================
+    if (sortMode === 'rank_kelas') {
+        // Jika opsi urutkan rangking dipilih, gunakan urutan rangking asli
+        fSiswa = [...siswaPeringkatAsli];
+    } else {
+        // Jika opsi nama dipilih, urutkan data fSiswa berdasarkan alfabet Nama (A-Z)
+        fSiswa.sort((a, b) => (a[2] || "").localeCompare(b[2] || ""));
+    }
 
-            fSiswa.forEach((s, i) => {
-                let inf = hitungStatistikSiswa(s);
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="freeze-col-1" style="text-align:center;">${i + 1}</td>
-                    <td class="freeze-col-2"><strong>${s[2].toUpperCase()}</strong></td>
-                    <td style="text-align:center;"><code>${s[0]}</code></td>
-                    <td style="text-align:center; font-weight:700; color:var(--primary);">${inf.sum.toFixed(1)}</td>
-                    <td style="text-align:center; font-weight:700;">${inf.average}</td>
-                    <td style="text-align:center;"><span class="${inf.merah > 0 ? 'text-nilai-kurang' : ''}" style="font-weight:700;">${inf.merah} Mapel</span></td>
-                `;
-                fragment.appendChild(tr);
+    const fragment = document.createDocumentFragment();
+
+    // ============================================================
+    // MODE TAMPILAN 1: Summary (Ringkasan Total Nilai)
+    // ============================================================
+    if (mode === 'summary') {
+        tHeader.innerHTML = `<tr>
+            <th class="freeze-col-1" style="width:70px; text-align:center;">Rank</th>
+            <th class="freeze-col-2">Nama Siswa</th>
+            <th style="text-align:center;">Nomor NISN</th>
+            <th style="text-align:center;">SUM TOTAL</th>
+            <th style="text-align:center;">RATA-RATA KUMULATIF</th>
+            <th style="text-align:center;">MAPEL &lt; 75</th>
+        </tr>`;
+
+        fSiswa.forEach((s) => {
+            let inf = hitungStatistikSiswa(s);
+            
+            // 🌟 Cari posisi rangking asli siswa dari array referensi rangking
+            let rankAsli = siswaPeringkatAsli.findIndex(item => item[0] === s[0]) + 1;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="freeze-col-1" style="text-align:center;">${rankAsli}</td>
+                <td class="freeze-col-2"><strong>${s[2].toUpperCase()}</strong></td>
+                <td style="text-align:center;"><code>${s[0]}</code></td>
+                <td style="text-align:center; font-weight:700; color:var(--primary);">${inf.sum.toFixed(1)}</td>
+                <td style="text-align:center; font-weight:700;">${inf.average}</td>
+                <td style="text-align:center;"><span class="${inf.merah > 0 ? 'text-nilai-kurang' : ''}" style="font-weight:700;">${inf.merah} Mapel</span></td>
+            `;
+            fragment.appendChild(tr);
+        });
+        tBody.appendChild(fragment);
+
+    // ============================================================
+    // MODE TAMPILAN 2: Semester (Rincian Nilai Per Mapel di Semester X)
+    // ============================================================
+    } else if (mode === 'semester') {
+        let headerHtml = `<tr>
+            <th class="freeze-col-1" style="width:70px; text-align:center;">Rank</th>
+            <th class="freeze-col-2">Nama Siswa</th>`;
+        daftarMapel.forEach(m => { headerHtml += `<th style="text-align:center; min-width:120px;">${m.kode} (S${smt})</th>`; });
+        headerHtml += `</tr>`;
+        tHeader.innerHTML = headerHtml;
+
+        fSiswa.forEach((s) => {
+            // 🌟 Cari posisi rangking asli siswa dari array referensi rangking
+            let rankAsli = siswaPeringkatAsli.findIndex(item => item[0] === s[0]) + 1;
+
+            const tr = document.createElement('tr');
+            let innerCols = `
+                <td class="freeze-col-1" style="text-align:center;">${rankAsli}</td>
+                <td class="freeze-col-2"><strong>${s[2].toUpperCase()}</strong></td>`;
+            
+            daftarMapel.forEach((m, mIdx) => {
+                let valStr = s[6 + (mIdx * 6) + (smt - 1)] || "-";
+                let valNum = parseFloat(valStr);
+                innerCols += (!isNaN(valNum) && valNum < 75)
+                    ? `<td style="text-align:center;"><span class="text-nilai-kurang">${valStr}</span></td>`
+                    : `<td style="text-align:center;">${valStr}</td>`;
             });
-            tBody.appendChild(fragment);
+            
+            tr.innerHTML = innerCols;
+            fragment.appendChild(tr);
+        });
+        tBody.appendChild(fragment);
 
-        } else if (mode === 'semester') {
-            let headerHtml = `<tr>
-                <th class="freeze-col-1" style="width:70px; text-align:center;">Rank</th>
-                <th class="freeze-col-2">Nama Siswa</th>`;
-            daftarMapel.forEach(m => { headerHtml += `<th style="text-align:center; min-width:120px;">${m.kode} (S${smt})</th>`; });
-            headerHtml += `</tr>`;
-            tHeader.innerHTML = headerHtml;
+    // ============================================================
+    // MODE TAMPILAN 3: Rekap Total / Master Leger Lengkap (S1 s.d S6)
+    // ============================================================
+    } else if (mode === 'rekap_total') {
+        let headerHtml = `<tr>
+            <th class="freeze-col-1" style="width:70px; text-align:center;">Rank</th>
+            <th class="freeze-col-2">Nama Siswa</th>`;
+        daftarMapel.forEach(m => {
+            for (let s = 1; s <= 6; s++) { headerHtml += `<th style="text-align:center; min-width:85px; font-size:11px;">${m.kode}<br>S${s}</th>`; }
+        });
+        headerHtml += `</tr>`;
+        tHeader.innerHTML = headerHtml;
 
-            fSiswa.forEach((s, i) => {
-                const tr = document.createElement('tr');
-                let innerCols = `
-                    <td class="freeze-col-1" style="text-align:center;">${i + 1}</td>
-                    <td class="freeze-col-2"><strong>${s[2].toUpperCase()}</strong></td>`;
-                daftarMapel.forEach((m, mIdx) => {
-                    let valStr = s[6 + (mIdx * 6) + (smt - 1)] || "-";
+        fSiswa.forEach((s) => {
+            // 🌟 Cari posisi rangking asli siswa dari array referensi rangking
+            let rankAsli = siswaPeringkatAsli.findIndex(item => item[0] === s[0]) + 1;
+
+            const tr = document.createElement('tr');
+            let innerCols = `
+                <td class="freeze-col-1" style="text-align:center;">${rankAsli}</td>
+                <td class="freeze-col-2"><strong>${s[2].toUpperCase()}</strong></td>`;
+            
+            daftarMapel.forEach((m, mIdx) => {
+                for (let sem = 0; sem < 6; sem++) {
+                    let valStr = s[6 + (mIdx * 6) + sem] || "-";
                     let valNum = parseFloat(valStr);
                     innerCols += (!isNaN(valNum) && valNum < 75)
                         ? `<td style="text-align:center;"><span class="text-nilai-kurang">${valStr}</span></td>`
                         : `<td style="text-align:center;">${valStr}</td>`;
-                });
-                tr.innerHTML = innerCols;
-                fragment.appendChild(tr);
+                }
             });
-            tBody.appendChild(fragment);
-
-        } else if (mode === 'rekap_total') {
-            let headerHtml = `<tr>
-                <th class="freeze-col-1" style="width:70px; text-align:center;">Rank</th>
-                <th class="freeze-col-2">Nama Siswa</th>`;
-            daftarMapel.forEach(m => {
-                for (let s = 1; s <= 6; s++) { headerHtml += `<th style="text-align:center; min-width:85px; font-size:11px;">${m.kode}<br>S${s}</th>`; }
-            });
-            headerHtml += `</tr>`;
-            tHeader.innerHTML = headerHtml;
-
-            fSiswa.forEach((s, i) => {
-                const tr = document.createElement('tr');
-                let innerCols = `
-                    <td class="freeze-col-1" style="text-align:center;">${i + 1}</td>
-                    <td class="freeze-col-2"><strong>${s[2].toUpperCase()}</strong></td>`;
-                daftarMapel.forEach((m, mIdx) => {
-                    for (let sem = 0; sem < 6; sem++) {
-                        let valStr = s[6 + (mIdx * 6) + sem] || "-";
-                        let valNum = parseFloat(valStr);
-                        innerCols += (!isNaN(valNum) && valNum < 75)
-                            ? `<td style="text-align:center;"><span class="text-nilai-kurang">${valStr}</span></td>`
-                            : `<td style="text-align:center;">${valStr}</td>`;
-                    }
-                });
-                tr.innerHTML = innerCols;
-                fragment.appendChild(tr);
-            });
-            tBody.appendChild(fragment);
-        }
-
-        document.getElementById('resultKelasSection').style.display = 'block';
+            
+            tr.innerHTML = innerCols;
+            fragment.appendChild(tr);
+        });
+        tBody.appendChild(fragment);
     }
+
+    document.getElementById('resultKelasSection').style.display = 'block';
+}
 
     // ============================================================
     // EKSPOR EXCEL KELAS
