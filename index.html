@@ -1116,6 +1116,12 @@
 <!-- =============================================
      LAYAR LOGIN
 ============================================= -->
+
+<div id="loading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.55); z-index:99999; justify-content:center; align-items:center; flex-direction:column; gap:12px;">
+    <div style="width:48px; height:48px; border:5px solid rgba(255,255,255,0.2); border-top-color:#ffffff; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+    <span style="color:#ffffff; font-size:14px; font-weight:700; font-family:'Plus Jakarta Sans',sans-serif;">Memproses...</span>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 <div id="loginScreen" style="display:flex;">
     <div class="login-card">
         <img src="https://i.ibb.co.com/MyBfBSrP/Cuplikan-layar-2026-05-29-090155.png" alt="Logo SMAN 1" style="width:65px; height:65px; object-fit:contain;">
@@ -2145,7 +2151,7 @@
         <!-- ==========================================
              SEKSI: VOTING RAPAT KENAIKAN
         ========================================== -->
-        <div id="votingRapatSection" class="tab-content" style="display:none;">
+        <div id="votingRapatSection" class="tab-content-view" style="display:none;">
             <div class="content-header">
                 <h1>Sidang Pleno &amp; Voting Kenaikan Kelas</h1>
                 <p>Mekanisme pengambilan keputusan dewan guru untuk siswa dengan kerawanan akademis (&lt; KKM) atau kasus khusus non-akademik.</p>
@@ -3542,7 +3548,7 @@ finally {
 
         if (!confirm(`Apakah Anda yakin ingin mendaftarkan akun baru "${usernameBaru}" dengan role ${roleBaru}?`)) return;
 
-        document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading').style.display = 'flex';
         try {
             await fetch(URL_GOOGLE_APPS_SCRIPT, {
                 method: 'POST',
@@ -3605,7 +3611,8 @@ finally {
 
         // Isi dropdown Pilih Mapel untuk plotting
         const plotMapelEl = document.getElementById('plotSelectMapel');
-        if (plotMapelEl && plotMapelEl.options.length === 0) {
+        if (plotMapelEl) {
+            plotMapelEl.innerHTML = '';
             daftarMapel.forEach(m => {
                 plotMapelEl.innerHTML += `<option value="${m.kode}">${m.namaLengkap}</option>`;
             });
@@ -3686,7 +3693,7 @@ finally {
             e.kelas && e.mapel && i === self.findIndex(x => x.username === e.username && x.kelas === e.kelas && x.mapel === e.mapel)
         );
 
-        document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading').style.display = 'flex';
         fetch(URL_GOOGLE_APPS_SCRIPT, {
             method: 'POST',
             body: JSON.stringify({ aksi: 'simpanPlotting', username, entries: unique })
@@ -3708,7 +3715,7 @@ finally {
 
     async function hapusUserCloud(username) {
         if (!confirm(`Hapus akun "${username}" dari sistem? Seluruh data plotting akun ini juga akan dihapus.`)) return;
-        document.getElementById('loading').style.display = 'block';
+        document.getElementById('loading').style.display = 'flex';
         try {
             await fetch(URL_GOOGLE_APPS_SCRIPT, {
                 method: 'POST',
@@ -3753,7 +3760,7 @@ finally {
                 }
                 if (!confirm(`Import ${toAdd.length} akun baru? (${skipped} dilewati karena sudah ada)`)) return;
 
-                document.getElementById('loading').style.display = 'block';
+                document.getElementById('loading').style.display = 'flex';
                 fetch(URL_GOOGLE_APPS_SCRIPT, {
                     method: 'POST',
                     body: JSON.stringify({ aksi: 'importAkunMassal', users: toAdd })
@@ -7776,6 +7783,56 @@ function eksporBiodataIndividuExcel() {
     } catch (err) {
         alert("Gagal membuat file Excel. Error: " + err.message);
     }
+}
+
+// ====================================================================
+// FUNGSI VALIDASI REVISI — SETUJUI / TOLAK PENGAJUAN KOREKSI NILAI
+// ====================================================================
+function eksekusiKeputusanValidasi(idKoreksi, keputusan) {
+    const konfirmasi = keputusan === 'DISETUJUI'
+        ? 'Setujui pengajuan revisi ini? Nilai akan diperbarui di sistem.'
+        : 'Tolak pengajuan revisi ini? Pengaju akan mendapat notifikasi penolakan.';
+    if (!confirm(konfirmasi)) return;
+
+    let listKoreksi = JSON.parse(localStorage.getItem("db_koreksi_sman1")) || [];
+    let targetIdx   = listKoreksi.findIndex(k => k.id == idKoreksi);
+    if (targetIdx === -1) {
+        alert('Data revisi tidak ditemukan di sistem!');
+        return;
+    }
+
+    listKoreksi[targetIdx].status = keputusan;
+    listKoreksi[targetIdx].diproses_oleh = sessionUserAktif ? sessionUserAktif.username : 'Admin';
+    listKoreksi[targetIdx].waktu_keputusan = new Date().toLocaleString('id-ID');
+
+    // Jika disetujui, update nilai di dataSiswaGlobal
+    if (keputusan === 'DISETUJUI') {
+        const k = listKoreksi[targetIdx];
+        // Sinkronkan ke cloud
+        fetch(URL_GOOGLE_APPS_SCRIPT, {
+            method: 'POST',
+            body: JSON.stringify({
+                aksi: 'updateNilai',
+                nisnNis: k.nisnNis,
+                mapel: k.mapel,
+                semester: k.semester,
+                nilaiBaru: k.nilaiBaru
+            })
+        }).catch(() => {});
+    }
+
+    localStorage.setItem("db_koreksi_sman1", JSON.stringify(listKoreksi));
+
+    // Update badge notifikasi
+    const menunggu = listKoreksi.filter(k => k.status === 'MENUNGGU PERSETUJUAN').length;
+    const badge    = document.getElementById('badgeValidasiAdmin');
+    if (badge) {
+        badge.innerText  = menunggu;
+        badge.style.display = menunggu > 0 ? 'inline-block' : 'none';
+    }
+
+    alert('✅ Keputusan berhasil disimpan: ' + keputusan);
+    renderAdminValidasiSistem();
 }
 </script>
 
