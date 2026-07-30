@@ -1136,10 +1136,10 @@
             <label>Password</label>
             <input type="password" id="password" placeholder="••••••••">
         </div>
-        <button class="login-btn" id="btnMasuk" onclick="prosesLogin()">MASUK KE SISTEM</button>
-        <div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
-            ⏳ Menyiapkan data cloud...
-        </div>
+        <button class="login-btn" id="btnMasuk" onclick="prosesLogin()" disabled style="opacity: 0.6; cursor: not-allowed;">MASUK KE SISTEM</button>
+<div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
+    ⏳ Menyiapkan data cloud... Mohon tunggu.
+</div>
     </div>
 </div>
 
@@ -3675,6 +3675,23 @@ finally {
         if (dataSiswaGlobal.length > 0) {
             try { localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal)); } catch(e) {}
         }
+    const btnMsk = document.getElementById('btnMasuk');
+    if (btnMsk) {
+        btnMsk.disabled = false;
+        btnMsk.style.opacity = "1";
+        btnMsk.style.cursor = "pointer";
+    }
+
+    if (st) {
+        if (cloudUsersCache.length > 0) {
+            st.textContent = '✅ Data siap — Silakan login';
+            st.style.color = '#22c55e';
+        } else {
+            st.textContent = '⚠️ Data cloud kosong atau gagal dimuat.';
+            st.style.color = '#ef4444';
+        }
+    }
+}
 
         // Jalankan mekanisme Fallback ke Cache Offline jika cloud kosong/gagal
         if (cloudUsersCache.length === 0) {
@@ -6458,15 +6475,28 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
             loginScr.style.display = 'flex';
         }
 
-        // Jika ada sesi tersimpan dan cache sudah ada, langsung buka dashboard
-        if (sessionUserAktif && cloudDataLoaded && cloudUsersCache.length > 0) {
+        // KODE BARU (Mencegah masuk langsung saat data memuat):
+if (sessionUserAktif) {
+    // Tampilkan indikator di layar login bahwa sistem sedang memverifikasi sesi & memuat data
+    if (st) {
+        st.textContent = '⏳ Memverifikasi sesi & memuat data cloud terbaru...';
+        st.style.color = '#f59e0b';
+    }
+    
+    // Jalankan pengunduhan data dulu, BARU buka dashboard setelah selesai
+    muatDataCloud().then(() => {
+        if (cloudUsersCache.length > 0) {
             bukaHalamanDashboard();
-            return;
+        } else {
+            // Jika data gagal dimuat, paksa user di layar login
+            const loginScr = document.getElementById('loginScreen');
+            if (loginScr) loginScr.style.display = 'flex';
         }
-
-        // Muat/refresh cloud data terbaru di background
-        muatDataCloud();
-    };
+    });
+} else {
+    // Jika tidak ada sesi tersimpan, muat data di background untuk login manual
+    muatDataCloud();
+}
 
     // Deteksi role saat DOM siap (untuk class CSS is-admin-theme)
     document.addEventListener("DOMContentLoaded", function() {
