@@ -1136,10 +1136,10 @@
             <label>Password</label>
             <input type="password" id="password" placeholder="••••••••">
         </div>
-        <button class="login-btn" id="btnMasuk" onclick="prosesLogin()" disabled style="opacity: 0.6; cursor: not-allowed;">MASUK KE SISTEM</button>
-<div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
-    ⏳ Menyiapkan data cloud... Mohon tunggu.
-</div>
+        <button class="login-btn" id="btnMasuk" onclick="prosesLogin()">MASUK KE SISTEM</button>
+        <div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
+            ⏳ Menyiapkan data cloud...
+        </div>
     </div>
 </div>
 
@@ -3545,15 +3545,18 @@
     }
 
     // Muat cloud data di BACKGROUND — tidak memblokir login screen
-async function muatDataCloud() {
+    async function muatDataCloud() {
     const st = document.getElementById('loginCloudStatus');
     
-    try {
-        // Jalankan pengunduhan database secara paralel
+    // =========================================================================
+        // PROSES PENGAMBILAN DATA UTAMA (VERSI GABUNGAN PARALEL - ANTI STUCK & ANTI BLANK)
+        // =========================================================================
+        try {
+            // Jalankan ketiga database PARALEL (bukan berurutan) — hemat waktu & anti-stuck
         await Promise.all([
             downloadCloudSheet("Database_Web", function(rows) {
                 try {
-                    if (!rows) return;
+                    if (!rows) return; // PENGAMAN: Jika sheet kosong atau bermasalah
                     dataSiswaGlobal = [];
                     rows.forEach(function(row) {
                         if (!row || !row.c) return;
@@ -3566,7 +3569,7 @@ async function muatDataCloud() {
             }),
             downloadCloudSheet("Sistem_Users", function(rows) {
                 try {
-                    if (!rows) return;
+                    if (!rows) return; // PENGAMAN: Jika sheet kosong atau bermasalah
                     cloudUsersCache = [];
                     rows.forEach(function(row) {
                         if (!row || !row.c) return;
@@ -3577,11 +3580,13 @@ async function muatDataCloud() {
                     });
                 } catch(e) { console.warn('[Portal] Users parse err:', e); }
             }),
+            // 🌟 BERHASIL DIMASUKKAN: Pengunduh Tab Biodata Secara Mandiri & Paralel
             downloadCloudSheet("Sheet_Biodata", function(rows) {
                 try {
                     dataBiodataGlobal = []; 
                     if (!rows || rows.length === 0) return;
 
+                    // ── Deteksi header kolom otomatis dari baris pertama ──
                     let firstRow = rows[0];
                     if (firstRow && firstRow.c) {
                         let hcells = firstRow.c.map(function(c){ return c ? String(c.v || '').trim().toUpperCase() : ''; });
@@ -3604,12 +3609,14 @@ async function muatDataCloud() {
                             alamatWali: hcells.findIndex(function(h){ return h.includes('ALAMAT') && h.includes('WALI'); }),
                             telpWali:   hcells.findIndex(function(h){ return (h.includes('TELP')||h.includes('HP')) && h.includes('WALI'); }),
                         };
+                        // Terapkan hasil deteksi, fallback ke default jika tidak ditemukan
                         Object.keys(detected).forEach(function(k){
                             if (detected[k] >= 0) bioBioColMap[k] = detected[k];
                         });
                         if (bioBioColMap.nisn < 0) bioBioColMap.nisn = 3;
                         if (bioBioColMap.nama < 0) bioBioColMap.nama = 1;
                         if (bioBioColMap.kelas < 0) bioBioColMap.kelas = 2;
+                        console.log("🟡 [Portal] Biodata kolom terdeteksi:", JSON.stringify(bioBioColMap));
                     }
 
                     rows.forEach(function(row) {
@@ -3621,14 +3628,17 @@ async function muatDataCloud() {
                         });
                         let nisnIdx = bioBioColMap.nisn >= 0 ? bioBioColMap.nisn : 3;
                         let nisnVal = cells[nisnIdx] || "";
+                        // Terima baris yang punya NISN numerik (minimal 5 digit), tolak header
                         if (nisnVal && !nisnVal.match(/NISN|NAMA|KELAS|NO/i) && nisnVal.replace(/\D/g,'').length >= 5) {
                             dataBiodataGlobal.push(cells);
                         }
                     });
+                    console.log("🟢 [Portal] Berhasil memuat " + dataBiodataGlobal.length + " data biodata.");
                 } catch(errBio) { 
                     console.warn('[Portal] Gagal memproses baris biodata:', errBio); 
                 }
             }),
+            // 🌟 PLOTTING GURU: Muat hak akses mengajar per guru dari sheet Sistem_Plotting
             downloadCloudSheet("Sistem_Plotting", function(rows) {
                 try {
                     cloudPlottingCache = [];
@@ -3636,24 +3646,29 @@ async function muatDataCloud() {
                     rows.forEach(function(row) {
                         if (!row || !row.c) return;
                         let cells = row.c.map(function(cell) { return cell ? String(cell.v || "").trim() : ""; });
-                        if (cells[0] && cells[0].toLowerCase() !== "username") {
+                        // Kolom: [0]Username [1]Kelas [2]Mapel
+                        if (cells[0] && cells[0].toLowerCase() !== "username" && cells[0].toLowerCase() !== "Username") {
                             cloudPlottingCache.push({ username: cells[0], kelas: cells[1], mapel: cells[2] });
                         }
                     });
+                    console.log("🟢 [Portal] Berhasil memuat " + cloudPlottingCache.length + " data plotting guru.");
                 } catch(errPlot) {
                     console.warn('[Portal] Gagal memproses plotting:', errPlot);
                 }
             })
         ]); 
-    } catch (errPromise) {
-        console.error("[Portal] Gagal memuat database inti:", errPromise);
-    } finally {
+        } catch (errPromise) {
+            console.error("[Portal] Gagal memuat database inti:", errPromise);
+        }
+finally {
+        // PENGAMAN UTAMA: Pastikan array tidak bernilai null agar tidak memicu error (.length)
         if (!cloudUsersCache) { cloudUsersCache = []; }
         if (!dataSiswaGlobal) { dataSiswaGlobal = []; }
 
+        // Pastikan flag diset true agar sistem login tidak terkunci dalam status loading terus-menerus
         cloudDataLoaded = true;
 
-        // Simpan ke Cache Lokal jika berhasil dapat data baru dari cloud
+        // Simpan ke localStorage sebagai cache offline (jika data berhasil dimuat dari cloud)
         if (cloudUsersCache.length > 0) {
             try { localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache)); } catch(e) {}
         }
@@ -3661,15 +3676,12 @@ async function muatDataCloud() {
             try { localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal)); } catch(e) {}
         }
 
-        // Jalankan Fallback ke Cache Offline jika cloud kosong/gagal
-        let isOfflineFallback = false;
-
+        // Jalankan mekanisme Fallback ke Cache Offline jika cloud kosong/gagal
         if (cloudUsersCache.length === 0) {
             try {
                 const localCacheUsers = localStorage.getItem("offline_users_sman1");
                 if (localCacheUsers) {
                     cloudUsersCache = JSON.parse(localCacheUsers);
-                    isOfflineFallback = true;
                     console.log('[Portal] Fallback: Menggunakan data user dari cache lokal:', cloudUsersCache.length);
                 }
             } catch(e) { console.warn('[Portal] Gagal memuat local cache users:', e); }
@@ -3685,18 +3697,12 @@ async function muatDataCloud() {
             } catch(e) { console.warn('[Portal] Gagal memuat local cache siswa:', e); }
         }
 
-        // Aktifkan tombol login
-        const btnMsk = document.getElementById('btnMasuk');
-        if (btnMsk) {
-            btnMsk.disabled = false;
-            btnMsk.style.opacity = "1";
-            btnMsk.style.cursor = "pointer";
-        }
-
-        // Status Tampilan UI Login
+        // Update status indicator di UI Login berdasarkan hasil akhir data
         if (st) {
             if (cloudUsersCache.length > 0) {
-                if (!navigator.onLine || isOfflineFallback) {
+                // Periksa apakah ini hasil muatan baru (cloud) atau fallback lama (offline)
+                const isOfflineMode = !navigator.onLine || (st.textContent && st.textContent.includes('Gagal'));
+                if (isOfflineMode || st.textContent.includes('Mode offline')) {
                     st.textContent = '📦 Mode offline — ' + cloudUsersCache.length + ' akun dari cache lokal';
                     st.style.color = '#f59e0b'; // Oranye
                 } else {
@@ -3704,6 +3710,7 @@ async function muatDataCloud() {
                     st.style.color = '#22c55e'; // Hijau
                 }
             } else {
+                // Jika benar-benar kosong dan tidak ada internet sama sekali
                 st.textContent = '⚠️ Tidak ada data akun. Gunakan kredensial darurat.';
                 st.style.color = '#ef4444'; // Merah
             }
@@ -6451,28 +6458,15 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
             loginScr.style.display = 'flex';
         }
 
-        // KODE BARU (Mencegah masuk langsung saat data memuat):
-if (sessionUserAktif) {
-    // Tampilkan indikator di layar login bahwa sistem sedang memverifikasi sesi & memuat data
-    if (st) {
-        st.textContent = '⏳ Memverifikasi sesi & memuat data cloud terbaru...';
-        st.style.color = '#f59e0b';
-    }
-    
-    // Jalankan pengunduhan data dulu, BARU buka dashboard setelah selesai
-    muatDataCloud().then(() => {
-        if (cloudUsersCache.length > 0) {
+        // Jika ada sesi tersimpan dan cache sudah ada, langsung buka dashboard
+        if (sessionUserAktif && cloudDataLoaded && cloudUsersCache.length > 0) {
             bukaHalamanDashboard();
-        } else {
-            // Jika data gagal dimuat, paksa user di layar login
-            const loginScr = document.getElementById('loginScreen');
-            if (loginScr) loginScr.style.display = 'flex';
+            return;
         }
-    });
-} else {
-    // Jika tidak ada sesi tersimpan, muat data di background untuk login manual
-    muatDataCloud();
-}
+
+        // Muat/refresh cloud data terbaru di background
+        muatDataCloud();
+    };
 
     // Deteksi role saat DOM siap (untuk class CSS is-admin-theme)
     document.addEventListener("DOMContentLoaded", function() {
@@ -8328,8 +8322,5 @@ function simpanAksesMenuDinamis() {
 }
 
 </script>
-
-<!-- static.js dihapus — hanya untuk preview Replit, tidak diperlukan di luar Replit -->
-
 </body>
 </html>
