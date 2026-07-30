@@ -3653,6 +3653,7 @@ async function muatDataCloud() {
 
         cloudDataLoaded = true;
 
+        // Simpan ke Cache Lokal jika berhasil dapat data baru dari cloud
         if (cloudUsersCache.length > 0) {
             try { localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache)); } catch(e) {}
         }
@@ -3661,50 +3662,14 @@ async function muatDataCloud() {
         }
 
         // Jalankan Fallback ke Cache Offline jika cloud kosong/gagal
+        let isOfflineFallback = false;
+
         if (cloudUsersCache.length === 0) {
             try {
                 const localCacheUsers = localStorage.getItem("offline_users_sman1");
                 if (localCacheUsers) {
                     cloudUsersCache = JSON.parse(localCacheUsers);
-                }
-            } catch(e) { console.warn('[Portal] Gagal memuat local cache users:', e); }
-        }
-
-        if (dataSiswaGlobal.length === 0) {
-            try {
-                const localCacheSiswa = localStorage.getItem("offline_siswa_sman1");
-                if (localCacheSiswa) {
-                    dataSiswaGlobal = JSON.parse(localCacheSiswa);
-                }
-            } catch(e) { console.warn('[Portal] Gagal memuat local cache siswa:', e); }
-        }
-
-        // Aktifkan tombol login
-        const btnMsk = document.getElementById('btnMasuk');
-        if (btnMsk) {
-            btnMsk.disabled = false;
-            btnMsk.style.opacity = "1";
-            btnMsk.style.cursor = "pointer";
-        }
-
-        // Status Tampilan UI
-        if (st) {
-            if (cloudUsersCache.length > 0) {
-                st.textContent = '✅ Data siap — Silakan login';
-                st.style.color = '#22c55e';
-            } else {
-                st.textContent = '⚠️ Data cloud kosong atau gagal dimuat.';
-                st.style.color = '#ef4444';
-            }
-        }
-    }
-}
-        // Jalankan mekanisme Fallback ke Cache Offline jika cloud kosong/gagal
-        if (cloudUsersCache.length === 0) {
-            try {
-                const localCacheUsers = localStorage.getItem("offline_users_sman1");
-                if (localCacheUsers) {
-                    cloudUsersCache = JSON.parse(localCacheUsers);
+                    isOfflineFallback = true;
                     console.log('[Portal] Fallback: Menggunakan data user dari cache lokal:', cloudUsersCache.length);
                 }
             } catch(e) { console.warn('[Portal] Gagal memuat local cache users:', e); }
@@ -3720,12 +3685,18 @@ async function muatDataCloud() {
             } catch(e) { console.warn('[Portal] Gagal memuat local cache siswa:', e); }
         }
 
-        // Update status indicator di UI Login berdasarkan hasil akhir data
+        // Aktifkan tombol login
+        const btnMsk = document.getElementById('btnMasuk');
+        if (btnMsk) {
+            btnMsk.disabled = false;
+            btnMsk.style.opacity = "1";
+            btnMsk.style.cursor = "pointer";
+        }
+
+        // Status Tampilan UI Login
         if (st) {
             if (cloudUsersCache.length > 0) {
-                // Periksa apakah ini hasil muatan baru (cloud) atau fallback lama (offline)
-                const isOfflineMode = !navigator.onLine || (st.textContent && st.textContent.includes('Gagal'));
-                if (isOfflineMode || st.textContent.includes('Mode offline')) {
+                if (!navigator.onLine || isOfflineFallback) {
                     st.textContent = '📦 Mode offline — ' + cloudUsersCache.length + ' akun dari cache lokal';
                     st.style.color = '#f59e0b'; // Oranye
                 } else {
@@ -3733,7 +3704,6 @@ async function muatDataCloud() {
                     st.style.color = '#22c55e'; // Hijau
                 }
             } else {
-                // Jika benar-benar kosong dan tidak ada internet sama sekali
                 st.textContent = '⚠️ Tidak ada data akun. Gunakan kredensial darurat.';
                 st.style.color = '#ef4444'; // Merah
             }
