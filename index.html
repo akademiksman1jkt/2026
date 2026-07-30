@@ -2733,7 +2733,7 @@
         if (!uInp) { errLbl.innerHTML = 'Masukkan username.'; errLbl.style.display='block'; return; }
 
         // Admin hardcode — selalu bisa masuk tanpa cloud
-        if (uInp === "admin" && pInp === "admin123") {
+        if (uInp === "adminsma1" && pInp === "adminsma123") {
             sessionUserAktif = { username: "admin", role: "AdminSMAN1" };
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
             bukaHalamanDashboard();
@@ -3722,7 +3722,7 @@ finally {
                 }
             } else {
                 // Jika benar-benar kosong dan tidak ada internet sama sekali
-                st.textContent = '⚠️ Tidak ada data akun. Gunakan kredensial darurat (admin/admin123).';
+                st.textContent = '⚠️ Tidak ada data akun. Gunakan kredensial darurat.';
                 st.style.color = '#ef4444'; // Merah
             }
         }
