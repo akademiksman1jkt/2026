@@ -3228,164 +3228,182 @@ function closeCustomAlert() {
     // Fungsi steril khusus merender tabel nilai siswa
     // ✅ KODE BARU (SUDAH DITAMBAHKAN PENCARIAN & PENCETAKAN TTL & AGAMA):
 function renderNilaiKeHalamanWeb(siswa) {
-    document.getElementById('resNama').innerText       = siswa[2];
-    document.getElementById('resKelas').innerText      = siswa[3];
-    document.getElementById('resNisnNis').innerText    = `${siswa[0]}/${siswa[1]}`;
+    document.getElementById('resNama').innerText       = siswa[2] || "-";
+    document.getElementById('resKelas').innerText      = siswa[3] || "-";
+    document.getElementById('resNisnNis').innerText    = `${siswa[0] || '-'}/${siswa[1] || '-'}`;
 
-    // 🌟 BARU: Cari data biodata siswa dari memori global berdasarkan NISN/Nama
+    // 🌟 PERBAIKAN PENCARIAN BIODATA: FLEKSIBEL TERHADAP TIPE DATA (STRING/NUMBER) & SPASI
     let bioSiswa = null;
     if (typeof dataBiodataGlobal !== 'undefined' && Array.isArray(dataBiodataGlobal)) {
-        bioSiswa = dataBiodataGlobal.find(b => 
-            (b.nisn && String(b.nisn).trim() === String(siswa[0]).trim()) ||
-            (b.nama_siswa && b.nama_siswa.toLowerCase().trim() === String(siswa[2]).toLowerCase().trim()) ||
-            (b.nama && b.nama.toLowerCase().trim() === String(siswa[2]).toLowerCase().trim())
-        );
+        let cleanNisnInput = String(siswa[0] || "").replace(/\D/g, '').trim();
+        let cleanNamaInput = String(siswa[2] || "").toLowerCase().trim();
+
+        bioSiswa = dataBiodataGlobal.find(b => {
+            if (!b) return false;
+            
+            let bNisn = String(b.nisn || b.NISN || b["NISN"] || "").replace(/\D/g, '').trim();
+            let bNama = String(b.nama_siswa || b.nama || b["NAMA SISWA"] || b["NAMA"] || "").toLowerCase().trim();
+
+            // Cocokkan NISN jika angka NISN valid (>0), ATAU cocokkan Nama Siswa
+            let isNisnMatch = (cleanNisnInput.length > 0 && bNisn === cleanNisnInput);
+            let isNamaMatch = (cleanNamaInput.length > 0 && bNama === cleanNamaInput);
+
+            return isNisnMatch || isNamaMatch;
+        });
     }
 
-    // 🌟 BARU: Cetak Tempat Tanggal Lahir (resTtl) & Agama (resAgama)
+    // 🌟 PERBAIKAN PEMBACAAN TTL & AGAMA (Mendukung Berbagai Variasi Header Kolom Spreadsheet)
     if (document.getElementById('resTtl')) {
-        document.getElementById('resTtl').innerText = bioSiswa ? (bioSiswa.ttl || "-") : "-";
+        let valTtl = bioSiswa 
+            ? (bioSiswa.ttl || bioSiswa["TEMPAT TANGGAL LAHIR"] || bioSiswa.tempat_tanggal_lahir || bioSiswa.TTL || "-") 
+            : "-";
+        document.getElementById('resTtl').innerText = valTtl;
     }
+
     if (document.getElementById('resAgama')) {
-        document.getElementById('resAgama').innerText = bioSiswa ? (bioSiswa.agama || "-") : "-";
+        let valAgama = bioSiswa 
+            ? (bioSiswa.agama || bioSiswa["AGAMA"] || bioSiswa.Agama || "-") 
+            : "-";
+        document.getElementById('resAgama').innerText = valAgama;
     }
 
-    // ... sisa kode di bawahnya tetap sama tanpa ada yang diubah ...
+    // ====================================================================
+    // LOGIKA STATISTIK & TABEL NILAI (SAMA PERSIS TANPA DIUBAH)
+    // ====================================================================
+    let info = hitungStatistikSiswa(siswa);
+    document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('resCountNilai').innerText         = info.count + " Data";
+    document.getElementById('resRataRata').innerText           = info.average;
+    document.getElementById('resPeringkat').innerText          = siswa[5] || '-';
+    document.getElementById('resMapelMerahPersonal').innerText = info.merah;
+    document.getElementById('resPeringkatKelas').innerText     = "#" + dapatkanPeringkatKelasSiswa(siswa[0], siswa[3]);
 
-        let info = hitungStatistikSiswa(siswa);
-        document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('resCountNilai').innerText         = info.count + " Data";
-        document.getElementById('resRataRata').innerText           = info.average;
-        document.getElementById('resPeringkat').innerText          = siswa[5] || '-';
-        document.getElementById('resMapelMerahPersonal').innerText = info.merah;
-        document.getElementById('resPeringkatKelas').innerText     = "#" + dapatkanPeringkatKelasSiswa(siswa[0], siswa[3]);
+    document.getElementById('nilaiTableBody').innerHTML = "";
+    daftarMapel.forEach((m, idx) => {
+        let start    = 6 + (idx * 6);
+        let hasValue = false;
+        for (let s = 0; s < 6; s++) { if (siswa[start + s]) hasValue = true; }
 
-        document.getElementById('nilaiTableBody').innerHTML = "";
-        daftarMapel.forEach((m, idx) => {
-            let start    = 6 + (idx * 6);
-            let hasValue = false;
-            for (let s = 0; s < 6; s++) { if (siswa[start + s]) hasValue = true; }
-
-            if (hasValue) {
-                let rHtml = `<tr><td><strong>${m.namaLengkap}</strong></td>`;
-                for (let s = 0; s < 6; s++) {
-                    let v = siswa[start + s] || '-';
-                    rHtml += (parseFloat(v) < 75)
-                        ? `<td><span class="text-nilai-kurang">${v}</span></td>`
-                        : `<td>${v}</td>`;
-                }
-                document.getElementById('nilaiTableBody').innerHTML += rHtml + `</tr>`;
+        if (hasValue) {
+            let rHtml = `<tr><td><strong>${m.namaLengkap}</strong></td>`;
+            for (let s = 0; s < 6; s++) {
+                let v = siswa[start + s] || '-';
+                rHtml += (parseFloat(v) < 75)
+                    ? `<td><span class="text-nilai-kurang">${v}</span></td>`
+                    : `<td>${v}</td>`;
             }
-        });
+            document.getElementById('nilaiTableBody').innerHTML += rHtml + `</tr>`;
+        }
+    });
 
-        // Pemetaan TKA UTBK & rekomendasi rumpun
-        let totalSains = 0, cSains = 0, totalSos = 0, cSos = 0;
-        let tkaScores = {
-            "Matematika Tingkat Lanjut": 0, "Bahasa Indonesia Tingkat Lanjut": 0, "Bahasa Inggris Tingkat Lanjut": 0,
-            "Fisika": 0, "Kimia": 0, "Biologi": 0, "Ekonomi": 0, "Sosiologi": 0, "Geografi": 0, "Sejarah": 0,
-            "Pendidikan Pancasila/PPKN": 0, "Antropologi": 0, "Bahasa Jepang": 0
-        };
+    // ====================================================================
+    // PEMETAAN TKA UTBK & REKOMENDASI RUMPUN (SAMA PERSIS TANPA DIUBAH)
+    // ====================================================================
+    let totalSains = 0, cSains = 0, totalSos = 0, cSos = 0;
+    let tkaScores = {
+        "Matematika Tingkat Lanjut": 0, "Bahasa Indonesia Tingkat Lanjut": 0, "Bahasa Inggris Tingkat Lanjut": 0,
+        "Fisika": 0, "Kimia": 0, "Biologi": 0, "Ekonomi": 0, "Sosiologi": 0, "Geografi": 0, "Sejarah": 0,
+        "Pendidikan Pancasila/PPKN": 0, "Antropologi": 0, "Bahasa Jepang": 0
+    };
 
-        daftarMapel.forEach((m, mIdx) => {
-            let start = 6 + (mIdx * 6);
-            let s3 = parseFloat(siswa[start + 2]) || 0;
-            let s4 = parseFloat(siswa[start + 3]) || 0;
-            let pembagiSmt = (s3 > 0 ? 1 : 0) + (s4 > 0 ? 1 : 0);
-            let rerataRiilMapel = pembagiSmt > 0 ? (s3 + s4) / pembagiSmt : 0;
+    daftarMapel.forEach((m, mIdx) => {
+        let start = 6 + (mIdx * 6);
+        let s3 = parseFloat(siswa[start + 2]) || 0;
+        let s4 = parseFloat(siswa[start + 3]) || 0;
+        let pembagiSmt = (s3 > 0 ? 1 : 0) + (s4 > 0 ? 1 : 0);
+        let rerataRiilMapel = pembagiSmt > 0 ? (s3 + s4) / pembagiSmt : 0;
 
-            let s1 = parseFloat(siswa[start]) || 0;
-            let s2 = parseFloat(siswa[start + 1]) || 0;
-            let rerataAwal = (s1 + s2) / ((s1 > 0 ? 1 : 0) + (s2 > 0 ? 1 : 0) || 1);
-            let rerataMapel = rerataRiilMapel > 0 ? rerataRiilMapel : rerataAwal;
+        let s1 = parseFloat(siswa[start]) || 0;
+        let s2 = parseFloat(siswa[start + 1]) || 0;
+        let rerataAwal = (s1 + s2) / ((s1 > 0 ? 1 : 0) + (s2 > 0 ? 1 : 0) || 1);
+        let rerataMapel = rerataRiilMapel > 0 ? rerataRiilMapel : rerataAwal;
 
-            if (rerataMapel > 0) {
-                if (['MATUM','IPA','BIO','KIM','FIS','MTL','INF'].includes(m.kode)) {
-                    totalSains += rerataMapel; cSains++;
-                } else if (!['AGM','PCSL','BIN','BING','PJOK','SB','PKWU','MULOK','MUH'].includes(m.kode)) {
-                    totalSos += rerataMapel; cSos++;
-                }
-                if (m.kode === 'MTL')                       tkaScores["Matematika Tingkat Lanjut"]      = rerataMapel;
-                if (m.kode === 'BIN')                       tkaScores["Bahasa Indonesia Tingkat Lanjut"] = rerataMapel;
-                if (m.kode === 'BING')                      tkaScores["Bahasa Inggris Tingkat Lanjut"]  = rerataMapel;
-                if (m.kode === 'FIS')                       tkaScores["Fisika"]                         = rerataMapel;
-                if (m.kode === 'KIM')                       tkaScores["Kimia"]                          = rerataMapel;
-                if (m.kode === 'BIO')                       tkaScores["Biologi"]                        = rerataMapel;
-                if (m.kode === 'EKO')                       tkaScores["Ekonomi"]                        = rerataMapel;
-                if (m.kode === 'SOS')                       tkaScores["Sosiologi"]                      = rerataMapel;
-                if (m.kode === 'GEO')                       tkaScores["Geografi"]                       = rerataMapel;
-                if (m.kode === 'SEJ' || m.kode === 'SEJMNT') tkaScores["Sejarah"]                       = rerataMapel;
-                if (m.kode === 'PCSL')                      tkaScores["Pendidikan Pancasila/PPKN"]      = rerataMapel;
-                if (m.kode === 'BJP')                       tkaScores["Bahasa Jepang"]                  = rerataMapel;
+        if (rerataMapel > 0) {
+            if (['MATUM','IPA','BIO','KIM','FIS','MTL','INF'].includes(m.kode)) {
+                totalSains += rerataMapel; cSains++;
+            } else if (!['AGM','PCSL','BIN','BING','PJOK','SB','PKWU','MULOK','MUH'].includes(m.kode)) {
+                totalSos += rerataMapel; cSos++;
             }
-        });
+            if (m.kode === 'MTL')                        tkaScores["Matematika Tingkat Lanjut"]      = rerataMapel;
+            if (m.kode === 'BIN')                        tkaScores["Bahasa Indonesia Tingkat Lanjut"] = rerataMapel;
+            if (m.kode === 'BING')                       tkaScores["Bahasa Inggris Tingkat Lanjut"]  = rerataMapel;
+            if (m.kode === 'FIS')                        tkaScores["Fisika"]                         = rerataMapel;
+            if (m.kode === 'KIM')                        tkaScores["Kimia"]                          = rerataMapel;
+            if (m.kode === 'BIO')                        tkaScores["Biologi"]                        = rerataMapel;
+            if (m.kode === 'EKO')                        tkaScores["Ekonomi"]                        = rerataMapel;
+            if (m.kode === 'SOS')                        tkaScores["Sosiologi"]                      = rerataMapel;
+            if (m.kode === 'GEO')                        tkaScores["Geografi"]                       = rerataMapel;
+            if (m.kode === 'SEJ' || m.kode === 'SEJMNT') tkaScores["Sejarah"]                        = rerataMapel;
+            if (m.kode === 'PCSL')                       tkaScores["Pendidikan Pancasila/PPKN"]      = rerataMapel;
+            if (m.kode === 'BJP')                        tkaScores["Bahasa Jepang"]                  = rerataMapel;
+        }
+    });
 
-        let avgSains         = totalSains / (cSains || 1);
-        let avgSos           = totalSos   / (cSos   || 1);
-        let kelasSiswaMurni  = (siswa[3] || "").toUpperCase().trim();
-        let htmlKontenHasil  = "";
+    let avgSains         = totalSains / (cSains || 1);
+    let avgSos           = totalSos   / (cSos   || 1);
+    let kelasSiswaMurni   = (siswa[3] || "").toUpperCase().trim();
+    let htmlKontenHasil   = "";
 
-        if (kelasSiswaMurni.startsWith("XI-") || kelasSiswaMurni.startsWith("XI ")) {
-            let urutanTka    = Object.keys(tkaScores).filter(k => tkaScores[k] > 0).sort((a, b) => tkaScores[b] - tkaScores[a]);
-            let top4Pilihan  = urutanTka.slice(0, 4);
-            let tagsHtmlTka  = top4Pilihan.map(mPlh => {
-                return `<div style="display:block; margin-bottom:6px; font-weight:600; color:#1e293b; font-size:13px;">
-                    🔹 ${mPlh} <span style="color:#0369a1; background:#e0f2fe; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; margin-left:5px;">(${tkaScores[mPlh].toFixed(1)})</span>
-                </div>`;
-            }).join('');
+    if (kelasSiswaMurni.startsWith("XI-") || kelasSiswaMurni.startsWith("XI ")) {
+        let urutanTka    = Object.keys(tkaScores).filter(k => tkaScores[k] > 0).sort((a, b) => tkaScores[b] - tkaScores[a]);
+        let top4Pilihan  = urutanTka.slice(0, 4);
+        let tagsHtmlTka  = top4Pilihan.map(mPlh => {
+            return `<div style="display:block; margin-bottom:6px; font-weight:600; color:#1e293b; font-size:13px;">
+                🔹 ${mPlh} <span style="color:#0369a1; background:#e0f2fe; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; margin-left:5px;">(${tkaScores[mPlh].toFixed(1)})</span>
+            </div>`;
+        }).join('');
 
-            htmlKontenHasil = `
-                <p style="margin-bottom:12px; font-size:14px; color:#1e293b;"><strong>🎯 Rekomendasi Paket Mapel Pilihan TKA UTBK (Top 4 Nilai Tertinggi):</strong></p>
-                <div style="background:#ffffff; border:1px solid #e2e8f0; padding:14px; border-radius:8px; margin-bottom:15px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);">
-                    ${tagsHtmlTka || '<span style="color:#64748b; font-style:italic;">Nilai rapor mapel pilihan belum memadai</span>'}
-                </div>
-                <p style="font-size:13px; line-height:1.5; color:#475569;"><strong>Rekomendasi Strategis Kelas XI:</strong><br>Paket mata pelajaran pilihan di atas direkomendasikan secara otomatis berdasarkan performa nilai rapor tertinggi siswa hingga semester berjalan ini. Rekomendasi ini dirancang khusus untuk mengoptimalkan pencapaian skor UTBK-SNBT maupun pemetaan portofolio pendaftaran SNBP pada program studi akademik pilihan siswa.</p>
-            `;
+        htmlKontenHasil = `
+            <p style="margin-bottom:12px; font-size:14px; color:#1e293b;"><strong>🎯 Rekomendasi Paket Mapel Pilihan TKA UTBK (Top 4 Nilai Tertinggi):</strong></p>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:14px; border-radius:8px; margin-bottom:15px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);">
+                ${tagsHtmlTka || '<span style="color:#64748b; font-style:italic;">Nilai rapor mapel pilihan belum memadai</span>'}
+            </div>
+            <p style="font-size:13px; line-height:1.5; color:#475569;"><strong>Rekomendasi Strategis Kelas XI:</strong><br>Paket mata pelajaran pilihan di atas direkomendasikan secara otomatis berdasarkan performa nilai rapor tertinggi siswa hingga semester berjalan ini. Rekomendasi ini dirancang khusus untuk mengoptimalkan pencapaian skor UTBK-SNBT maupun pemetaan portofolio pendaftaran SNBP pada program studi akademik pilihan siswa.</p>
+        `;
+    } else {
+        let rekomendasiRumpun  = avgSains >= avgSos ? "Rumpun MIPA / Teknik Terapan" : "Rumpun IPS / Sosio-Humaniora";
+        let detailSaran        = "";
+        let listMapelRekomendasiSistem = [];
+
+        if (avgSains >= avgSos) {
+            listMapelRekomendasiSistem = ["Matematika Tingkat Lanjut","Fisika","Kimia","Biologi","Informatika"];
         } else {
-            let rekomendasiRumpun  = avgSains >= avgSos ? "Rumpun MIPA / Teknik Terapan" : "Rumpun IPS / Sosio-Humaniora";
-            let detailSaran        = "";
-            let listMapelRekomendasiSistem = [];
-
-            if (avgSains >= avgSos) {
-                listMapelRekomendasiSistem = ["Matematika Tingkat Lanjut","Fisika","Kimia","Biologi","Informatika"];
-            } else {
-                listMapelRekomendasiSistem = ["Ekonomi","Sosiologi","Geografi","Sejarah Peminatan","Bahasa Inggris Tingkat Lanjut"];
-            }
-
-            let tagsMapelKelasX = listMapelRekomendasiSistem.map(mp => {
-                let warnaBadge  = avgSains >= avgSos ? "#1d4ed8" : "#b45309";
-                let bgBadge     = avgSains >= avgSos ? "#eff6ff"  : "#fff7ed";
-                let borderBadge = avgSains >= avgSos ? "#bfdbfe"  : "#ffedd5";
-                return `<span class="plotting-tag" style="background:${bgBadge}; color:${warnaBadge}; font-weight:700; border-color:${borderBadge}; padding:4px 10px; margin-top:5px; border-radius:6px;">📌 ${mp}</span>`;
-            }).join(' ');
-
-            if (parseFloat(info.average) >= 88) {
-                detailSaran = "Siswa memiliki konsistensi nilai akademis yang luar biasa tinggi (Top Tier). Disarankan mempertahankan kestabilan performa ini di Kelas XI agar memperbesar peluang kelulusan prodi favorit melalui jalur SNBP (Prestasi Rapor).";
-            } else if (info.merah > 0) {
-                detailSaran = `Perhatian Wali Kelas: Terdapat <strong>${info.merah} modul kompetensi nilai di bawah KKM (< 75)</strong>. Fokus utama adalah melakukan remedial intensif and pendampingan belajar sebelum memasuki penentuan penguncian kuota kelas pilihan esok hari.`;
-            } else {
-                detailSaran = "Performa akademis cenderung stabil, aman, dan merata. Disarankan untuk mulai aktif berkonsultasi dengan Guru BK guna memantapkan pemilihan paket peminatan karir yang selaras dengan cita-cita program studi perguruan tinggi.";
-            }
-
-            htmlKontenHasil = `
-                <p style="margin-bottom:8px;"><strong>Analisis Kecenderungan Kemampuan Akademis (Fase E):</strong></p>
-                <ul style="padding-left:20px; margin-bottom:16px; font-size:13px; color:#334155; line-height:1.6;">
-                    <li>Rerata Klaster Eksakta / Sains: <strong style="color:#1d4ed8;">${avgSains.toFixed(1)}</strong></li>
-                    <li>Rerata Klaster Sosial / Humaniora: <strong style="color:#b45309;">${avgSos.toFixed(1)}</strong></li>
-                    <li>Rekomendasi Arah Rumpun: <span class="plotting-tag" style="background:var(--slate-900); color:white; padding:2px 8px; font-weight:700; border:none; border-radius:4px;">${rekomendasiRumpun}</span></li>
-                </ul>
-                <p style="margin-bottom:10px; font-size:14px; color:#1e293b;"><strong>🎯 Rekomendasi Paket Mata Pelajaran Pilihan (Saat Naik ke Kelas XI):</strong></p>
-                <div style="background:#ffffff; border:1px solid #e2e8f0; padding:14px; border-radius:8px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:8px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);">
-                    ${tagsMapelKelasX}
-                </div>
-                <p style="font-size:13px; color:#475569; line-height:1.6;"><strong>Rekomendasi Strategis Tatap Karir:</strong><br>${detailSaran}</p>
-            `;
+            listMapelRekomendasiSistem = ["Ekonomi","Sosiologi","Geografi","Sejarah Peminatan","Bahasa Inggris Tingkat Lanjut"];
         }
 
-        document.getElementById('kontenRekapEvaluasiPersonal').innerHTML = htmlKontenHasil;
-        document.getElementById('resultSiswaSection').style.display = 'block';
+        let tagsMapelKelasX = listMapelRekomendasiSistem.map(mp => {
+            let warnaBadge  = avgSains >= avgSos ? "#1d4ed8" : "#b45309";
+            let bgBadge     = avgSains >= avgSos ? "#eff6ff"  : "#fff7ed";
+            let borderBadge = avgSains >= avgSos ? "#bfdbfe"  : "#ffedd5";
+            return `<span class="plotting-tag" style="background:${bgBadge}; color:${warnaBadge}; font-weight:700; border-color:${borderBadge}; padding:4px 10px; margin-top:5px; border-radius:6px;">📌 ${mp}</span>`;
+        }).join(' ');
+
+        if (parseFloat(info.average) >= 88) {
+            detailSaran = "Siswa memiliki konsistensi nilai akademis yang luar biasa tinggi (Top Tier). Disarankan mempertahankan kestabilan performa ini di Kelas XI agar memperbesar peluang kelulusan prodi favorit melalui jalur SNBP (Prestasi Rapor).";
+        } else if (info.merah > 0) {
+            detailSaran = `Perhatian Wali Kelas: Terdapat <strong>${info.merah} modul kompetensi nilai di bawah KKM (< 75)</strong>. Fokus utama adalah melakukan remedial intensif and pendampingan belajar sebelum memasuki penentuan penguncian kuota kelas pilihan esok hari.`;
+        } else {
+            detailSaran = "Performa akademis cenderung stabil, aman, dan merata. Disarankan untuk mulai aktif berkonsultasi dengan Guru BK guna memantapkan pemilihan paket peminatan karir yang selaras dengan cita-cita program studi perguruan tinggi.";
+        }
+
+        htmlKontenHasil = `
+            <p style="margin-bottom:8px;"><strong>Analisis Kecenderungan Kemampuan Akademis (Fase E):</strong></p>
+            <ul style="padding-left:20px; margin-bottom:16px; font-size:13px; color:#334155; line-height:1.6;">
+                <li>Rerata Klaster Eksakta / Sains: <strong style="color:#1d4ed8;">${avgSains.toFixed(1)}</strong></li>
+                <li>Rerata Klaster Sosial / Humaniora: <strong style="color:#b45309;">${avgSos.toFixed(1)}</strong></li>
+                <li>Rekomendasi Arah Rumpun: <span class="plotting-tag" style="background:var(--slate-900); color:white; padding:2px 8px; font-weight:700; border:none; border-radius:4px;">${rekomendasiRumpun}</span></li>
+            </ul>
+            <p style="margin-bottom:10px; font-size:14px; color:#1e293b;"><strong>🎯 Rekomendasi Paket Mata Pelajaran Pilihan (Saat Naik ke Kelas XI):</strong></p>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; padding:14px; border-radius:8px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:8px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.02);">
+                ${tagsMapelKelasX}
+            </div>
+            <p style="font-size:13px; color:#475569; line-height:1.6;"><strong>Rekomendasi Strategis Tatap Karir:</strong><br>${detailSaran}</p>
+        `;
     }
 
-
+    document.getElementById('kontenRekapEvaluasiPersonal').innerHTML = htmlKontenHasil;
+    document.getElementById('resultSiswaSection').style.display = 'block';
+}
 
     // ============================================================
     // 3. FUNGSI AUTOCOMPLETE (KUNCI MATI TOTAL UNTUK SISWA)
