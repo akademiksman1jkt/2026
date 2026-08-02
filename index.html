@@ -3232,51 +3232,61 @@ function renderNilaiKeHalamanWeb(siswa) {
     document.getElementById('resKelas').innerText      = siswa[3];
     document.getElementById('resNisnNis').innerText    = `${siswa[0]}/${siswa[1]}`;
 
-    // 🌟 BARU: Cari data biodata siswa dari memori global berdasarkan NISN/Nama
+    // 🌟 PENCARIAN BIODATA LEBIH FLEKSIBEL & TAHAN PERBEDAAN FORMAT KEY/PROPERTI
     let bioSiswa = null;
     if (typeof dataBiodataGlobal !== 'undefined' && Array.isArray(dataBiodataGlobal)) {
-        bioSiswa = dataBiodataGlobal.find(b => 
-            (b.nisn && String(b.nisn).trim() === String(siswa[0]).trim()) ||
-            (b.nama_siswa && b.nama_siswa.toLowerCase().trim() === String(siswa[2]).toLowerCase().trim()) ||
-            (b.nama && b.nama.toLowerCase().trim() === String(siswa[2]).toLowerCase().trim())
-        );
-    }
+        let cleanNisnInput = String(siswa[0] || "").replace(/\D/g, '').trim();
+        let cleanNamaInput = String(siswa[2] || "").toLowerCase().trim();
 
-    // 🌟 BARU: Cetak Tempat Tanggal Lahir (resTtl) & Agama (resAgama)
-    if (document.getElementById('resTtl')) {
-        document.getElementById('resTtl').innerText = bioSiswa ? (bioSiswa.ttl || "-") : "-";
-    }
-    if (document.getElementById('resAgama')) {
-        document.getElementById('resAgama').innerText = bioSiswa ? (bioSiswa.agama || "-") : "-";
-    }
+        bioSiswa = dataBiodataGlobal.find(b => {
+            if (!b) return false;
+            let bNisn = String(b.nisn || b.NISN || b["NISN"] || "").replace(/\D/g, '').trim();
+            let bNama = String(b.nama_siswa || b.nama || b["NAMA SISWA"] || b["NAMA"] || "").toLowerCase().trim();
 
-    // ... sisa kode di bawahnya tetap sama tanpa ada yang diubah ...
-
-        let info = hitungStatistikSiswa(siswa);
-        document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('resCountNilai').innerText         = info.count + " Data";
-        document.getElementById('resRataRata').innerText           = info.average;
-        document.getElementById('resPeringkat').innerText          = siswa[5] || '-';
-        document.getElementById('resMapelMerahPersonal').innerText = info.merah;
-        document.getElementById('resPeringkatKelas').innerText     = "#" + dapatkanPeringkatKelasSiswa(siswa[0], siswa[3]);
-
-        document.getElementById('nilaiTableBody').innerHTML = "";
-        daftarMapel.forEach((m, idx) => {
-            let start    = 6 + (idx * 6);
-            let hasValue = false;
-            for (let s = 0; s < 6; s++) { if (siswa[start + s]) hasValue = true; }
-
-            if (hasValue) {
-                let rHtml = `<tr><td><strong>${m.namaLengkap}</strong></td>`;
-                for (let s = 0; s < 6; s++) {
-                    let v = siswa[start + s] || '-';
-                    rHtml += (parseFloat(v) < 75)
-                        ? `<td><span class="text-nilai-kurang">${v}</span></td>`
-                        : `<td>${v}</td>`;
-                }
-                document.getElementById('nilaiTableBody').innerHTML += rHtml + `</tr>`;
-            }
+            // Cocokkan NISN (jika ada) ATAU cocokkan Nama Siswa
+            return (cleanNisnInput && bNisn === cleanNisnInput) || (cleanNamaInput && bNama === cleanNamaInput);
         });
+    }
+
+    // 🌟 PEMBACAAN TTL (Mendukung berbagai variasi header kolom Google Sheets)
+    if (document.getElementById('resTtl')) {
+        let valTtl = bioSiswa ? (bioSiswa.ttl || bioSiswa["TEMPAT TANGGAL LAHIR"] || bioSiswa.tempat_tanggal_lahir || bioSiswa.TTL || "-") : "-";
+        document.getElementById('resTtl').innerText = valTtl;
+    }
+
+    // 🌟 PEMBACAAN AGAMA (Mendukung berbagai variasi header kolom Google Sheets)
+    if (document.getElementById('resAgama')) {
+        let valAgama = bioSiswa ? (bioSiswa.agama || bioSiswa["AGAMA"] || bioSiswa.Agama || "-") : "-";
+        document.getElementById('resAgama').innerText = valAgama;
+    }
+
+    // ... sisa kode di bawahnya (hitungStatistikSiswa, renderNilaiTableBody, dll) tetap sama ...
+    let info = hitungStatistikSiswa(siswa);
+    document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('resCountNilai').innerText         = info.count + " Data";
+    document.getElementById('resRataRata').innerText           = info.average;
+    document.getElementById('resPeringkat').innerText          = siswa[5] || '-';
+    document.getElementById('resMapelMerahPersonal').innerText = info.merah;
+    document.getElementById('resPeringkatKelas').innerText     = "#" + dapatkanPeringkatKelasSiswa(siswa[0], siswa[3]);
+
+    document.getElementById('nilaiTableBody').innerHTML = "";
+    daftarMapel.forEach((m, idx) => {
+        let start    = 6 + (idx * 6);
+        let hasValue = false;
+        for (let s = 0; s < 6; s++) { if (siswa[start + s]) hasValue = true; }
+
+        if (hasValue) {
+            let rHtml = `<tr><td><strong>${m.namaLengkap}</strong></td>`;
+            for (let s = 0; s < 6; s++) {
+                let v = siswa[start + s] || '-';
+                rHtml += (parseFloat(v) < 75)
+                    ? `<td><span class="text-nilai-kurang">${v}</span></td>`
+                    : `<td>${v}</td>`;
+            }
+            document.getElementById('nilaiTableBody').innerHTML += rHtml + `</tr>`;
+        }
+    });
+}
 
         // Pemetaan TKA UTBK & rekomendasi rumpun
         let totalSains = 0, cSains = 0, totalSos = 0, cSos = 0;
