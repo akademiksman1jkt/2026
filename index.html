@@ -3602,18 +3602,37 @@
                 } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
             }),
             downloadCloudSheet("Sistem_Users", function(rows) {
-                try {
-                    if (!rows) return; // PENGAMAN: Jika sheet kosong atau bermasalah
-                    cloudUsersCache = [];
-                    rows.forEach(function(row) {
-                        if (!row || !row.c) return;
-                        let cells = row.c.map(function(cell) { return cell ? String(cell.v) : ""; });
-                        if (cells[0] && cells[0] !== "Username") {
-                            cloudUsersCache.push({ username: cells[0], pass: cells[1], role: cells[2] });
-                        }
-                    });
-                } catch(e) { console.warn('[Portal] Users parse err:', e); }
-            }),
+    try {
+        if (!rows) return;
+        cloudUsersCache = [];
+        rows.forEach(function(row) {
+            if (!row || !row.c) return;
+            
+            let cells = row.c.map(function(cell) { 
+                return cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : ""; 
+            });
+
+            let uName = cells[0] || ""; // Kolom A: Username
+            let pWord = cells[1] || ""; // Kolom B: Password
+            let rOle  = cells[2] || ""; // Kolom C: Role
+            let nAma  = cells[3] || ""; // Kolom D: Nama Lengkap
+
+            if (uName && uName.toLowerCase() !== "username") {
+                cloudUsersCache.push({ 
+                    username: uName, 
+                    pass:     pWord, 
+                    role:     rOle,
+                    nama:     nAma !== "" ? nAma : uName 
+                });
+            }
+        });
+
+        localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache));
+
+    } catch(e) { 
+        console.warn('[Portal] Users parse err:', e);
+    }
+});
             // 🌟 BERHASIL DIMASUKKAN: Pengunduh Tab Biodata Secara Mandiri & Paralel
             downloadCloudSheet("Sheet_Biodata", function(rows) {
                 try {
