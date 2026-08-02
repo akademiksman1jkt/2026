@@ -8431,7 +8431,22 @@ function simpanAksesMenuDinamis() {
         if (typeof tegakkanHakAksesSistem === 'function') tegakkanHakAksesSistem();
     }
 }
+// Disable Klik Kanan
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+});
 
+// Disable Shortcut F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+document.addEventListener('keydown', function(e) {
+    if (
+        e.keyCode === 123 || // F12
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // Ctrl+Shift+I / J
+        (e.ctrlKey && e.keyCode === 85) // Ctrl+U (View Source)
+    ) {
+        e.preventDefault();
+        return false;
+    }
+});
 </script>
 </body>
 </html>
