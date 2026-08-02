@@ -4845,76 +4845,97 @@ finally {
     // LEGER SATU ANGKATAN
     // ============================================================
     function tampilkanLegerSatuAngkatan() {
-        const jenjang  = document.getElementById('selectAngkatanJenjang').value;
-        const sortMode = document.getElementById('selectSortModeAngkatan').value;
-        const tHeader  = document.getElementById('angkatanLegerTableHeader');
-        const tBody    = document.getElementById('angkatanLegerTableBody');
-        if (!jenjang) return;
+    const jenjang  = document.getElementById('selectAngkatanJenjang').value;
+    const sortMode = document.getElementById('selectSortModeAngkatan').value;
+    const tHeader  = document.getElementById('angkatanLegerTableHeader');
+    const tBody    = document.getElementById('angkatanLegerTableBody');
+    if (!jenjang) return;
 
-        let filterAngkatan = dataSiswaGlobal.filter(row => {
-            let kelasSiswa = (row[3] || "").toUpperCase().trim();
-            if (jenjang === "X")   return kelasSiswa.startsWith("X-")   || kelasSiswa.startsWith("X ");
-            if (jenjang === "XI")  return kelasSiswa.startsWith("XI-")  || kelasSiswa.startsWith("XI ");
-            if (jenjang === "XII") return kelasSiswa.startsWith("XII-") || kelasSiswa.startsWith("XII ");
-            return false;
-        });
-
-        if (filterAngkatan.length === 0) {
-            tBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; font-style:italic; padding:20px;">Data siswa angkatan jenjang ${jenjang} tidak ditemukan atau belum sinkron.</td></tr>`;
-            return;
-        }
-
-        if (sortMode === 'rank_paralel') {
-    filterAngkatan.sort((a, b) => {
-        let statA = hitungStatistikSiswa(a);
-        let statB = hitungStatistikSiswa(b);
-        let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
-        let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
-        return avgB - avgA; // Urutkan dari rata-rata tertinggi ke terendah
+    let filterAngkatan = dataSiswaGlobal.filter(row => {
+        let kelasSiswa = (row[3] || "").toUpperCase().trim();
+        if (jenjang === "X")   return kelasSiswa.startsWith("X-")   || kelasSiswa.startsWith("X ");
+        if (jenjang === "XI")  return kelasSiswa.startsWith("XI-")  || kelasSiswa.startsWith("XI ");
+        if (jenjang === "XII") return kelasSiswa.startsWith("XII-") || kelasSiswa.startsWith("XII ");
+        return false;
     });
-}
-        else if (sortMode === 'nama_asc')     filterAngkatan.sort((a, b) => (a[2] || "").localeCompare(b[2] || ""));
-        else if (sortMode === 'kelas_asc')    filterAngkatan.sort((a, b) => (a[3] || "").localeCompare(b[3] || "") || (a[2] || "").localeCompare(b[2] || ""));
 
-        tHeader.innerHTML = `<tr>
-            <th class="freeze-col-1" style="text-align:center; width:80px;">Rank P.</th>
-            <th class="freeze-col-2">Nama Lengkap Siswa</th>
-            <th style="text-align:center; width:100px;">Kelas</th>
-            <th style="text-align:center; width:130px;">NISN / ID</th>
-            <th style="text-align:center; width:120px;">Rata-Rata Rapor</th>
-            <th style="text-align:center; width:140px; color:var(--danger)">&lt; 75 (KKM)</th>
-        </tr>`;
-
-        tBody.innerHTML  = "";
-        const fragment   = document.createDocumentFragment();
-
-        filterAngkatan.forEach((siswa, index) => {
-            let stat       = hitungStatistikSiswa(siswa);
-            let rankParalel = index + 1;
-            let isTop3     = index < 3 && sortMode === 'rank_paralel';
-            const tr       = document.createElement('tr');
-            if (isTop3) tr.className = "highlight-rank";
-
-            tr.innerHTML = `
-                <td class="freeze-col-1" style="text-align:center; font-weight:700;">#${rankParalel}</td>
-                <td class="freeze-col-2"><strong>${siswa[2].toUpperCase()}</strong></td>
-                <td style="text-align:center;"><span class="plotting-tag">${siswa[3]}</span></td>
-                <td style="text-align:center;"><code>${siswa[0]}</code></td>
-                <td style="font-weight:800; color:var(--primary); text-align:center;">${stat.average}</td>
-                <td style="text-align:center;"><span class="${stat.merah > 0 ? 'text-nilai-kurang' : ''}" style="font-weight:700;">${stat.merah} Mapel</span></td>
-            `;
-            fragment.appendChild(tr);
-        });
-
-        tBody.appendChild(fragment);
-        document.getElementById('resultAngkatanSection').style.display = 'block';
+    if (filterAngkatan.length === 0) {
+        tBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; font-style:italic; padding:20px;">Data siswa angkatan jenjang ${jenjang} tidak ditemukan atau belum sinkron.</td></tr>`;
+        return;
     }
+
+    // 🌟 LANGKAH 1: HITUNG STATISTIK & KUNCI RANK PARALEL MURNI TERLEBIH DAHULU
+    let dataDenganRank = filterAngkatan.map(siswa => {
+        let stat = hitungStatistikSiswa(siswa);
+        let avgNum = stat.count > 0 ? (stat.sum / stat.count) : 0;
+        return {
+            siswa: siswa,
+            stat: stat,
+            avgNum: avgNum
+        };
+    });
+
+    // Urutkan berdasarkan rata-rata tertinggi untuk menentukan Rank Paralel Asli
+    dataDenganRank.sort((a, b) => b.avgNum - a.avgNum);
+
+    // Kunci peringkat murni ke tiap objek data
+    dataDenganRank.forEach((item, index) => {
+        item.rankParalelMurni = index + 1; // Peringkat #1, #2, #3 dst berdasarkan nilai
+    });
+
+    // 🌟 LANGKAH 2: LAKUKAN SORTING SESUAI MODE PILIHAN USER
+    if (sortMode === 'rank_paralel') {
+        // Sudah terurut berdasarkan rata-rata tertinggi dari Langkah 1
+    } else if (sortMode === 'nama_asc') {
+        dataDenganRank.sort((a, b) => (a.siswa[2] || "").localeCompare(b.siswa[2] || ""));
+    } else if (sortMode === 'kelas_asc') {
+        dataDenganRank.sort((a, b) => (a.siswa[3] || "").localeCompare(b.siswa[3] || "") || (a.siswa[2] || "").localeCompare(b.siswa[2] || ""));
+    }
+
+    // 🌟 LANGKAH 3: RENDER TAMPILAN TABEL
+    tHeader.innerHTML = `<tr>
+        <th class="freeze-col-1" style="text-align:center; width:80px;">Rank P.</th>
+        <th class="freeze-col-2">Nama Lengkap Siswa</th>
+        <th style="text-align:center; width:100px;">Kelas</th>
+        <th style="text-align:center; width:130px;">NISN / ID</th>
+        <th style="text-align:center; width:120px;">Rata-Rata Rapor</th>
+        <th style="text-align:center; width:140px; color:var(--danger)">&lt; 75 (KKM)</th>
+    </tr>`;
+
+    tBody.innerHTML = "";
+    const fragment  = document.createDocumentFragment();
+
+    dataDenganRank.forEach(item => {
+        let siswa       = item.siswa;
+        let stat        = item.stat;
+        let rankParalel = item.rankParalelMurni; // 🌟 GUNAKAN RANK PARALEL MURNI (BUKAN INDEX LOOP)
+        let isTop3      = rankParalel <= 3;     // Top 3 se-angkatan selalu ter-highlight konsisten!
+        
+        const tr        = document.createElement('tr');
+        if (isTop3) tr.className = "highlight-rank";
+
+        tr.innerHTML = `
+            <td class="freeze-col-1" style="text-align:center; font-weight:700;">#${rankParalel}</td>
+            <td class="freeze-col-2"><strong>${(siswa[2] || "").toUpperCase()}</strong></td>
+            <td style="text-align:center;"><span class="plotting-tag">${siswa[3] || "-"}</span></td>
+            <td style="text-align:center;"><code>${siswa[0] || "-"}</code></td>
+            <td style="font-weight:800; color:var(--primary); text-align:center;">${stat.average}</td>
+            <td style="text-align:center;"><span class="${stat.merah > 0 ? 'text-nilai-kurang' : ''}" style="font-weight:700;">${stat.merah} Mapel</span></td>
+        `;
+        fragment.appendChild(tr);
+    });
+
+    tBody.appendChild(fragment);
+    document.getElementById('resultAngkatanSection').style.display = 'block';
+}
 
     // ============================================================
 // EKSPOR EXCEL ANGKATAN
 // ============================================================
 function eksporExcelAngkatan() {
-    const jenjang = document.getElementById('selectAngkatanJenjang').value;
+    const jenjang  = document.getElementById('selectAngkatanJenjang').value;
+    const sortMode = document.getElementById('selectSortModeAngkatan') ? document.getElementById('selectSortModeAngkatan').value : 'rank_paralel';
+
     if (!jenjang) { 
         alert("Silakan tentukan jenjang angkatan terlebih dahulu!"); 
         return; 
@@ -4934,16 +4955,35 @@ function eksporExcelAngkatan() {
         return; 
     }
 
-    // 2. Sorting Berdasarkan Rata-Rata Tertinggi ke Terendah
-    filterAngkatan.sort((a, b) => {
-        let statA = hitungStatistikSiswa(a);
-        let statB = hitungStatistikSiswa(b);
-        let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
-        let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
-        return avgB - avgA;
+    // 🌟 2. HITUNG STATISTIK & KUNCI RANK PARALEL MURNI TERLEBIH DAHULU
+    let dataDenganRank = filterAngkatan.map(siswa => {
+        let stat = hitungStatistikSiswa(siswa);
+        let avgNum = stat.count > 0 ? (stat.sum / stat.count) : 0;
+        return {
+            siswa: siswa,
+            stat: stat,
+            avgNum: avgNum
+        };
     });
 
-    // 3. Header Matriks Data
+    // Urutkan berdasarkan rata-rata tertinggi untuk menentukan Rank Paralel Asli
+    dataDenganRank.sort((a, b) => b.avgNum - a.avgNum);
+
+    // Kunci nomor peringkat murni ke tiap data
+    dataDenganRank.forEach((item, index) => {
+        item.rankParalelMurni = index + 1;
+    });
+
+    // 🌟 3. URUTKAN KEMBALI DATA SESUAI PILIHAN SORTMODE USER
+    if (sortMode === 'rank_paralel') {
+        // Sudah terurut berdasarkan skor rata-rata dari langkah di atas
+    } else if (sortMode === 'nama_asc') {
+        dataDenganRank.sort((a, b) => (a.siswa[2] || "").localeCompare(b.siswa[2] || ""));
+    } else if (sortMode === 'kelas_asc') {
+        dataDenganRank.sort((a, b) => (a.siswa[3] || "").localeCompare(b.siswa[3] || "") || (a.siswa[2] || "").localeCompare(b.siswa[2] || ""));
+    }
+
+    // 4. Header Matriks Data
     let matrixData = [
         [`MASTER LEGER DATA COMPREHENSIVE SATU ANGKATAN JENJANG KELAS ${jenjang}`],
         [`SMAN 1 JAKARTA - TOTAL RECORD DATA: ${filterAngkatan.length} SISWA`],
@@ -4960,7 +5000,7 @@ function eksporExcelAngkatan() {
     });
     matrixData.push(subHeaderRow);
 
-    // 4. Penggabungan Sel (Merges)
+    // 5. Penggabungan Sel (Merges)
     let merges = [
         { s: { r: 4, c: 0 }, e: { r: 5, c: 0 } }, 
         { s: { r: 4, c: 1 }, e: { r: 5, c: 1 } },
@@ -4977,18 +5017,18 @@ function eksporExcelAngkatan() {
         colIndexStart += 6;
     });
 
-    // 5. Isi Row Data Siswa
-    filterAngkatan.forEach((siswa, idx) => {
-        let stat = hitungStatistikSiswa(siswa);
-        let rankTerbaru = idx + 1;
+    // 🌟 6. Isi Row Data Siswa (Menggunakan dataDenganRank)
+    dataDenganRank.forEach(item => {
+        let siswa = item.siswa;
+        let stat  = item.stat;
+        let rank  = item.rankParalelMurni; // 🌟 Rank murni tetap konsisten meski di-sort A-Z!
 
-        // Handling aman untuk stat.average (String / Number)
         let avgVal = typeof stat.average === 'string' 
             ? parseFloat(stat.average.replace(',', '.')) 
             : parseFloat(stat.average || 0);
 
         let rowSiswa = [
-            rankTerbaru, 
+            rank, 
             (siswa[2] || "").toUpperCase(), 
             siswa[3], 
             siswa[0], 
@@ -5007,11 +5047,11 @@ function eksporExcelAngkatan() {
         matrixData.push(rowSiswa);
     });
 
-    // 6. Buat Sheet
+    // 7. Buat Sheet
     let ws = XLSX.utils.aoa_to_sheet(matrixData);
     ws['!merges'] = merges;
 
-    // 7. Styling Cell
+    // 8. Styling Cell
     let borderGarisTipis = { 
         top: { style: "thin", color: { rgb: "A0AEC0" } }, 
         bottom: { style: "thin", color: { rgb: "A0AEC0" } }, 
@@ -5050,7 +5090,7 @@ function eksporExcelAngkatan() {
         }
     }
 
-    // 8. Lebar Kolom
+    // 9. Lebar Kolom
     let colWidths = [];
     let totalKolomTabel = 7 + (daftarMapel.length * 6);
     for (let c = 0; c < totalKolomTabel; c++) {
@@ -5063,10 +5103,10 @@ function eksporExcelAngkatan() {
     }
     ws['!cols'] = colWidths;
 
-    // 9. Unduh File Excel
+    // 10. Unduh File Excel
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Master Angkatan");
-    XLSX.writeFile(wb, `Master_Leger_Angkatan_${jenjang}_Terformat.xlsx`);
+    XLSX.writeFile(wb, `Master_Leger_Angkatan_${jenjang}_Sorted.xlsx`);
 }
     // ============================================================
     // VOTING SIDANG PLENO
