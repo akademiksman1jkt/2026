@@ -2922,7 +2922,7 @@
         return {
             sum:         sumTotal,
             count:       countTotal,
-            average:     countTotal > 0 ? (sumTotal / countTotal).toFixed(1) : "0.00",
+            average:     countTotal > 0 ? (sumTotal / countTotal).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00",
             merah:       mapelMerah,
             rincianMerah: rincianMerah.join(", ")
         };
@@ -3038,7 +3038,7 @@
         document.getElementById('resNisnNis').innerText    = `${siswa[0]}/${siswa[1]}`;
 
         let info = hitungStatistikSiswa(siswa);
-        document.getElementById('resSumNilai').innerText           = info.sum.toFixed(1);
+        document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         document.getElementById('resCountNilai').innerText         = info.count + " Data";
         document.getElementById('resRataRata').innerText           = info.average;
         document.getElementById('resPeringkat').innerText          = siswa[5] || '-';
