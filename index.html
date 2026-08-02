@@ -8201,86 +8201,77 @@ function dapatkanMockBiodataLengkap(siswaRow) {
 // FUNGSI PENCARIAN BIODATA SISWA INDIVIDU
 // ====================================================================
 function cariBiodataSiswaIndividu() {
-    let key = document.getElementById('searchKeyBiodata').value.trim().toLowerCase();
+    let keyInput = document.getElementById('searchKeyBiodata');
+    if (!keyInput) return;
+    
+    let key = keyInput.value.trim().toLowerCase();
     if (!key) return;
     
-    // Scan pencarian awal berdasarkan kata kunci ke memori database global
-    let targetBioRow = (Array.isArray(dataBiodataGlobal) ? dataBiodataGlobal : (dataBiodataGlobal.biodata || [])).find(row => {
+    // 1. Ambil data dari memori global
+    let listBio = Array.isArray(dataBiodataGlobal) ? dataBiodataGlobal : (dataBiodataGlobal.biodata || []);
+    
+    if (!listBio || listBio.length === 0) {
+        alert("Database biodata belum selesai dimuat dari Google Sheets. Pastikan koneksi internet terhubung dan jalankan web melalui server local / Live Server.");
+        return;
+    }
+
+    // 2. Scan pencarian
+    let targetBioRow = listBio.find(row => {
         if (!row) return false;
         let bNama = row.nama ? row.nama.toString().toLowerCase() : (row.nama_siswa ? row.nama_siswa.toString().toLowerCase() : "");
         let bNisn = row.nisn ? row.nisn.toString().toLowerCase() : "";
         return bNama.includes(key) || bNisn.includes(key);
     });
 
-    // Umpankan hasil temuan ke fungsi pembentuk objek profil (dengan fallback safety)
-    let b = typeof dapatkanMockBiodataLengkap === 'function' 
-        ? dapatkanMockBiodataLengkap(targetBioRow ? [targetBioRow.nisn, "-", targetBioRow.nama || targetBioRow.nama_siswa, targetBioRow.kelas] : null)
-        : {};
-
-    // Ambil data mentah langsung dari row spreadsheet jika tersedia
-    if (targetBioRow) {
-        b.nama = targetBioRow.nama || targetBioRow.nama_siswa || b.nama || "-";
-        b.kelas = targetBioRow.kelas || b.kelas || "-";
-        b.nisn = targetBioRow.nisn || b.nisn || "-";
-        b.ttl = targetBioRow.ttl || targetBioRow["TEMPAT TANGGAL LAHIR"] || b.ttl || "-";
-        b.agama = targetBioRow.agama || targetBioRow["AGAMA"] || b.agama || "-";
-        b.alamatSiswa = targetBioRow.alamat_siswa || targetBioRow.alamat || b.alamatSiswa || "-";
-        b.statusKeluarga = targetBioRow.status_dlm_keluarga || targetBioRow.status || b.statusKeluarga || "-";
-        b.anakKe = targetBioRow.anak_ke || targetBioRow.anakke || b.anakKe || "-";
-        b.asalSekolah = targetBioRow.asal_sekolah || targetBioRow.asal || b.asalSekolah || "-";
-        b.diterimaDiKelas = targetBioRow.diterima_di_kelas || targetBioRow.diterima || b.diterimaDiKelas || "-";
-        b.kerjaAyah = targetBioRow.pekerjaan_ayah || targetBioRow.ayah || b.kerjaAyah || "-";
-        b.kerjaIbu = targetBioRow.pekerjaan_ibu || targetBioRow.ibu || b.kerjaIbu || "-";
-        b.alamatOrtu = targetBioRow.alamat_ortu || targetBioRow.alamatortu || b.alamatOrtu || "-";
-        b.telpOrtu = targetBioRow.telepon_ortu || targetBioRow.telepon || b.telpOrtu || "-";
-        b.kerjaWali = targetBioRow.pekerjaan_wali || targetBioRow.wali || b.kerjaWali || "-";
-        b.alamatWali = targetBioRow.alamat_wali || targetBioRow.alamatwali || b.alamatWali || "-";
-        b.telpWali = targetBioRow.telepon_wali || targetBioRow.teleponwali || b.telpWali || "-";
+    if (!targetBioRow) {
+        alert("Data siswa tidak ditemukan!");
+        return;
     }
 
-    // CETAK IDENTITAS PANEL UTAMA
-    if (b && b.nama && b.nama !== "-") {
-        document.getElementById('bioNama').innerText = b.nama.toUpperCase();
-        
-        if (document.getElementById('bioBadgeKelas')) {
-            document.getElementById('bioBadgeKelas').innerText = b.kelas.toUpperCase();
-            document.getElementById('bioBadgeKelas').style.display = ""; 
-            document.getElementById('bioBadgeKelas').style.fontSize = "";
-            document.getElementById('bioBadgeKelas').style.color = "";
-            document.getElementById('bioBadgeKelas').style.fontWeight = "";
-        }
+    // 3. Buat Objek Penampung yang Aman (Bypass Null)
+    let b = {
+        nama:           targetBioRow.nama || targetBioRow.nama_siswa || "-",
+        kelas:          targetBioRow.kelas || "-",
+        nisn:           targetBioRow.nisn || "-",
+        ttl:            targetBioRow.ttl || targetBioRow["TEMPAT TANGGAL LAHIR"] || "-",
+        agama:          targetBioRow.agama || targetBioRow["AGAMA"] || "-",
+        alamatSiswa:    targetBioRow.alamat_siswa || targetBioRow.alamat || "-",
+        statusKeluarga: targetBioRow.status_dlm_keluarga || targetBioRow.status || "-",
+        anakKe:         targetBioRow.anak_ke || targetBioRow.anakke || "-",
+        asalSekolah:    targetBioRow.asal_sekolah || targetBioRow.asal || "-",
+        diterimaDiKelas:targetBioRow.diterima_di_kelas || targetBioRow.diterima || "-",
+        kerjaAyah:      targetBioRow.pekerjaan_ayah || targetBioRow.ayah || "-",
+        kerjaIbu:       targetBioRow.pekerjaan_ibu || targetBioRow.ibu || "-",
+        alamatOrtu:     targetBioRow.alamat_ortu || targetBioRow.alamatortu || "-",
+        telpOrtu:       targetBioRow.telepon_ortu || targetBioRow.telepon || "-",
+        kerjaWali:      targetBioRow.pekerjaan_wali || targetBioRow.wali || "-",
+        alamatWali:     targetBioRow.alamat_wali || targetBioRow.alamatwali || "-",
+        telpWali:       targetBioRow.telepon_wali || targetBioRow.teleponwali || "-"
+    };
 
-        if (document.getElementById('bioNisn')) document.getElementById('bioNisn').innerText = b.nisn;
-        if (document.getElementById('bioNis'))  document.getElementById('bioNis').innerText  = b.nis || "-"; 
+    // 4. CETAK IDENTITAS PANEL UTAMA
+    if (document.getElementById('bioNama'))           document.getElementById('bioNama').innerText           = b.nama.toUpperCase();
+    if (document.getElementById('bioBadgeKelas'))     document.getElementById('bioBadgeKelas').innerText     = b.kelas.toUpperCase();
+    if (document.getElementById('bioNisn'))           document.getElementById('bioNisn').innerText           = b.nisn;
+    if (document.getElementById('bioTtl'))            document.getElementById('bioTtl').innerText            = b.ttl;
+    if (document.getElementById('bioAgama'))          document.getElementById('bioAgama').innerText          = b.agama;
 
-        // 🌟 BARU: CETAK TTL & AGAMA DI PANEL IDENTITAS PRIBADI
-        if (document.getElementById('bioTtl'))   document.getElementById('bioTtl').innerText   = b.ttl || "-";
-        if (document.getElementById('bioAgama')) document.getElementById('bioAgama').innerText = b.agama || "-";
+    // 5. CETAK PANEL DETAIL BAWAH
+    if (document.getElementById('bioAlamat'))         document.getElementById('bioAlamat').innerText         = b.alamatSiswa;
+    if (document.getElementById('bioStatusKeluarga')) document.getElementById('bioStatusKeluarga').innerText = b.statusKeluarga;
+    if (document.getElementById('bioAnakKe'))         document.getElementById('bioAnakKe').innerText         = b.anakKe;
+    if (document.getElementById('bioAsalSekolah'))    document.getElementById('bioAsalSekolah').innerText    = b.asalSekolah;
+    if (document.getElementById('bioDiterimaKelas'))  document.getElementById('bioDiterimaKelas').innerText  = b.diterimaDiKelas;
+    if (document.getElementById('bioAyah'))           document.getElementById('bioAyah').innerText           = b.kerjaAyah;
+    if (document.getElementById('bioIbu'))            document.getElementById('bioIbu').innerText            = b.kerjaIbu;
+    if (document.getElementById('bioAlamatOrtu'))     document.getElementById('bioAlamatOrtu').innerText     = b.alamatOrtu;
+    if (document.getElementById('bioTelpOrtu'))       document.getElementById('bioTelpOrtu').innerText       = b.telpOrtu;
+    if (document.getElementById('bioKerjaWali'))      document.getElementById('bioKerjaWali').innerText      = b.kerjaWali;
+    if (document.getElementById('bioAlamatWali'))     document.getElementById('bioAlamatWali').innerText     = b.alamatWali;
+    if (document.getElementById('bioTelpWali'))       document.getElementById('bioTelpWali').innerText       = b.telpWali;
 
-    } else {
-        document.getElementById('bioNama').innerText = "-";
-        if (document.getElementById('bioBadgeKelas')) document.getElementById('bioBadgeKelas').innerText = "-";
-        if (document.getElementById('bioNisn'))       document.getElementById('bioNisn').innerText       = "-";
-        if (document.getElementById('bioNis'))        document.getElementById('bioNis').innerText        = "-";
-        if (document.getElementById('bioTtl'))        document.getElementById('bioTtl').innerText        = "-";
-        if (document.getElementById('bioAgama'))      document.getElementById('bioAgama').innerText      = "-";
-    }
-
-    // CETAK SEKTOR PANEL DETAIL BAWAH WEBSITE
-    if (document.getElementById('bioAlamat'))         document.getElementById('bioAlamat').innerText         = b.alamatSiswa || "-";
-    if (document.getElementById('bioStatusKeluarga')) document.getElementById('bioStatusKeluarga').innerText = b.statusKeluarga || "-";
-    if (document.getElementById('bioAnakKe'))         document.getElementById('bioAnakKe').innerText         = b.anakKe || "-";
-    if (document.getElementById('bioAsalSekolah'))    document.getElementById('bioAsalSekolah').innerText    = b.asalSekolah || "-";
-    if (document.getElementById('bioDiterimaKelas'))  document.getElementById('bioDiterimaKelas').innerText  = b.diterimaDiKelas || "-";
-    if (document.getElementById('bioAyah'))           document.getElementById('bioAyah').innerText           = b.kerjaAyah || "-";
-    if (document.getElementById('bioIbu'))            document.getElementById('bioIbu').innerText            = b.kerjaIbu || "-";
-    if (document.getElementById('bioAlamatOrtu'))     document.getElementById('bioAlamatOrtu').innerText     = b.alamatOrtu || "-";
-    if (document.getElementById('bioTelpOrtu'))       document.getElementById('bioTelpOrtu').innerText       = b.telpOrtu || "-";
-    if (document.getElementById('bioKerjaWali'))      document.getElementById('bioKerjaWali').innerText      = b.kerjaWali || "-";
-    if (document.getElementById('bioAlamatWali'))     document.getElementById('bioAlamatWali').innerText     = b.alamatWali || "-";
-    if (document.getElementById('bioTelpWali'))       document.getElementById('bioTelpWali').innerText       = b.telpWali || "-";
-
-    document.getElementById('resultBiodataIndividu').style.display = 'block';
+    let containerHasil = document.getElementById('resultBiodataIndividu');
+    if (containerHasil) containerHasil.style.display = 'block';
 }
 
 // ====================================================================
