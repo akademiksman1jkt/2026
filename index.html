@@ -3725,18 +3725,16 @@ function downloadCloudSheet(sheetName, callbackAction) {
                     
                     // 🌟 PERBAIKAN DI SINI (DITAMBAHKAN TTL & AGAMA SERTA DISESUAIKAN DEGAN ARRAY 2D FRONTEND):
                     } else if (sheetName === "Sheet_Biodata" && resData.biodata) {
-    // 🌟 1. SIMPAN ARRAY ASLI KE MEMORI GLOBAL UTAMA (Agar pencarian & ekspor tidak kosong)
-    dataBiodataGlobal = resData.biodata;
+    // Simpan objek utuh ke variabel global agar tidak [] saat ekspor
+    dataBiodataGlobal = resData.biodata; 
 
-    // 🌟 2. PETAKAN KE ARRAY 2D UNTUK ELEMENT TABEL FRONTEND
     sourceArray = resData.biodata.map(b => [
-        "", 
-        b.nama_siswa || b.nama || "", 
-        b.kelas || "", 
-        b.nisn || "", 
-        b.ttl || "",     // TTL
-        b.agama || "",   // AGAMA
-        b.alamat_siswa || "", 
+        b.nisn || "",             // Indeks 0 (NISN)
+        b.nama_siswa || "",       // Indeks 1 (Nama)
+        b.kelas || "",            // Indeks 2 (Kelas)
+        b.agama || "",            // Indeks 3 (Agama)
+        b.ttl || "",              // Indeks 4 (TTL)
+        b.alamat_siswa || "",     // Indeks 5 (Alamat)
         b.status_dlm_keluarga || "", 
         b.anak_ke || "", 
         b.asal_sekolah || "", 
