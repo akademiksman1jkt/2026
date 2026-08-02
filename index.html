@@ -2600,14 +2600,16 @@
 ============================================= -->
 <script>
     (function InisialisasiDataCloud() {
-    if (typeof URL_APPS_SCRIPT === 'undefined' || !URL_APPS_SCRIPT) {
-        console.warn("URL_APPS_SCRIPT belum didefinisikan!");
+    // 🌟 Ubah URL_APPS_SCRIPT menjadi URL_SCRIPT_BIODATA
+    if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) {
+        console.warn("URL_SCRIPT_BIODATA belum didefinisikan!");
         return;
     }
 
     console.log("Memuat database dari Apps Script...");
 
-    fetch(URL_APPS_SCRIPT)
+    // 🌟 Ubah di sini juga
+    fetch(URL_SCRIPT_BIODATA)
         .then(response => response.json())
         .then(resData => {
             console.log("Respon Apps Script Diterima:", resData);
@@ -2621,9 +2623,8 @@
 
             // 2. Simpan Data Nilai Web ke variabel global
             if (resData && Array.isArray(resData.nilai)) {
-                if (typeof dataSiswaGlobal !== 'undefined') {
-                    dataSiswaGlobal = resData.nilai;
-                }
+                window.dataSiswaGlobal = resData.nilai;
+                dataSiswaGlobal = resData.nilai;
             }
 
             console.log("✅ Data Biodata berhasil diisi:", dataBiodataGlobal.length, "siswa");
