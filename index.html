@@ -3725,30 +3725,31 @@ function downloadCloudSheet(sheetName, callbackAction) {
                     
                     // 🌟 PERBAIKAN DI SINI (DITAMBAHKAN TTL & AGAMA SERTA DISESUAIKAN DEGAN ARRAY 2D FRONTEND):
                     } else if (sheetName === "Sheet_Biodata" && resData.biodata) {
-                        // Simpan objek biodata murni langsung ke variabel global jika frontend membutuhkannya
-                        dataBiodataGlobal = resData.biodata; 
+    // 🌟 1. SIMPAN ARRAY ASLI KE MEMORI GLOBAL UTAMA (Agar pencarian & ekspor tidak kosong)
+    dataBiodataGlobal = resData.biodata;
 
-                        sourceArray = resData.biodata.map(b => [
-                            "", 
-                            b.nama_siswa || b.nama || "", 
-                            b.kelas || "", 
-                            b.nisn || "", 
-                            b.ttl || "",    // 🌟 BARU: Tempat Tanggal Lahir (Indeks 4 / Kolom E)
-                            b.agama || "",  // 🌟 BARU: Agama (Indeks 5 / Kolom F)
-                            b.alamat_siswa || "", 
-                            b.status_dlm_keluarga || "", 
-                            b.anak_ke || "", 
-                            b.asal_sekolah || "", 
-                            b.diterima_di_kelas || "", 
-                            b.pekerjaan_ayah || "", 
-                            b.pekerjaan_ibu || "", 
-                            b.alamat_ortu || "", 
-                            b.telepon_ortu || "", 
-                            b.pekerjaan_wali || "", 
-                            b.alamat_wali || "", 
-                            b.telepon_wali || ""
-                        ]);
-                    } else if (sheetName === "Sistem_Plotting" && resData.plotting) {
+    // 🌟 2. PETAKAN KE ARRAY 2D UNTUK ELEMENT TABEL FRONTEND
+    sourceArray = resData.biodata.map(b => [
+        "", 
+        b.nama_siswa || b.nama || "", 
+        b.kelas || "", 
+        b.nisn || "", 
+        b.ttl || "",     // TTL
+        b.agama || "",   // AGAMA
+        b.alamat_siswa || "", 
+        b.status_dlm_keluarga || "", 
+        b.anak_ke || "", 
+        b.asal_sekolah || "", 
+        b.diterima_di_kelas || "", 
+        b.pekerjaan_ayah || "", 
+        b.pekerjaan_ibu || "", 
+        b.alamat_ortu || "", 
+        b.telepon_ortu || "", 
+        b.pekerjaan_wali || "", 
+        b.alamat_wali || "", 
+        b.telepon_wali || ""
+    ]);
+} else if (sheetName === "Sistem_Plotting" && resData.plotting) {
                         sourceArray = resData.plotting.map(p => [p.username, p.kelas, p.mapel]);
                     }
                 } else if (Array.isArray(resData)) {
@@ -8652,22 +8653,6 @@ function simpanAksesMenuDinamis() {
         if (typeof tegakkanHakAksesSistem === 'function') tegakkanHakAksesSistem();
     }
 }
-// Disable Klik Kanan
-document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-});
-
-// Disable Shortcut F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-document.addEventListener('keydown', function(e) {
-    if (
-        e.keyCode === 123 || // F12
-        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // Ctrl+Shift+I / J
-        (e.ctrlKey && e.keyCode === 85) // Ctrl+U (View Source)
-    ) {
-        e.preventDefault();
-        return false;
-    }
-});
 </script>
     <div id="customAlertModal" class="custom-alert-overlay">
   <div class="custom-alert-box">
