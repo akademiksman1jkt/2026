@@ -2599,6 +2599,39 @@
      JAVASCRIPT UTAMA
 ============================================= -->
 <script>
+    (function InisialisasiDataCloud() {
+    if (typeof URL_APPS_SCRIPT === 'undefined' || !URL_APPS_SCRIPT) {
+        console.warn("URL_APPS_SCRIPT belum didefinisikan!");
+        return;
+    }
+
+    console.log("Memuat database dari Apps Script...");
+
+    fetch(URL_APPS_SCRIPT)
+        .then(response => response.json())
+        .then(resData => {
+            console.log("Respon Apps Script Diterima:", resData);
+
+            // 1. Simpan Data Biodata ke variabel global
+            if (resData && Array.isArray(resData.biodata)) {
+                dataBiodataGlobal = resData.biodata;
+            } else if (Array.isArray(resData)) {
+                dataBiodataGlobal = resData;
+            }
+
+            // 2. Simpan Data Nilai Web ke variabel global
+            if (resData && Array.isArray(resData.nilai)) {
+                if (typeof dataSiswaGlobal !== 'undefined') {
+                    dataSiswaGlobal = resData.nilai;
+                }
+            }
+
+            console.log("✅ Data Biodata berhasil diisi:", dataBiodataGlobal.length, "siswa");
+        })
+        .catch(err => {
+            console.error("❌ Gagal mengunduh data awal:", err);
+        });
+})();
     // Simpan fungsi alert bawaan jika sewaktu-waktu dibutuhkan
 window.nativeAlert = window.alert;
 
