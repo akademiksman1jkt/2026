@@ -3529,59 +3529,82 @@
     // ============================================================
     // UNDUH DATA DARI CLOUD (GOOGLE SHEETS)
     // ============================================================
-    function downloadCloudSheet(sheetName, callbackAction) {
-        return new Promise((resolve) => {
-            const script     = document.createElement('script');
-            
-            // 🌟 PERBAIKAN UTAMA: Menggunakan format teks acak murni tanpa angka dinamis/nama sheet
-            // Ini agar Google API tidak mogok dan patuh membaca parameter &range=A:P
-            const cbName     = 'cb' + Math.random().toString(36).substring(2, 9);
-            let done         = false;
+    // ====================================================================
+// URL WEB APP GOOGLE APPS SCRIPT
+// ====================================================================
+const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwA8zc2QKDxrvtKldR8v-MXVq1LX6Xl1t57eRoSEqTXYF_4nqaOwWvGjtD9h5YiudFSDQ/exec";
 
-            function finish() {
-                if (!done) { 
-                    done = true; 
-                    // Bersihkan element script dari dokumen agar memori web tetap ringan
-                    if (script.parentNode) script.parentNode.removeChild(script);
-                    resolve(); 
-                }
+// ====================================================================
+// FUNGSI UNTUK MENGUNDUH DATA SHEET VIA APPS SCRIPT (PRIVAT AMAN)
+// ====================================================================
+function downloadCloudSheet(sheetName, callbackAction) {
+    return new Promise((resolve) => {
+        let done = false;
+
+        function finish() {
+            if (!done) {
+                done = true;
+                resolve();
             }
+        }
 
-            window[cbName] = function(json) {
-                try { 
-                    if (json && json.table && json.table.rows) {
-                        callbackAction(json.table.rows);
-                    } else {
-                        callbackAction([]);
-                    }
-                } catch(e) { 
-                    console.warn('[Portal] Callback error pada sheet "' + sheetName + '":', e); 
-                    callbackAction([]);
-                }
-                finish();
-                delete window[cbName]; // Hapus variabel window setelah selesai agar bersih
-            };
-
-            script.onerror = function() {
-                console.warn('[Portal] Script error: sheet "' + sheetName + '"');
+        // Set Timeout 8 detik untuk penanganan koneksi lambat
+        const timer = setTimeout(function() {
+            if (!done) {
+                console.warn('[Portal] Timeout 8s: sheet "' + sheetName + '"');
                 callbackAction([]);
                 finish();
-            };
+            }
+        }, 8000);
 
-            // Timeout diperpanjang sedikit menjadi 5 detik agar koneksi internet lambat tidak mudah stuck
-            setTimeout(function() {
-                if (!done) {
-                    console.warn('[Portal] Timeout 5s: sheet "' + sheetName + '"');
-                    callbackAction([]);
-                    finish();
+        // Panggil Apps Script dengan parameter sheet
+        fetch(URL_APPS_SCRIPT + "?sheet=" + encodeURIComponent(sheetName))
+            .then(response => response.json())
+            .then(resData => {
+                clearTimeout(timer);
+                
+                // 1. Jika Apps Script mengembalikan objek terpadu (seperti di doGet)
+                let sourceArray = [];
+                if (resData && typeof resData === 'object' && !Array.isArray(resData)) {
+                    if (sheetName === "Sistem_Users" && resData.users) {
+                        // Petakan objek user kembali ke array 2D agar cocok dengan parser frontend
+                        sourceArray = resData.users.map(u => [u.username, u.password, u.role, u.nama]);
+                    } else if (sheetName === "Sheet_Biodata" && resData.biodata) {
+                        sourceArray = resData.biodata.map(b => [
+                            "", b.nama_siswa, b.kelas, b.nisn, b.alamat_siswa, 
+                            b.status_dlm_keluarga, b.anak_ke, b.asal_sekolah, b.diterima_di_kelas, 
+                            b.pekerjaan_ayah, b.pekerjaan_ibu, b.alamat_ortu, b.telepon_ortu, 
+                            b.pekerjaan_wali, b.alamat_wali, b.telepon_wali
+                        ]);
+                    } else if (sheetName === "Sistem_Plotting" && resData.plotting) {
+                        sourceArray = resData.plotting.map(p => [p.username, p.kelas, p.mapel]);
+                    }
+                } else if (Array.isArray(resData)) {
+                    sourceArray = resData;
                 }
-            }, 5000);
 
-            // Tembak langsung dengan encoding nama sheet yang aman dan parameter jangkauan A sampai P utuh
-            script.src = 'https://docs.google.com/spreadsheets/d/1AXfHu142bWpeOHb2aJpEmZI-AT_doa62fIVJVvJCrlY/gviz/tq?sheet=' + encodeURIComponent(sheetName) + '&tqx=responseHandler:' + cbName;
-            document.body.appendChild(script);
-        });
-    }
+                // 2. Format ulang ke struktur { c: [ { v: ... } ] } sesuai harapan parser web kamu
+                if (sourceArray && sourceArray.length > 0) {
+                    let rowsFormatted = sourceArray.map(row => {
+                        let cols = Array.isArray(row) ? row : Object.values(row);
+                        return {
+                            c: cols.map(val => ({ v: val !== undefined && val !== null ? val : "" }))
+                        };
+                    });
+                    callbackAction(rowsFormatted);
+                } else {
+                    callbackAction([]);
+                }
+                finish();
+            })
+            .catch(err => {
+                clearTimeout(timer);
+                console.warn('[Portal] Apps Script fetch error pada sheet "' + sheetName + '":', err);
+                callbackAction([]);
+                finish();
+            });
+    });
+}
 
     // Muat cloud data di BACKGROUND — tidak memblokir login screen
     async function muatDataCloud() {
