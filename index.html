@@ -3722,18 +3722,38 @@ function downloadCloudSheet(sheetName, callbackAction) {
                     if (sheetName === "Sistem_Users" && resData.users) {
                         // Petakan objek user kembali ke array 2D agar cocok dengan parser frontend
                         sourceArray = resData.users.map(u => [u.username, u.password, u.role, u.nama]);
+                    
+                    // 🌟 PERBAIKAN DI SINI (DITAMBAHKAN TTL & AGAMA SERTA DISESUAIKAN DEGAN ARRAY 2D FRONTEND):
                     } else if (sheetName === "Sheet_Biodata" && resData.biodata) {
+                        // Simpan objek biodata murni langsung ke variabel global jika frontend membutuhkannya
+                        dataBiodataGlobal = resData.biodata; 
+
                         sourceArray = resData.biodata.map(b => [
-                            "", b.nama_siswa, b.kelas, b.nisn, b.alamat_siswa, 
-                            b.status_dlm_keluarga, b.anak_ke, b.asal_sekolah, b.diterima_di_kelas, 
-                            b.pekerjaan_ayah, b.pekerjaan_ibu, b.alamat_ortu, b.telepon_ortu, 
-                            b.pekerjaan_wali, b.alamat_wali, b.telepon_wali
+                            "", 
+                            b.nama_siswa || b.nama || "", 
+                            b.kelas || "", 
+                            b.nisn || "", 
+                            b.ttl || "",    // 🌟 BARU: Tempat Tanggal Lahir (Indeks 4 / Kolom E)
+                            b.agama || "",  // 🌟 BARU: Agama (Indeks 5 / Kolom F)
+                            b.alamat_siswa || "", 
+                            b.status_dlm_keluarga || "", 
+                            b.anak_ke || "", 
+                            b.asal_sekolah || "", 
+                            b.diterima_di_kelas || "", 
+                            b.pekerjaan_ayah || "", 
+                            b.pekerjaan_ibu || "", 
+                            b.alamat_ortu || "", 
+                            b.telepon_ortu || "", 
+                            b.pekerjaan_wali || "", 
+                            b.alamat_wali || "", 
+                            b.telepon_wali || ""
                         ]);
                     } else if (sheetName === "Sistem_Plotting" && resData.plotting) {
                         sourceArray = resData.plotting.map(p => [p.username, p.kelas, p.mapel]);
                     }
                 } else if (Array.isArray(resData)) {
                     sourceArray = resData;
+                    if (sheetName === "Sheet_Biodata") dataBiodataGlobal = resData;
                 }
 
                 // 2. Format ulang ke struktur { c: [ { v: ... } ] } sesuai harapan parser web kamu
