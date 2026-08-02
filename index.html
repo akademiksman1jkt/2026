@@ -8140,30 +8140,35 @@ function eksporAbsenGuruExcel() {
 
 
 // ====================================================================
-// A. KONFIGURASI URL SCRIPT INDEPENDEN & PEMUATAN DATA VIA JSONP
+// A. KONFIGURASI URL SCRIPT INDEPENDEN & PEMUATAN DATA
 // ====================================================================
 const URL_SCRIPT_BIODATA = "https://script.google.com/macros/s/AKfycbwA8zc2QKDxrvtKldR8v-MXVq1LX6Xl1t57eRoSEqTXYF_4nqaOwWvGjtD9h5YiudFSDQ/exec";
 
-// Pemuatan data otomatis saat halaman selesai di-render (Anti CORS Block)
+// Pemuatan data otomatis saat halaman selesai di-render
 window.addEventListener('DOMContentLoaded', (event) => {
-    // Membuat elemen script dinamis untuk menembus proteksi CORS browser
-    let scriptTag = document.createElement("script");
-    scriptTag.src = URL_SCRIPT_BIODATA + "?callback=tangkapDataBiodataBaru";
-    
-    scriptTag.onerror = function() {
-        console.error("❌ Kritis: Gagal memuat database biodata baru dari Google Apps Script.");
-    };
-    document.body.appendChild(scriptTag);
+    fetch(URL_SCRIPT_BIODATA)
+        .then(response => {
+            if (!response.ok) throw new Error("Gagal mengambil data dari server");
+            return response.json();
+        })
+        .then(data => {
+            // Menampung array biodata dari Apps Script
+            if (data && Array.isArray(data.biodata)) {
+                dataBiodataGlobal = data.biodata;
+            } else if (Array.isArray(data)) {
+                dataBiodataGlobal = data;
+            } else {
+                dataBiodataGlobal = [];
+            }
+            console.log("🚀 Database Biodata Baru Berhasil Sinkron! Total Record:", dataBiodataGlobal.length);
+        })
+        .catch(error => {
+            console.error("❌ Kritis: Gagal memuat database biodata baru dari Google Apps Script.", error);
+        });
 });
 
-// Fungsi Callback Penerima Paket Data Cloud dari Spreadsheet Baru
-function tangkapDataBiodataBaru(response) {
-    dataBiodataGlobal = response.biodata || [];
-    console.log("🚀 Database Biodata Baru Berhasil Sinkron! Total Record:", dataBiodataGlobal.length);
-}
-
 // ====================================================================
-// B. GERBANG UTAMA: JEMBATAN PEMETAAN PROFIL SISWA HURUF KECIL
+// B. GERBANG UTAMA: JEMBATAN PEMETAAN PROFIL SISWA
 // ====================================================================
 function dapatkanMockBiodataLengkap(siswaRow) {
     if (!siswaRow) return null;
@@ -8172,56 +8177,65 @@ function dapatkanMockBiodataLengkap(siswaRow) {
     let nisnNum = Number(kataKunciNisn.toString().replace(/\D/g, ''));
     let namaUtama = Array.isArray(siswaRow) && siswaRow[2] ? siswaRow[2].toString().trim().toLowerCase() : "";
 
-    // Cari data di dalam variabel global database baru menggunakan pencocokan NISN
+    // Cari data di dalam variabel global menggunakan pencocokan NISN
     let bioRow = dataBiodataGlobal.find(function(row) {
         if (!row) return false;
         let bNisn = row.nisn || "";
         return Number(bNisn.toString().replace(/\D/g, '')) === nisnNum && nisnNum > 0;
     });
 
-    // Jalur Cadangan jika nomor NISN luput, cocokkan berdasarkan properti nama huruf kecil
+    // Jalur Cadangan jika nomor NISN luput, cocokkan berdasarkan Nama
     if (!bioRow && namaUtama) {
         bioRow = dataBiodataGlobal.find(function(row) {
             if (!row) return false;
-            let bNama = row.nama || "";
+            let bNama = row.nama_siswa || row.nama || "";
             return bNama.toString().trim().toLowerCase() === namaUtama;
         });
     }
 
     // Helper pembaca properti objek aman anti-undefined
-    function ambil(row, key) {
-        return (row && row[key] !== undefined && row[key] !== null && row[key].toString().trim() !== '') 
-            ? row[key].toString().trim() : "-";
+    function ambil(row, keys) {
+        if (!row) return "-";
+        if (!Array.isArray(keys)) keys = [keys];
+        
+        for (let k of keys) {
+            if (row[k] !== undefined && row[k] !== null && row[k].toString().trim() !== '') {
+                return row[k].toString().trim();
+            }
+        }
+        return "-";
     }
 
     // Proteksi Mutlak: Jika siswa tidak terdaftar di spreadsheet, otomatis kembalikan strip (-)
     if (!bioRow) {
         return {
-            nisn: "-", nis: "-", nama: "-", kelas: "-",
+            nisn: "-", nis: "-", nama: "-", kelas: "-", ttl: "-", agama: "-",
             alamatSiswa: "-", statusKeluarga: "-", anakKe: "-", asalSekolah: "-",
             diterimaDiKelas: "-", kerjaAyah: "-", kerjaIbu: "-", alamatOrtu: "-",
             telpOrtu: "-", kerjaWali: "-", alamatWali: "-", telpWali: "-"
         };
     }
 
-    // Ekstraktor variabel murni dari kolom huruf kecil spreadsheet baru Anda (Gambar Rekomendasi)
+    // Ekstraktor variabel murni (Mendukung format nama kolom baru & lama)
     return {
-        nisn:            ambil(bioRow, "nisn"),
+        nisn:            ambil(bioRow, ["nisn"]),
         nis:             Array.isArray(siswaRow) ? (siswaRow[1] || "-") : "-", 
-        nama:            ambil(bioRow, "nama"),
-        kelas:           ambil(bioRow, "kelas"),
-        alamatSiswa:     ambil(bioRow, "alamat"),
-        statusKeluarga:  ambil(bioRow, "status"),
-        anakKe:          ambil(bioRow, "anakke"),
-        asalSekolah:     ambil(bioRow, "asal"),
-        diterimaDiKelas: ambil(bioRow, "diterima"),
-        kerjaAyah:       ambil(bioRow, "ayah"),
-        kerjaIbu:        ambil(bioRow, "ibu"),
-        alamatOrtu:      ambil(bioRow, "alamatortu"),
-        telpOrtu:        ambil(bioRow, "telepon"),
-        kerjaWali:       ambil(bioRow, "wali"),
-        alamatWali:      ambil(bioRow, "alamatwali"),
-        telpWali:        ambil(bioRow, "teleponwali")
+        nama:            ambil(bioRow, ["nama_siswa", "nama"]),
+        kelas:           ambil(bioRow, ["kelas"]),
+        ttl:             ambil(bioRow, ["ttl", "TEMPAT TANGGAL LAHIR"]),
+        agama:           ambil(bioRow, ["agama", "AGAMA"]),
+        alamatSiswa:     ambil(bioRow, ["alamat_siswa", "alamat"]),
+        statusKeluarga:  ambil(bioRow, ["status_dlm_keluarga", "status"]),
+        anakKe:          ambil(bioRow, ["anak_ke", "anakke"]),
+        asalSekolah:     ambil(bioRow, ["asal_sekolah", "asal"]),
+        diterimaDiKelas: ambil(bioRow, ["diterima_di_kelas", "diterima"]),
+        kerjaAyah:       ambil(bioRow, ["pekerjaan_ayah", "ayah"]),
+        kerjaIbu:        ambil(bioRow, ["pekerjaan_ibu", "ibu"]),
+        alamatOrtu:      ambil(bioRow, ["alamat_ortu", "alamatortu"]),
+        telpOrtu:        ambil(bioRow, ["telepon_ortu", "telepon"]),
+        kerjaWali:       ambil(bioRow, ["pekerjaan_wali", "wali"]),
+        alamatWali:      ambil(bioRow, ["alamat_wali", "alamatwali"]),
+        telpWali:        ambil(bioRow, ["telepon_wali", "teleponwali"])
     };
 }
 
