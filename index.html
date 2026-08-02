@@ -2610,33 +2610,23 @@
 
             // 1. Simpan Data Biodata
             if (resData && Array.isArray(resData.biodata)) {
+                window.dataBiodataGlobal = resData.biodata;
                 dataBiodataGlobal = resData.biodata;
             }
 
-            // 2. KONVERSI DATA NILAI KE ARRAY 2D MURNI (AGAR COCOK DENGAN LOGIKA LOGIN & INDEKS ROW[0], ROW[1], ROW[2])
+            // 2. Simpan Data Nilai (Database_Web)
             if (resData && Array.isArray(resData.nilai)) {
-                dataSiswaGlobal = resData.nilai.map(row => {
-                    // Jika data bernilai Objek, ubah kembali menjadi Array Baris
-                    if (!Array.isArray(row) && typeof row === 'object') {
-                        return Object.values(row);
-                    }
-                    return row;
-                });
+                window.dataSiswaGlobal = resData.nilai;
+                dataSiswaGlobal = resData.nilai;
             } else if (Array.isArray(resData)) {
+                window.dataSiswaGlobal = resData;
                 dataSiswaGlobal = resData;
             }
 
-            console.log("✅ Database Nilai Terhubung! Total:", dataSiswaGlobal.length, "siswa");
-
-            // 🚀 JIKA USER LOGIN SEBAGAI SISWA, LANGSUNG EKSEKUSI PENCARIAN OTOMATIS
-            if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
-               (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
-                if (typeof cariNilaiSiswa === 'function') {
-                    cariNilaiSiswa();
-                }
-            }
+            console.log("✅ Biodata terunduh:", dataBiodataGlobal.length);
+            console.log("✅ Nilai terunduh:", dataSiswaGlobal.length);
         })
-        .catch(err => console.error("❌ Gagal sinkron data:", err));
+        .catch(err => console.error("Gagal muat data:", err));
 })();
     // Simpan fungsi alert bawaan jika sewaktu-waktu dibutuhkan
 window.nativeAlert = window.alert;
