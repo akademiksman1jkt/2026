@@ -2778,23 +2778,28 @@
     document.getElementById('mobileHeader').style.display  = 'flex';
     
     // -----------------------------------------------------------------
-    // 🌟 PERBAIKAN: Ambil Nama Lengkap dari sessionUserAktif atau Cache
+    // 🌟 PERBAIKAN: Ambil Nama Lengkap dari Session / Cache
     // -----------------------------------------------------------------
-    let namaUser = sessionUserAktif.nama || sessionUserAktif.namaLengkap;
+    let namaUser = sessionUserAktif ? (sessionUserAktif.nama || sessionUserAktif.namaLengkap) : null;
 
     // Fallback: Jika di sessionUserAktif belum ada, cari dari cloudUsersCache
     if (!namaUser && typeof cloudUsersCache !== 'undefined' && Array.isArray(cloudUsersCache)) {
         let uMatch = cloudUsersCache.find(u => u.username === sessionUserAktif.username || u[0] === sessionUserAktif.username);
         if (uMatch) {
-            namaUser = uMatch.nama || uMatch[2]; // Indeks 2 adalah Nama Lengkap dari spreadsheet
+            // Indeks 3 adalah Kolom D (Nama Lengkap) jika berbentuk Array,
+            // atau uMatch.nama jika berbentuk Object
+            namaUser = uMatch.nama || uMatch[3] || uMatch.namaLengkap;
         }
     }
 
-    // Tampilkan Nama Lengkap (Jika tidak ada, baru fallback ke Username)
-    document.getElementById('lblUserAktif').innerText = namaUser || sessionUserAktif.username;
+    // Prioritaskan Nama Lengkap, jika benar-benar kosong baru gunakan Username
+    let namaTampil = namaUser || sessionUserAktif.username || "Pengguna";
+
+    // Tampilkan ke Elemen Dashboard
+    document.getElementById('lblUserAktif').innerText = namaTampil;
+    document.getElementById('lblRoleAktif').innerText = sessionUserAktif.role || "";
     // -----------------------------------------------------------------
 
-    document.getElementById('lblRoleAktif').innerText      = sessionUserAktif.role;
     tegakkanHakAksesSistem();
     populateMapelDropdownKoreksi();
     switchSidebarMenu(menuAktifSebelumnya);
