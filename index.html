@@ -4567,125 +4567,163 @@ finally {
     }
 
     // ============================================================
-    // EKSPOR EXCEL ANGKATAN
-    // ============================================================
-    function eksporExcelAngkatan() {
-        const jenjang = document.getElementById('selectAngkatanJenjang').value;
-        if (!jenjang) { alert("Silakan tentukan jenjang angkatan terlebih dahulu!"); return; }
+// EKSPOR EXCEL ANGKATAN
+// ============================================================
+function eksporExcelAngkatan() {
+    const jenjang = document.getElementById('selectAngkatanJenjang').value;
+    if (!jenjang) { 
+        alert("Silakan tentukan jenjang angkatan terlebih dahulu!"); 
+        return; 
+    }
 
-        let filterAngkatan = dataSiswaGlobal.filter(row => {
-            let kelasSiswa = (row[3] || "").toUpperCase().trim();
-            if (jenjang === "X")   return kelasSiswa.startsWith("X-")   || kelasSiswa.startsWith("X ");
-            if (jenjang === "XI")  return kelasSiswa.startsWith("XI-")  || kelasSiswa.startsWith("XI ");
-            if (jenjang === "XII") return kelasSiswa.startsWith("XII-") || kelasSiswa.startsWith("XII ");
-            return false;
-        });
+    // 1. Filter Data Siswa Berdasarkan Jenjang
+    let filterAngkatan = dataSiswaGlobal.filter(row => {
+        let kelasSiswa = (row[3] || "").toUpperCase().trim();
+        if (jenjang === "X")   return kelasSiswa.startsWith("X-")   || kelasSiswa.startsWith("X ");
+        if (jenjang === "XI")  return kelasSiswa.startsWith("XI-")  || kelasSiswa.startsWith("XI ");
+        if (jenjang === "XII") return kelasSiswa.startsWith("XII-") || kelasSiswa.startsWith("XII ");
+        return false;
+    });
 
-        filterAngkatan.sort((a, b) => {
-    let statA = hitungStatistikSiswa(a);[cite: 1]
-    let statB = hitungStatistikSiswa(b);[cite: 1]
-    let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
-    let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
-    return avgB - avgA; // Mengurutkan rata-rata murni dari tertinggi ke terendah
-});
-        if (filterAngkatan.length === 0) { alert("Tidak ada data untuk diekspor!"); return; }
+    if (filterAngkatan.length === 0) { 
+        alert("Tidak ada data untuk diekspor!"); 
+        return; 
+    }
 
-        let matrixData = [
-            [`MASTER LEGER DATA COMPREHENSIVE SATU ANGKATAN JENJANG KELAS ${jenjang}`],
-            [`SMAN 1 JAKARTA - TOTAL RECORD DATA: ${filterAngkatan.length} SISWA`],
-            [`Waktu Unduh: ${new Date().toLocaleString('id-ID')}`],
-            [],
-            ["RANK\nPARALEL", "NAMA LENGKAP SISWA", "ROMBEL\nKELAS", "NOMOR NISN", "SUM\nTOTAL", "RATA-RATA\nKUMULATIF", "JUMLAH MAPEL\n< KKM"]
+    // 2. Sorting Berdasarkan Rata-Rata Tertinggi ke Terendah
+    filterAngkatan.sort((a, b) => {
+        let statA = hitungStatistikSiswa(a);
+        let statB = hitungStatistikSiswa(b);
+        let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
+        let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
+        return avgB - avgA;
+    });
+
+    // 3. Header Matriks Data
+    let matrixData = [
+        [`MASTER LEGER DATA COMPREHENSIVE SATU ANGKATAN JENJANG KELAS ${jenjang}`],
+        [`SMAN 1 JAKARTA - TOTAL RECORD DATA: ${filterAngkatan.length} SISWA`],
+        [`Waktu Unduh: ${new Date().toLocaleString('id-ID')}`],
+        [],
+        ["RANK\nPARALEL", "NAMA LENGKAP SISWA", "ROMBEL\nKELAS", "NOMOR NISN", "SUM\nTOTAL", "RATA-RATA\nKUMULATIF", "JUMLAH MAPEL\n< KKM"]
+    ];
+
+    let subHeaderRow = ["", "", "", "", "", "", ""];
+    daftarMapel.forEach(m => {
+        matrixData[4].push(m.namaLengkap);
+        for (let s = 1; s <= 5; s++) { matrixData[4].push(""); }
+        for (let s = 1; s <= 6; s++) { subHeaderRow.push(`S${s}`); }
+    });
+    matrixData.push(subHeaderRow);
+
+    // 4. Penggabungan Sel (Merges)
+    let merges = [
+        { s: { r: 4, c: 0 }, e: { r: 5, c: 0 } }, 
+        { s: { r: 4, c: 1 }, e: { r: 5, c: 1 } },
+        { s: { r: 4, c: 2 }, e: { r: 5, c: 2 } }, 
+        { s: { r: 4, c: 3 }, e: { r: 5, c: 3 } },
+        { s: { r: 4, c: 4 }, e: { r: 5, c: 4 } }, 
+        { s: { r: 4, c: 5 }, e: { r: 5, c: 5 } },
+        { s: { r: 4, c: 6 }, e: { r: 5, c: 6 } }
+    ];
+
+    let colIndexStart = 7;
+    daftarMapel.forEach(() => {
+        merges.push({ s: { r: 4, c: colIndexStart }, e: { r: 4, c: colIndexStart + 5 } });
+        colIndexStart += 6;
+    });
+
+    // 5. Isi Row Data Siswa
+    filterAngkatan.forEach((siswa, idx) => {
+        let stat = hitungStatistikSiswa(siswa);
+        let rankTerbaru = idx + 1;
+
+        // Handling aman untuk stat.average (String / Number)
+        let avgVal = typeof stat.average === 'string' 
+            ? parseFloat(stat.average.replace(',', '.')) 
+            : parseFloat(stat.average || 0);
+
+        let rowSiswa = [
+            rankTerbaru, 
+            (siswa[2] || "").toUpperCase(), 
+            siswa[3], 
+            siswa[0], 
+            parseFloat(stat.sum.toFixed(0)), 
+            isNaN(avgVal) ? 0 : avgVal, 
+            parseInt(stat.merah || 0)
         ];
 
-        let subHeaderRow = ["", "", "", "", "", "", ""];
-        daftarMapel.forEach(m => {
-            matrixData[4].push(m.namaLengkap);
-            for (let s = 1; s <= 5; s++) { matrixData[4].push(""); }
-            for (let s = 1; s <= 6; s++) { subHeaderRow.push(`S${s}`); }
+        daftarMapel.forEach((m, mIdx) => {
+            for (let s = 0; s < 6; s++) {
+                let valStr = siswa[6 + (mIdx * 6) + s];
+                let valNum = parseFloat(valStr);
+                rowSiswa.push(!isNaN(valNum) ? valNum : "-");
+            }
         });
-        matrixData.push(subHeaderRow);
+        matrixData.push(rowSiswa);
+    });
 
-        let merges = [
-            { s: { r: 4, c: 0 }, e: { r: 5, c: 0 } }, { s: { r: 4, c: 1 }, e: { r: 5, c: 1 } },
-            { s: { r: 4, c: 2 }, e: { r: 5, c: 2 } }, { s: { r: 4, c: 3 }, e: { r: 5, c: 3 } },
-            { s: { r: 4, c: 4 }, e: { r: 5, c: 4 } }, { s: { r: 4, c: 5 }, e: { r: 5, c: 5 } },
-            { s: { r: 4, c: 6 }, e: { r: 5, c: 6 } }
-        ];
+    // 6. Buat Sheet
+    let ws = XLSX.utils.aoa_to_sheet(matrixData);
+    ws['!merges'] = merges;
 
-        let colIndexStart = 7;
-        daftarMapel.forEach(() => {
-            merges.push({ s: { r: 4, c: colIndexStart }, e: { r: 4, c: colIndexStart + 5 } });
-            colIndexStart += 6;
-        });
+    // 7. Styling Cell
+    let borderGarisTipis = { 
+        top: { style: "thin", color: { rgb: "A0AEC0" } }, 
+        bottom: { style: "thin", color: { rgb: "A0AEC0" } }, 
+        left: { style: "thin", color: { rgb: "A0AEC0" } }, 
+        right: { style: "thin", color: { rgb: "A0AEC0" } } 
+    };
+    let styleNavyHeader = { fill: { fgColor: { rgb: "1A365D" } }, font: { color: { rgb: "FFFFFF" }, bold: true, name: "Arial", sz: 10 }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderGarisTipis };
+    let styleDataCenter = { font: { name: "Arial", sz: 10, color: { rgb: "334155" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderGarisTipis };
+    let styleGoldTop3   = { fill: { fgColor: { rgb: "FEF3C7" } }, font: { name: "Arial", sz: 10, bold: true, color: { rgb: "92400E" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderGarisTipis };
 
-        filterAngkatan.forEach((siswa, idx) => {
-            let stat    = hitungStatistikSiswa(siswa);
-            let rankTerbaru = idx + 1;
-            let rowSiswa = [rankTerbaru, siswa[2].toUpperCase(), siswa[3], siswa[0], parseFloat(stat.sum.toFixed(0)), parseFloat(stat.average.replace(',', '.')), parseInt(stat.merah)];
-            daftarMapel.forEach((m, mIdx) => {
-                for (let s = 0; s < 6; s++) {
-                    let valStr = siswa[6 + (mIdx * 6) + s];
-                    let valNum = parseFloat(valStr);
-                    rowSiswa.push(!isNaN(valNum) ? valNum : "-");
-                }
-            });
-            matrixData.push(rowSiswa);
-        });
+    let range = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+            let cell_ref = XLSX.utils.encode_cell({ r: r, c: c });
+            if (!ws[cell_ref]) continue;
 
-        let ws = XLSX.utils.aoa_to_sheet(matrixData);
-        ws['!merges'] = merges;
+            if (r >= 0 && r <= 2) {
+                ws[cell_ref].s = { font: { bold: true, size: r === 0 ? 13 : 11, name: "Arial", color: { rgb: "0F172A" } }, alignment: { horizontal: "left" } };
+            } else if (r === 4 || r === 5) {
+                ws[cell_ref].s = styleNavyHeader;
+            } else if (r > 5) {
+                let rankSiswa = matrixData[r][0];
+                let isTop3    = (typeof rankSiswa === 'number' && rankSiswa <= 3);
+                let cellStyle = isTop3 ? JSON.parse(JSON.stringify(styleGoldTop3)) : JSON.parse(JSON.stringify(styleDataCenter));
 
-        let borderGarisTipis = { top: { style: "thin", color: { rgb: "A0AEC0" } }, bottom: { style: "thin", color: { rgb: "A0AEC0" } }, left: { style: "thin", color: { rgb: "A0AEC0" } }, right: { style: "thin", color: { rgb: "A0AEC0" } } };
-        let styleNavyHeader  = { fill: { fgColor: { rgb: "1A365D" } }, font: { color: { rgb: "FFFFFF" }, bold: true, name: "Arial", sz: 10 }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: borderGarisTipis };
-        let styleDataCenter  = { font: { name: "Arial", sz: 10, color: { rgb: "334155" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderGarisTipis };
-        let styleGoldTop3    = { fill: { fgColor: { rgb: "FEF3C7" } }, font: { name: "Arial", sz: 10, bold: true, color: { rgb: "92400E" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderGarisTipis };
+                if (c === 1)           cellStyle.alignment.horizontal = "left";
+                if (c === 4 || c === 5) cellStyle.font.bold = true;
+                if (c === 6 && ws[cell_ref].v > 0) { cellStyle.font.color = { rgb: "B91C1C" }; cellStyle.font.bold = true; }
+                ws[cell_ref].s = cellStyle;
 
-        let range = XLSX.utils.decode_range(ws['!ref']);
-        for (let r = range.s.r; r <= range.e.r; r++) {
-            for (let c = range.s.c; c <= range.e.c; c++) {
-                let cell_ref = XLSX.utils.encode_cell({ r: r, c: c });
-                if (!ws[cell_ref]) continue;
-
-                if (r >= 0 && r <= 2) {
-                    ws[cell_ref].s = { font: { bold: true, size: r === 0 ? 13 : 11, name: "Arial", color: { rgb: "0F172A" } }, alignment: { horizontal: "left" } };
-                } else if (r === 4 || r === 5) {
-                    ws[cell_ref].s = styleNavyHeader;
-                } else if (r > 5) {
-                    let rankSiswa = matrixData[r][0];
-                    let isTop3    = (typeof rankSiswa === 'number' && rankSiswa <= 3);
-                    let cellStyle = isTop3 ? JSON.parse(JSON.stringify(styleGoldTop3)) : JSON.parse(JSON.stringify(styleDataCenter));
-
-                    if (c === 1)            cellStyle.alignment.horizontal = "left";
-                    if (c === 4 || c === 5) cellStyle.font.bold = true;
-                    if (c === 6 && ws[cell_ref].v > 0) { cellStyle.font.color = { rgb: "B91C1C" }; cellStyle.font.bold = true; }
-                    ws[cell_ref].s = cellStyle;
-
-                    if (c >= 7 && typeof ws[cell_ref].v === 'number' && ws[cell_ref].v < 75) {
-                        ws[cell_ref].s.font = { color: { rgb: "991B1B" }, bold: true, name: "Arial", sz: 10 };
-                        ws[cell_ref].s.fill = { fgColor: { rgb: "FEE2E2" } };
-                    }
+                if (c >= 7 && typeof ws[cell_ref].v === 'number' && ws[cell_ref].v < 75) {
+                    ws[cell_ref].s.font = { color: { rgb: "991B1B" }, bold: true, name: "Arial", sz: 10 };
+                    ws[cell_ref].s.fill = { fgColor: { rgb: "FEE2E2" } };
                 }
             }
         }
-
-        let colWidths = [];
-        let totalKolomTabel = 7 + (daftarMapel.length * 6);
-        for (let c = 0; c < totalKolomTabel; c++) {
-            if      (c === 0)           colWidths.push({ wch: 14 });
-            else if (c === 1)           colWidths.push({ wch: 32 });
-            else if (c === 2 || c === 3) colWidths.push({ wch: 14 });
-            else if (c === 4 || c === 5) colWidths.push({ wch: 14 });
-            else if (c === 6)           colWidths.push({ wch: 16 });
-            else                        colWidths.push({ wch: 6  });
-        }
-        ws['!cols'] = colWidths;
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Master Angkatan");
-        XLSX.writeFile(wb, `Master_Leger_Angkatan_${jenjang}_Terformat.xlsx`);
     }
 
+    // 8. Lebar Kolom
+    let colWidths = [];
+    let totalKolomTabel = 7 + (daftarMapel.length * 6);
+    for (let c = 0; c < totalKolomTabel; c++) {
+        if      (c === 0)            colWidths.push({ wch: 14 });
+        else if (c === 1)            colWidths.push({ wch: 32 });
+        else if (c === 2 || c === 3) colWidths.push({ wch: 14 });
+        else if (c === 4 || c === 5) colWidths.push({ wch: 14 });
+        else if (c === 6)            colWidths.push({ wch: 16 });
+        else                         colWidths.push({ wch: 6  });
+    }
+    ws['!cols'] = colWidths;
+
+    // 9. Unduh File Excel
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Master Angkatan");
+    XLSX.writeFile(wb, `Master_Leger_Angkatan_${jenjang}_Terformat.xlsx`);
+}
     // ============================================================
     // VOTING SIDANG PLENO
     // ============================================================
