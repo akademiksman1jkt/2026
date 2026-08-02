@@ -3265,6 +3265,7 @@ function renderNilaiKeHalamanWeb(siswa) {
         let valTtl = bioSiswa 
             ? (bioSiswa.ttl || bioSiswa["TEMPAT TANGGAL LAHIR"] || bioSiswa.tempat_tanggal_lahir || bioSiswa.TTL || "-") 
             : "-";
+        if (typeof valTtl === 'string') valTtl = valTtl.replace(/–/g, '-').replace(/-\s+/g, '- ');
         document.getElementById('resTtl').innerText = valTtl;
     }
 
@@ -3275,7 +3276,52 @@ function renderNilaiKeHalamanWeb(siswa) {
         document.getElementById('resAgama').innerText = valAgama;
     }
 
-    // 4. HITUNG STATISTIK & RENDER TABEL NILAI 6 SEMESTER
+    // 🌟 HELPER PENYARING ANGKA (Mendukung Koma & Titik)
+    const parseNilaiAman = (val) => {
+        if (val === undefined || val === null || val === "" || val === "-") return null;
+        let strVal = String(val).replace(',', '.').trim();
+        let num = parseFloat(strVal);
+        return isNaN(num) ? null : num;
+    };
+
+    // 4. RENDER TABEL NILAI 6 SEMESTER PER MATA PELAJARAN
+    let tableBody = document.getElementById('nilaiTableBody');
+    if (tableBody && typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel)) {
+        tableBody.innerHTML = "";
+
+        daftarMapel.forEach((m, idx) => {
+            let start = 6 + (idx * 6);
+            let hasValue = false;
+
+            // 🌟 Cek keabsahan nilai di 6 semester (Tidak boleh diskip begitu saja)
+            for (let s = 0; s < 6; s++) {
+                let checkVal = siswa[start + s];
+                if (checkVal !== undefined && checkVal !== null && String(checkVal).trim() !== "" && String(checkVal).trim() !== "-") { 
+                    hasValue = true; 
+                }
+            }
+
+            if (hasValue) {
+                let namaMapel = typeof m === 'object' ? (m.namaLengkap || m.nama) : m;
+                let rHtml = `<tr><td><strong>${namaMapel}</strong></td>`;
+                
+                for (let s = 0; s < 6; s++) {
+                    let rawV = siswa[start + s];
+                    let numV = parseNilaiAman(rawV);
+                    let displayV = numV !== null ? numV : "-";
+
+                    if (numV !== null && numV < 75) {
+                        rHtml += `<td><span class="text-nilai-kurang">${displayV}</span></td>`;
+                    } else {
+                        rHtml += `<td>${displayV}</td>`;
+                    }
+                }
+                tableBody.innerHTML += rHtml + `</tr>`;
+            }
+        });
+    }
+
+    // 5. HITUNG STATISTIK & REKOMENDASI KARIR / UTBK
     let info = typeof hitungStatistikSiswa === 'function' ? hitungStatistikSiswa(siswa) : { sum: 0, count: 0, average: 0, merah: 0 };
     if (document.getElementById('resSumNilai'))           document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (document.getElementById('resCountNilai'))         document.getElementById('resCountNilai').innerText         = info.count + " Data";
@@ -3286,28 +3332,7 @@ function renderNilaiKeHalamanWeb(siswa) {
         document.getElementById('resPeringkatKelas').innerText = "#" + dapatkanPeringkatKelasSiswa(siswa[0], siswa[3]);
     }
 
-    let tableBody = document.getElementById('nilaiTableBody');
-    if (tableBody && typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel)) {
-        tableBody.innerHTML = "";
-        daftarMapel.forEach((m, idx) => {
-            let start    = 6 + (idx * 6);
-            let hasValue = false;
-            for (let s = 0; s < 6; s++) { if (siswa[start + s]) hasValue = true; }
-
-            if (hasValue) {
-                let rHtml = `<tr><td><strong>${m.namaLengkap}</strong></td>`;
-                for (let s = 0; s < 6; s++) {
-                    let v = siswa[start + s] || '-';
-                    rHtml += (parseFloat(v) < 75)
-                        ? `<td><span class="text-nilai-kurang">${v}</span></td>`
-                        : `<td>${v}</td>`;
-                }
-                tableBody.innerHTML += rHtml + `</tr>`;
-            }
-        });
-    }
-
-    // 5. PEMETAAN TKA UTBK & REKOMENDASI RUMPUN
+    // PEMETAAN TKA UTBK & REKOMENDASI RUMPUN
     let totalSains = 0, cSains = 0, totalSos = 0, cSos = 0;
     let tkaScores = {
         "Matematika Tingkat Lanjut": 0, "Bahasa Indonesia Tingkat Lanjut": 0, "Bahasa Inggris Tingkat Lanjut": 0,
@@ -3318,16 +3343,13 @@ function renderNilaiKeHalamanWeb(siswa) {
     if (typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel)) {
         daftarMapel.forEach((m, mIdx) => {
             let start = 6 + (mIdx * 6);
-            let valS3 = siswa[start + 2];
-            let valS4 = siswa[start + 3];
-            let s3    = parseFloat(valS3) || 0;
-            let s4    = parseFloat(valS4) || 0;
+            let s1 = parseNilaiAman(siswa[start]) || 0;
+            let s2 = parseNilaiAman(siswa[start + 1]) || 0;
+            let s3 = parseNilaiAman(siswa[start + 2]) || 0;
+            let s4 = parseNilaiAman(siswa[start + 3]) || 0;
 
             let pembagiSmt = (s3 > 0 ? 1 : 0) + (s4 > 0 ? 1 : 0);
             let rerataRiilMapel = pembagiSmt > 0 ? (s3 + s4) / pembagiSmt : 0;
-
-            let s1 = parseFloat(siswa[start]) || 0;
-            let s2 = parseFloat(siswa[start + 1]) || 0;
             let rerataAwal = (s1 + s2) / ((s1 > 0 ? 1 : 0) + (s2 > 0 ? 1 : 0) || 1);
             let rerataMapel = rerataRiilMapel > 0 ? rerataRiilMapel : rerataAwal;
 
@@ -3421,7 +3443,7 @@ function renderNilaiKeHalamanWeb(siswa) {
     if (document.getElementById('resultSiswaSection')) {
         document.getElementById('resultSiswaSection').style.display = 'block';
     }
-} // <-- TUTUP FUNGSI UTAMA DI SINI
+}
     
 // ====================================================================
 // 3. FUNGSI AUTOCOMPLETE (DENGAN PENGAMAN TIPE DATA STRING)
