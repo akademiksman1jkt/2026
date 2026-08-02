@@ -3304,16 +3304,23 @@ function renderNilaiKeHalamanWeb(siswa) {
     // PEMETAAN TKA UTBK & REKOMENDASI RUMPUN (UTUH)
     // ====================================================================
     let totalSains = 0, cSains = 0, totalSos = 0, cSos = 0;
+    // 1. Inisialisasi Objek Skor TKA
     let tkaScores = {
         "Matematika Tingkat Lanjut": 0, "Bahasa Indonesia Tingkat Lanjut": 0, "Bahasa Inggris Tingkat Lanjut": 0,
         "Fisika": 0, "Kimia": 0, "Biologi": 0, "Ekonomi": 0, "Sosiologi": 0, "Geografi": 0, "Sejarah": 0,
         "Pendidikan Pancasila/PPKN": 0, "Antropologi": 0, "Bahasa Jepang": 0
     };
 
+    // 2. Iterasi Perhitungan Nilai Rerata Mapel
     daftarMapel.forEach((m, mIdx) => {
         let start = 6 + (mIdx * 6);
-        let s3 = parseFloat(siswa[start + 2]) || 0;
-        let s4 = parseFloat(siswa[start + 3]) || 0;
+        
+        // 🌟 Pastikan penulisan parseFloat aman seperti ini:
+        let valS3 = siswa[start + 2];
+        let valS4 = siswa[start + 3];
+        let s3    = parseFloat(valS3) || 0;
+        let s4    = parseFloat(valS4) || 0;
+        
         let pembagiSmt = (s3 > 0 ? 1 : 0) + (s4 > 0 ? 1 : 0);
         let rerataRiilMapel = pembagiSmt > 0 ? (s3 + s4) / pembagiSmt : 0;
 
@@ -3341,7 +3348,7 @@ function renderNilaiKeHalamanWeb(siswa) {
             if (m.kode === 'PCSL')                       tkaScores["Pendidikan Pancasila/PPKN"]      = rerataMapel;
             if (m.kode === 'BJP')                        tkaScores["Bahasa Jepang"]                  = rerataMapel;
         }
-    });
+    }); // <-- Pastikan forEach ini ditutup dengan ');' di akhir
 
     let avgSains         = totalSains / (cSains || 1);
     let avgSos           = totalSos   / (cSos   || 1);
