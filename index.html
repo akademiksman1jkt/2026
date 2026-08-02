@@ -3379,8 +3379,14 @@
         if (!kelas) { alert("Silakan tentukan kelas terlebih dahulu!"); return; }
 
         let filterSiswa = dataSiswaGlobal
-            .filter(row => row[3] === kelas)
-            .sort((a, b) => parseFloat(hitungStatistikSiswa(b).average) - parseFloat(hitungStatistikSiswa(a).average));
+    .filter(row => row[3] === kelas)
+    .sort((a, b) => {
+        let statA = hitungStatistikSiswa(a);
+        let statB = hitungStatistikSiswa(b);
+        let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
+        let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
+        return avgB - avgA;
+    });
         if (filterSiswa.length === 0) { alert("Tidak ada data siswa untuk diekspor!"); return; }
 
         let matrixData = [
@@ -4547,7 +4553,13 @@ finally {
             return false;
         });
 
-        filterAngkatan.sort((a, b) => (parseFloat(hitungStatistikSiswa(b).average) || 0) - (parseFloat(hitungStatistikSiswa(a).average) || 0));
+        filterAngkatan.sort((a, b) => {
+    let statA = hitungStatistikSiswa(a);[cite: 1]
+    let statB = hitungStatistikSiswa(b);[cite: 1]
+    let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
+    let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
+    return avgB - avgA; // Mengurutkan rata-rata murni dari tertinggi ke terendah
+});
         if (filterAngkatan.length === 0) { alert("Tidak ada data untuk diekspor!"); return; }
 
         let matrixData = [
@@ -4581,7 +4593,8 @@ finally {
 
         filterAngkatan.forEach((siswa, idx) => {
             let stat    = hitungStatistikSiswa(siswa);
-            let rowSiswa = [(idx + 1), siswa[2].toUpperCase(), siswa[3], siswa[0], parseFloat(stat.sum.toFixed(0)), parseFloat(stat.average.replace(',', '.')), parseInt(stat.merah)];
+            let rankTerbaru = idx + 1;
+            let rowSiswa = [rankTerbaru, siswa[2].toUpperCase(), siswa[3], siswa[0], parseFloat(stat.sum.toFixed(0)), parseFloat(stat.average.replace(',', '.')), parseInt(stat.merah)];
             daftarMapel.forEach((m, mIdx) => {
                 for (let s = 0; s < 6; s++) {
                     let valStr = siswa[6 + (mIdx * 6) + s];
