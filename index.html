@@ -2601,38 +2601,42 @@
 <script>
     const URL_SCRIPT_BIODATA = "https://script.google.com/macros/s/AKfycbwA8zc2QKDxrvtKldR8v-MXVq1LX6Xl1t57eRoSEqTXYF_4nqaOwWvGjtD9h5YiudFSDQ/exec";
     (function InisialisasiDataCloud() {
-    // 🌟 Ubah URL_APPS_SCRIPT menjadi URL_SCRIPT_BIODATA
-    if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) {
-        console.warn("URL_SCRIPT_BIODATA belum didefinisikan!");
-        return;
-    }
+    if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) return;
 
-    console.log("Memuat database dari Apps Script...");
-
-    // 🌟 Ubah di sini juga
     fetch(URL_SCRIPT_BIODATA)
         .then(response => response.json())
         .then(resData => {
-            console.log("Respon Apps Script Diterima:", resData);
+            console.log("Respon Cloud Diterima:", resData);
 
-            // 1. Simpan Data Biodata ke variabel global
+            // 1. Simpan Data Biodata
             if (resData && Array.isArray(resData.biodata)) {
                 dataBiodataGlobal = resData.biodata;
-            } else if (Array.isArray(resData)) {
-                dataBiodataGlobal = resData;
             }
 
-            // 2. Simpan Data Nilai Web ke variabel global
+            // 2. KONVERSI DATA NILAI KE ARRAY 2D MURNI (AGAR COCOK DENGAN LOGIKA LOGIN & INDEKS ROW[0], ROW[1], ROW[2])
             if (resData && Array.isArray(resData.nilai)) {
-                window.dataSiswaGlobal = resData.nilai;
-                dataSiswaGlobal = resData.nilai;
+                dataSiswaGlobal = resData.nilai.map(row => {
+                    // Jika data bernilai Objek, ubah kembali menjadi Array Baris
+                    if (!Array.isArray(row) && typeof row === 'object') {
+                        return Object.values(row);
+                    }
+                    return row;
+                });
+            } else if (Array.isArray(resData)) {
+                dataSiswaGlobal = resData;
             }
 
-            console.log("✅ Data Biodata berhasil diisi:", dataBiodataGlobal.length, "siswa");
+            console.log("✅ Database Nilai Terhubung! Total:", dataSiswaGlobal.length, "siswa");
+
+            // 🚀 JIKA USER LOGIN SEBAGAI SISWA, LANGSUNG EKSEKUSI PENCARIAN OTOMATIS
+            if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
+               (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
+                if (typeof cariNilaiSiswa === 'function') {
+                    cariNilaiSiswa();
+                }
+            }
         })
-        .catch(err => {
-            console.error("❌ Gagal mengunduh data awal:", err);
-        });
+        .catch(err => console.error("❌ Gagal sinkron data:", err));
 })();
     // Simpan fungsi alert bawaan jika sewaktu-waktu dibutuhkan
 window.nativeAlert = window.alert;
