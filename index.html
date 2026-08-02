@@ -2922,7 +2922,7 @@
         return {
             sum:         sumTotal,
             count:       countTotal,
-            average:     countTotal > 0 ? (sumTotal / countTotal).toFixed(1) : "0.0",
+            average:     countTotal > 0 ? (sumTotal / countTotal).toFixed(1) : "0.00",
             merah:       mapelMerah,
             rincianMerah: rincianMerah.join(", ")
         };
@@ -5662,7 +5662,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         if (akhirEl) {
             if (totalBobot>0) {
                 let akhir = totalBobot<100?(total/totalBobot)*100:total;
-                akhirEl.textContent = akhir.toFixed(1);
+                akhirEl.textContent = akhir.toFixed(2);
                 akhirEl.style.color = akhir<75?'var(--danger)':'var(--primary)';
             } else { akhirEl.textContent='-'; }
         }
@@ -5699,7 +5699,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
                 let finalVal = totalBobot<100?(total/totalBobot)*100:total;
                 const targetIdx = 6+(mapelIdx*6)+(smt-1);
                 while(siswa.length<=targetIdx) siswa.push('-');
-                siswa[targetIdx]=finalVal.toFixed(1);
+                siswa[targetIdx]=finalVal.toFixed(2);
             }
         });
 
@@ -5909,7 +5909,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
                 + '<td style="font-weight:700;">'+siswa[2].toUpperCase()+'</td>'
                 + '<td style="text-align:center;font-size:11px;"><code>'+siswa[0]+'</code></td>'
                 + mapelCols
-                + '<td style="text-align:center;font-weight:800;color:var(--primary);">'+(avg>0?avg.toFixed(1):'-')+'</td>'
+                + '<td style="text-align:center;font-weight:800;color:var(--primary);">'+(avg>0 ? avg.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '-')+'</td>'
                 + '<td style="text-align:center;font-weight:700;">#'+(rankIdx+1)+'</td>'
                 + '</tr>';
         }).join('');
@@ -5928,7 +5928,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
                 + '</div><div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
                 + '<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:8px;">'
                 + '<div style="font-size:11px;color:#64748b;font-weight:600;">Rata-rata Sem.'+smt+'</div>'
-                + '<div style="font-size:18px;font-weight:900;color:var(--primary);">'+(avg>0?avg.toFixed(1):'-')+'</div></div>'
+                + '<div style="font-size:18px;font-weight:900;color:var(--primary);">'+(avg>0 ? avg.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '-')+'</div></div>'
                 + '<div style="text-align:center;background:'+bgCard+';border:1px solid '+bdrCard+';border-radius:6px;padding:8px;">'
                 + '<div style="font-size:11px;color:'+clrMerah+';font-weight:600;">Mapel &lt; KKM</div>'
                 + '<div style="font-size:18px;font-weight:900;color:'+clrMerah+';">'+inf.merah+'</div></div></div>'
