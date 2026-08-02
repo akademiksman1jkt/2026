@@ -8196,36 +8196,53 @@ function dapatkanMockBiodataLengkap(siswaRow) {
 // ====================================================================
 // C. FUNGSI EKSEKUSI TOMBOL CARI BIODATA PADA HALAMAN WEB
 // ====================================================================
+// ====================================================================
+// FUNGSI PENCARIAN BIODATA SISWA INDIVIDU
+// ====================================================================
 function cariBiodataSiswaIndividu() {
     let key = document.getElementById('searchKeyBiodata').value.trim().toLowerCase();
     if (!key) return;
     
-    // Scan pencarian awal berdasarkan kata kunci ke memori database baru
-    let targetBioRow = dataBiodataGlobal.find(row => {
+    // Scan pencarian awal berdasarkan kata kunci ke memori database global
+    let targetBioRow = (Array.isArray(dataBiodataGlobal) ? dataBiodataGlobal : (dataBiodataGlobal.biodata || [])).find(row => {
         if (!row) return false;
         let bNama = row.nama ? row.nama.toString().toLowerCase() : (row.nama_siswa ? row.nama_siswa.toString().toLowerCase() : "");
         let bNisn = row.nisn ? row.nisn.toString().toLowerCase() : "";
         return bNama.includes(key) || bNisn.includes(key);
     });
 
-    // Umpankan hasil temuan ke fungsi pembentuk objek profil
-    let b = dapatkanMockBiodataLengkap(targetBioRow ? [targetBioRow.nisn, "-", targetBioRow.nama || targetBioRow.nama_siswa, targetBioRow.kelas] : null);
+    // Umpankan hasil temuan ke fungsi pembentuk objek profil (dengan fallback safety)
+    let b = typeof dapatkanMockBiodataLengkap === 'function' 
+        ? dapatkanMockBiodataLengkap(targetBioRow ? [targetBioRow.nisn, "-", targetBioRow.nama || targetBioRow.nama_siswa, targetBioRow.kelas] : null)
+        : {};
 
-    // Ambil data mentah dari row spreadsheet jika tersedia
+    // Ambil data mentah langsung dari row spreadsheet jika tersedia
     if (targetBioRow) {
-        if (targetBioRow.ttl) b.ttl = targetBioRow.ttl;
-        if (targetBioRow.agama) b.agama = targetBioRow.agama;
+        b.nama = targetBioRow.nama || targetBioRow.nama_siswa || b.nama || "-";
+        b.kelas = targetBioRow.kelas || b.kelas || "-";
+        b.nisn = targetBioRow.nisn || b.nisn || "-";
+        b.ttl = targetBioRow.ttl || targetBioRow["TEMPAT TANGGAL LAHIR"] || b.ttl || "-";
+        b.agama = targetBioRow.agama || targetBioRow["AGAMA"] || b.agama || "-";
+        b.alamatSiswa = targetBioRow.alamat_siswa || targetBioRow.alamat || b.alamatSiswa || "-";
+        b.statusKeluarga = targetBioRow.status_dlm_keluarga || targetBioRow.status || b.statusKeluarga || "-";
+        b.anakKe = targetBioRow.anak_ke || targetBioRow.anakke || b.anakKe || "-";
+        b.asalSekolah = targetBioRow.asal_sekolah || targetBioRow.asal || b.asalSekolah || "-";
+        b.diterimaDiKelas = targetBioRow.diterima_di_kelas || targetBioRow.diterima || b.diterimaDiKelas || "-";
+        b.kerjaAyah = targetBioRow.pekerjaan_ayah || targetBioRow.ayah || b.kerjaAyah || "-";
+        b.kerjaIbu = targetBioRow.pekerjaan_ibu || targetBioRow.ibu || b.kerjaIbu || "-";
+        b.alamatOrtu = targetBioRow.alamat_ortu || targetBioRow.alamatortu || b.alamatOrtu || "-";
+        b.telpOrtu = targetBioRow.telepon_ortu || targetBioRow.telepon || b.telpOrtu || "-";
+        b.kerjaWali = targetBioRow.pekerjaan_wali || targetBioRow.wali || b.kerjaWali || "-";
+        b.alamatWali = targetBioRow.alamat_wali || targetBioRow.alamatwali || b.alamatWali || "-";
+        b.telpWali = targetBioRow.telepon_wali || targetBioRow.teleponwali || b.telpWali || "-";
     }
 
-    // CETAK IDENTITAS PANEL UTAMA (Sesuai Layout Tabel Asli agar Sejajar, Font Sama, dan Rapi)
-    if (b && b.nama !== "-") {
-        // 1. Kembalikan Nama Lengkap murni di barisnya sendiri
+    // CETAK IDENTITAS PANEL UTAMA
+    if (b && b.nama && b.nama !== "-") {
         document.getElementById('bioNama').innerText = b.nama.toUpperCase();
         
-        // 2. Tembak elemen kelas bawaan tabel Anda agar font dan letaknya sejajar persis seperti NISN
         if (document.getElementById('bioBadgeKelas')) {
             document.getElementById('bioBadgeKelas').innerText = b.kelas.toUpperCase();
-            // Reset style jika sebelumnya sempat diubah-ubah
             document.getElementById('bioBadgeKelas').style.display = ""; 
             document.getElementById('bioBadgeKelas').style.fontSize = "";
             document.getElementById('bioBadgeKelas').style.color = "";
@@ -8236,8 +8253,8 @@ function cariBiodataSiswaIndividu() {
         if (document.getElementById('bioNis'))  document.getElementById('bioNis').innerText  = b.nis || "-"; 
 
         // 🌟 BARU: CETAK TTL & AGAMA DI PANEL IDENTITAS PRIBADI
-        if (document.getElementById('bioTtl'))   document.getElementById('bioTtl').innerText   = b.ttl || targetBioRow?.ttl || "-";
-        if (document.getElementById('bioAgama')) document.getElementById('bioAgama').innerText = b.agama || targetBioRow?.agama || "-";
+        if (document.getElementById('bioTtl'))   document.getElementById('bioTtl').innerText   = b.ttl || "-";
+        if (document.getElementById('bioAgama')) document.getElementById('bioAgama').innerText = b.agama || "-";
 
     } else {
         document.getElementById('bioNama').innerText = "-";
@@ -8249,29 +8266,28 @@ function cariBiodataSiswaIndividu() {
     }
 
     // CETAK SEKTOR PANEL DETAIL BAWAH WEBSITE
-    if (document.getElementById('bioAlamat'))         document.getElementById('bioAlamat').innerText         = b.alamatSiswa || targetBioRow?.alamat_siswa || "-";
-    if (document.getElementById('bioStatusKeluarga')) document.getElementById('bioStatusKeluarga').innerText = b.statusKeluarga || targetBioRow?.status_dlm_keluarga || "-";
-    if (document.getElementById('bioAnakKe'))         document.getElementById('bioAnakKe').innerText         = b.anakKe || targetBioRow?.anak_ke || "-";
-    if (document.getElementById('bioAsalSekolah'))    document.getElementById('bioAsalSekolah').innerText    = b.asalSekolah || targetBioRow?.asal_sekolah || "-";
-    if (document.getElementById('bioDiterimaKelas'))  document.getElementById('bioDiterimaKelas').innerText  = b.diterimaDiKelas || targetBioRow?.diterima_di_kelas || "-";
-    if (document.getElementById('bioAyah'))           document.getElementById('bioAyah').innerText           = b.kerjaAyah || targetBioRow?.pekerjaan_ayah || "-";
-    if (document.getElementById('bioIbu'))            document.getElementById('bioIbu').innerText            = b.kerjaIbu || targetBioRow?.pekerjaan_ibu || "-";
-    if (document.getElementById('bioAlamatOrtu'))     document.getElementById('bioAlamatOrtu').innerText     = b.alamatOrtu || targetBioRow?.alamat_ortu || "-";
-    if (document.getElementById('bioTelpOrtu'))       document.getElementById('bioTelpOrtu').innerText       = b.telpOrtu || targetBioRow?.telepon_ortu || "-";
-    if (document.getElementById('bioKerjaWali'))      document.getElementById('bioKerjaWali').innerText      = b.kerjaWali || targetBioRow?.pekerjaan_wali || "-";
-    if (document.getElementById('bioAlamatWali'))     document.getElementById('bioAlamatWali').innerText     = b.alamatWali || targetBioRow?.alamat_wali || "-";
-    if (document.getElementById('bioTelpWali'))       document.getElementById('bioTelpWali').innerText       = b.teleponWali || targetBioRow?.telepon_wali || "-";
+    if (document.getElementById('bioAlamat'))         document.getElementById('bioAlamat').innerText         = b.alamatSiswa || "-";
+    if (document.getElementById('bioStatusKeluarga')) document.getElementById('bioStatusKeluarga').innerText = b.statusKeluarga || "-";
+    if (document.getElementById('bioAnakKe'))         document.getElementById('bioAnakKe').innerText         = b.anakKe || "-";
+    if (document.getElementById('bioAsalSekolah'))    document.getElementById('bioAsalSekolah').innerText    = b.asalSekolah || "-";
+    if (document.getElementById('bioDiterimaKelas'))  document.getElementById('bioDiterimaKelas').innerText  = b.diterimaDiKelas || "-";
+    if (document.getElementById('bioAyah'))           document.getElementById('bioAyah').innerText           = b.kerjaAyah || "-";
+    if (document.getElementById('bioIbu'))            document.getElementById('bioIbu').innerText            = b.kerjaIbu || "-";
+    if (document.getElementById('bioAlamatOrtu'))     document.getElementById('bioAlamatOrtu').innerText     = b.alamatOrtu || "-";
+    if (document.getElementById('bioTelpOrtu'))       document.getElementById('bioTelpOrtu').innerText       = b.telpOrtu || "-";
+    if (document.getElementById('bioKerjaWali'))      document.getElementById('bioKerjaWali').innerText      = b.kerjaWali || "-";
+    if (document.getElementById('bioAlamatWali'))     document.getElementById('bioAlamatWali').innerText     = b.alamatWali || "-";
+    if (document.getElementById('bioTelpWali'))       document.getElementById('bioTelpWali').innerText       = b.telpWali || "-";
 
     document.getElementById('resultBiodataIndividu').style.display = 'block';
 }
 
 // ====================================================================
-// SOLUSI TOTAL: FUNGSI EKSPOR EXCEL DENGAN SISTEM DETEKSI ERROR NYATA
+// FUNGSI EKSPOR EXCEL BIODATA KOLEKTIF KELAS
 // ====================================================================
 function eksporBiodataExcel() {
     console.log("=== MEMULAI PROSES EKSPOR EXCEL ===");
     
-    // 1. Ambil nilai kelas dari dropdown filter di halaman web Anda
     let selectKelas = document.getElementById('selectKelasBiodata');
     if (!selectKelas) {
         alert("Sistem Error: Elemen dropdown dengan ID 'selectKelasBiodata' tidak ditemukan di HTML!");
@@ -8284,7 +8300,6 @@ function eksporBiodataExcel() {
         return;
     }
 
-    // 2. Ambil list biodata murni dari memori global
     let listBiodata = [];
     if (Array.isArray(dataBiodataGlobal)) {
         listBiodata = dataBiodataGlobal;
@@ -8300,7 +8315,6 @@ function eksporBiodataExcel() {
         return;
     }
 
-    // 3. Proses Penyaringan Siswa Berdasarkan Kelas (Anti-Error Spasi)
     let filterSiswa = listBiodata.filter(row => {
         if (!row) return false;
         let kelasSiswa = row.kelas || row.KELAS || "";
@@ -8315,7 +8329,7 @@ function eksporBiodataExcel() {
         return;
     }
 
-    // 4. Susun Struktur Matriks Excel (DITAMBAH TEMPAT TANGGAL LAHIR & AGAMA)
+    // Susun Struktur Matriks Excel
     let header = [
         "NO", "NAMA SISWA", "KELAS", "NISN", "TEMPAT TANGGAL LAHIR", "AGAMA", "ALAMAT SISWA", "STATUS DLM KELUARGA", 
         "ANAK KE", "ASAL SEKOLAH", "DITERIMA DI KELAS", "PEKERJAAN AYAH", "PEKERJAAN IBU", 
@@ -8330,15 +8344,14 @@ function eksporBiodataExcel() {
         header
     ];
 
-    // 5. Pemetaan Variabel Berdasarkan Judul Kolom Huruf Kecil Spreadsheet Baru Anda
     filterSiswa.forEach((siswa, index) => {
         matrixData.push([
             (index + 1), 
             (siswa.nama || siswa.nama_siswa || "-").toString().toUpperCase(), 
             (siswa.kelas || "-").toString().toUpperCase(), 
             siswa.nisn ? String(siswa.nisn).replace("'", "") : "-", 
-            siswa.ttl || "-",           // 🌟 BARU: TEMPAT TANGGAL LAHIR
-            siswa.agama || "-",         // 🌟 BARU: AGAMA
+            siswa.ttl || siswa["TEMPAT TANGGAL LAHIR"] || "-", 
+            siswa.agama || siswa["AGAMA"] || "-", 
             siswa.alamat || siswa.alamat_siswa || "-", 
             siswa.status || siswa.status_dlm_keluarga || "-",
             siswa.anakke || siswa.anak_ke || "-", 
@@ -8354,12 +8367,10 @@ function eksporBiodataExcel() {
         ]);
     });
 
-    // 6. Pembuatan & Pengunduhan File File Excel via Library XLSX
     try {
         let ws = XLSX.utils.aoa_to_sheet(matrixData);
         let wb = XLSX.utils.book_new();
         
-        // Atur lebar kolom otomatis biar rapi
         ws['!cols'] = [
             {wch: 5},  {wch: 30}, {wch: 15}, {wch: 15}, {wch: 25}, {wch: 15}, {wch: 35}, {wch: 20},
             {wch: 10}, {wch: 25}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 35},
@@ -8377,23 +8388,20 @@ function eksporBiodataExcel() {
     }
 }
 
-// ====================================================================
-// ALIAS: eksporBiodataKolektifExcel -> memanggil eksporBiodataExcel
-// ====================================================================
 function eksporBiodataKolektifExcel() {
     eksporBiodataExcel();
 }
 
 // ====================================================================
-// FUNGSI EKSPOR EXCEL BIODATA INDIVIDU (dari hasil pencarian)
+// FUNGSI EKSPOR EXCEL BIODATA INDIVIDU
 // ====================================================================
 function eksporBiodataIndividuExcel() {
     let nama       = (document.getElementById('bioNama')           || {}).innerText || "-";
     let nisn       = (document.getElementById('bioNisn')           || {}).innerText || "-";
     let nis        = (document.getElementById('bioNis')            || {}).innerText || "-";
     let kelas      = (document.getElementById('bioBadgeKelas')     || {}).innerText || "-";
-    let ttl        = (document.getElementById('bioTtl')            || {}).innerText || "-"; // 🌟 BARU
-    let agama      = (document.getElementById('bioAgama')          || {}).innerText || "-"; // 🌟 BARU
+    let ttl        = (document.getElementById('bioTtl')            || {}).innerText || "-";
+    let agama      = (document.getElementById('bioAgama')          || {}).innerText || "-";
     let alamat     = (document.getElementById('bioAlamat')         || {}).innerText || "-";
     let status     = (document.getElementById('bioStatusKeluarga') || {}).innerText || "-";
     let anakke     = (document.getElementById('bioAnakKe')         || {}).innerText || "-";
@@ -8421,8 +8429,8 @@ function eksporBiodataIndividuExcel() {
         ["KELAS",                kelas],
         [],
         ["A. IDENTITAS PRIBADI"],
-        ["Tempat, Tgl Lahir",    ttl],    // 🌟 BARU
-        ["Agama",                agama],  // 🌟 BARU
+        ["Tempat, Tgl Lahir",    ttl],
+        ["Agama",                agama],
         ["Alamat Rumah Siswa",   alamat],
         ["Status dlm Keluarga",  status],
         ["Anak ke-",              anakke],
