@@ -3411,39 +3411,72 @@ function renderNilaiKeHalamanWeb(siswa) {
     // ============================================================
     // 3. FUNGSI AUTOCOMPLETE (KUNCI MATI TOTAL UNTUK SISWA)
     // ============================================================
-    function handleSearchAutocomplete(inputEl) {
-        const boxSuggestions = document.getElementById('searchSuggestions');
+    // ====================================================================
+// 3. FUNGSI AUTOCOMPLETE (DENGAN PENGAMAN TIPE DATA STRING)
+// ====================================================================
+function handleSearchAutocomplete(inputEl) {
+    const boxSuggestions = document.getElementById('searchSuggestions');
+    if (!boxSuggestions) return;
 
-        // 🔒 JIKA SISWA: Hancurkan proses penayangan rekomendasi nama orang lain!
-        if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.role === 'siswaSMAN1') {
-            if (boxSuggestions) {
-                boxSuggestions.innerHTML = "";
-                boxSuggestions.style.display = 'none';
-            }
-            return; 
-        }
-
-        // Jalur normal untuk Guru / Admin
-        const keyword = inputEl.value.trim().toLowerCase();
-        if (keyword.length < 2) {
-            if (boxSuggestions) boxSuggestions.style.display = 'none';
-            return;
-        }
-
-        let matches = dataSiswaGlobal
-            .filter(row => row[2].toLowerCase().includes(keyword) || row[0].includes(keyword))
-            .slice(0, 8);
-
-        if (matches.length > 0 && boxSuggestions) {
-            boxSuggestions.innerHTML = "";
-            matches.forEach(siswa => {
-                boxSuggestions.innerHTML += `<div class="suggestion-item" onclick="pilihSiswaAutocomplete('${siswa[0]}', '${siswa[2]}')"><div><strong>${siswa[2]}</strong></div><div><code>NISN: ${siswa[0]}</code></div></div>`;
-            });
-            boxSuggestions.style.display = 'block';
-        } else if (boxSuggestions) {
-            boxSuggestions.style.display = 'none';
-        }
+    // Sekat Keamanan: Jika login sebagai siswa, jangan munculkan autocomplete
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
+       (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
+        boxSuggestions.style.display = 'none';
+        boxSuggestions.innerHTML = '';
+        return;
     }
+
+    let keyword = inputEl ? inputEl.value.trim().toLowerCase() : "";
+    if (keyword.length < 2) {
+        boxSuggestions.style.display = 'none';
+        boxSuggestions.innerHTML = '';
+        return;
+    }
+
+    let listNilai = Array.isArray(dataSiswaGlobal) ? dataSiswaGlobal : [];
+
+    // 🌟 PERBAIKAN ANTI-CRASH: Konversi String() sebelum .toLowerCase()
+    let matches = listNilai.filter(row => {
+        if (!row) return false;
+        let sNisn = String(row[0] || "").toLowerCase();
+        let sNis  = String(row[1] || "").toLowerCase();
+        let sNama = String(row[2] || "").toLowerCase(); // Dijamin aman walau row[2] bernilai number/null
+
+        return sNama.includes(keyword) || sNisn.includes(keyword) || sNis.includes(keyword);
+    });
+
+    if (matches.length === 0) {
+        boxSuggestions.style.display = 'none';
+        boxSuggestions.innerHTML = '';
+        return;
+    }
+
+    // Tampilkan maksimal 8 saran nama
+    let htmlSuggestions = matches.slice(0, 8).map(siswa => {
+        let nisn = siswa[0] || "-";
+        let nama = siswa[2] || "-";
+        let kelas = siswa[3] || "";
+        
+        return `<div class="suggestion-item" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9;" 
+                     onclick="pilihSaranSiswa('${nisn}')">
+                    <strong>${nama}</strong> <small style="color: #64748b;">(${kelas} - ${nisn})</small>
+                </div>`;
+    }).join('');
+
+    boxSuggestions.innerHTML = htmlSuggestions;
+    boxSuggestions.style.display = 'block';
+}
+
+// Helper ketika item rekomendasi diklik
+function pilihSaranSiswa(nisn) {
+    const inputEl = document.getElementById('searchKey');
+    if (inputEl) inputEl.value = nisn;
+
+    const boxSuggestions = document.getElementById('searchSuggestions');
+    if (boxSuggestions) boxSuggestions.style.display = 'none';
+
+    if (typeof cariNilaiSiswa === 'function') cariNilaiSiswa();
+}
 
     // ============================================================
     // 4. DAEMON PEMANTAU MANDIRI (BERJALAN DI BALIK LAYAR)
