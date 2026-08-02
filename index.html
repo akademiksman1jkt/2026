@@ -3232,19 +3232,23 @@ function renderNilaiKeHalamanWeb(siswa) {
     document.getElementById('resKelas').innerText      = siswa[3] || "-";
     document.getElementById('resNisnNis').innerText    = `${siswa[0] || '-'}/${siswa[1] || '-'}`;
 
-    // 🌟 PERBAIKAN PENCARIAN BIODATA: FLEKSIBEL TERHADAP TIPE DATA (STRING/NUMBER) & SPASI
+    // 🌟 PERBAIKAN PENCARIAN BIODATA: FLEKSIBEL TERHADAP STRING/NUMBER & FORMAT OBJECT
     let bioSiswa = null;
-    if (typeof dataBiodataGlobal !== 'undefined' && Array.isArray(dataBiodataGlobal)) {
+    if (typeof dataBiodataGlobal !== 'undefined' && dataBiodataGlobal) {
+        // Ekstrak array biodata utama (penanganan jika berbentuk objek ber-key 'biodata')
+        let listBiodata = Array.isArray(dataBiodataGlobal) 
+            ? dataBiodataGlobal 
+            : (dataBiodataGlobal.biodata || []);
+
         let cleanNisnInput = String(siswa[0] || "").replace(/\D/g, '').trim();
         let cleanNamaInput = String(siswa[2] || "").toLowerCase().trim();
 
-        bioSiswa = dataBiodataGlobal.find(b => {
+        bioSiswa = listBiodata.find(b => {
             if (!b) return false;
             
             let bNisn = String(b.nisn || b.NISN || b["NISN"] || "").replace(/\D/g, '').trim();
             let bNama = String(b.nama_siswa || b.nama || b["NAMA SISWA"] || b["NAMA"] || "").toLowerCase().trim();
 
-            // Cocokkan NISN jika angka NISN valid (>0), ATAU cocokkan Nama Siswa
             let isNisnMatch = (cleanNisnInput.length > 0 && bNisn === cleanNisnInput);
             let isNamaMatch = (cleanNamaInput.length > 0 && bNama === cleanNamaInput);
 
@@ -3252,7 +3256,7 @@ function renderNilaiKeHalamanWeb(siswa) {
         });
     }
 
-    // 🌟 PERBAIKAN PEMBACAAN TTL & AGAMA (Mendukung Berbagai Variasi Header Kolom Spreadsheet)
+    // 🌟 PERBAIKAN PEMBACAAN TTL & AGAMA (Mendukung semua variasi nama kolom Google Sheets)
     if (document.getElementById('resTtl')) {
         let valTtl = bioSiswa 
             ? (bioSiswa.ttl || bioSiswa["TEMPAT TANGGAL LAHIR"] || bioSiswa.tempat_tanggal_lahir || bioSiswa.TTL || "-") 
@@ -3268,7 +3272,7 @@ function renderNilaiKeHalamanWeb(siswa) {
     }
 
     // ====================================================================
-    // LOGIKA STATISTIK & TABEL NILAI (SAMA PERSIS TANPA DIUBAH)
+    // LOGIKA PERHITUNGAN STATISTIK & TABEL NILAI 6 SEMESTER (UTUH)
     // ====================================================================
     let info = hitungStatistikSiswa(siswa);
     document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -3297,7 +3301,7 @@ function renderNilaiKeHalamanWeb(siswa) {
     });
 
     // ====================================================================
-    // PEMETAAN TKA UTBK & REKOMENDASI RUMPUN (SAMA PERSIS TANPA DIUBAH)
+    // PEMETAAN TKA UTBK & REKOMENDASI RUMPUN (UTUH)
     // ====================================================================
     let totalSains = 0, cSains = 0, totalSos = 0, cSos = 0;
     let tkaScores = {
@@ -3404,7 +3408,6 @@ function renderNilaiKeHalamanWeb(siswa) {
     document.getElementById('kontenRekapEvaluasiPersonal').innerHTML = htmlKontenHasil;
     document.getElementById('resultSiswaSection').style.display = 'block';
 }
-
     // ============================================================
     // 3. FUNGSI AUTOCOMPLETE (KUNCI MATI TOTAL UNTUK SISWA)
     // ============================================================
