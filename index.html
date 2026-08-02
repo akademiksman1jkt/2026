@@ -2704,7 +2704,7 @@
             if (btnMsk) btnMsk.disabled = false;
             sessionUserAktif = { 
     username: targetUser.username, 
-    nama:     targetUser.nama || targetUser.namaLengkap || targetUser.username, 
+    nama:     targetUser.namaLengkap
     role:     targetUser.role 
 };
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
