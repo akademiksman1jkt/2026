@@ -2702,11 +2702,14 @@
         if (targetUser) {
             if (_loginWaitTimer) { clearInterval(_loginWaitTimer); _loginWaitTimer = null; }
             if (btnMsk) btnMsk.disabled = false;
+            
+            // simpan properti 'nama' dari data spreadsheet
             sessionUserAktif = { 
-    username: targetUser.username, 
-    nama:     targetUser.namaLengkap
-    role:     targetUser.role 
-};
+                username: targetUser.username, 
+                nama:     targetUser.nama || targetUser.namaLengkap || targetUser.username,
+                role:     targetUser.role 
+            };
+            
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
             bukaHalamanDashboard();
             return true;
@@ -2727,7 +2730,11 @@
 
         // Admin hardcode — selalu bisa masuk tanpa cloud
         if (uInp === "adminsma1" && pInp === "adminsma123") {
-            sessionUserAktif = { username: "admin", role: "AdminSMAN1" };
+            sessionUserAktif = { 
+                username: "admin", 
+                nama:     "Administrator Utama", 
+                role:     "AdminSMAN1" 
+            };
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
             bukaHalamanDashboard();
             return;
