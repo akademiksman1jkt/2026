@@ -3092,35 +3092,43 @@ function closeCustomAlert() {
     // KALKULASI STATISTIK SISWA
     // ============================================================
     function hitungStatistikSiswa(siswaRow) {
-        let sumTotal = 0, countTotal = 0, mapelMerah = 0;
-        let rincianMerah = [];
+    let sumTotal = 0, countTotal = 0, mapelMerah = 0;
+    let rincianMerah = [];
 
-        daftarMapel.forEach((m, idx) => {
-            let start = 6 + (idx * 6);
-            for (let s = 0; s < 6; s++) {
-                let valStr = siswaRow[start + s];
-                if (valStr && valStr !== '-' && valStr.trim() !== '') {
-                    let valNum = parseFloat(valStr);
-                    if (!isNaN(valNum)) {
-                        sumTotal += valNum;
-                        countTotal++;
-                        if (valNum < 75) {
-                            mapelMerah++;
-                            rincianMerah.push(`${m.kode} (S${s + 1}: ${valStr})`);
-                        }
+    if (!siswaRow || typeof daftarMapel === 'undefined' || !Array.isArray(daftarMapel)) {
+        return { sum: 0, count: 0, average: "0,00", merah: 0, rincianMerah: "" };
+    }
+
+    daftarMapel.forEach((m, idx) => {
+        let start = 6 + (idx * 6);
+        for (let s = 0; s < 6; s++) {
+            let rawVal = siswaRow[start + s];
+            
+            // 🌟 PENGAMAN TIPE DATA: Konversi ke String & ganti koma dengan titik
+            if (rawVal !== undefined && rawVal !== null && rawVal !== '' && rawVal !== '-') {
+                let valStr = String(rawVal).replace(',', '.').trim();
+                let valNum = parseFloat(valStr);
+
+                if (!isNaN(valNum)) {
+                    sumTotal += valNum;
+                    countTotal++;
+                    if (valNum < 75) {
+                        mapelMerah++;
+                        rincianMerah.push(`${m.kode} (S${s + 1}: ${rawVal})`);
                     }
                 }
             }
-        });
+        }
+    });
 
-        return {
-            sum:         sumTotal,
-            count:       countTotal,
-            average:     countTotal > 0 ? (sumTotal / countTotal).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00",
-            merah:       mapelMerah,
-            rincianMerah: rincianMerah.join(", ")
-        };
-    }
+    return {
+        sum:          sumTotal,
+        count:        countTotal,
+        average:      countTotal > 0 ? (sumTotal / countTotal).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00",
+        merah:        mapelMerah,
+        rincianMerah: rincianMerah.join(", ")
+    };
+}
 
     function dapatkanPeringkatKelasSiswa(nisn, rombel) {
         let siswaSatuKelas = dataSiswaGlobal.filter(row => row[3] === rombel);
