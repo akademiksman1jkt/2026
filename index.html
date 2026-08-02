@@ -2702,7 +2702,11 @@
         if (targetUser) {
             if (_loginWaitTimer) { clearInterval(_loginWaitTimer); _loginWaitTimer = null; }
             if (btnMsk) btnMsk.disabled = false;
-            sessionUserAktif = { username: targetUser.username, role: targetUser.role };
+            sessionUserAktif = { 
+    username: targetUser.username, 
+    nama:     targetUser.nama || targetUser.namaLengkap || targetUser.username, 
+    role:     targetUser.role 
+};
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
             bukaHalamanDashboard();
             return true;
@@ -2762,15 +2766,32 @@
     }
 
     function bukaHalamanDashboard() {
-        document.getElementById('loginScreen').style.display   = 'none';
-        document.getElementById('mainDashboard').style.display = 'flex';
-        document.getElementById('mobileHeader').style.display  = 'flex';
-        document.getElementById('lblUserAktif').innerText      = sessionUserAktif.username;
-        document.getElementById('lblRoleAktif').innerText      = sessionUserAktif.role;
-        tegakkanHakAksesSistem();
-        populateMapelDropdownKoreksi();
-        switchSidebarMenu(menuAktifSebelumnya);
+    document.getElementById('loginScreen').style.display   = 'none';
+    document.getElementById('mainDashboard').style.display = 'flex';
+    document.getElementById('mobileHeader').style.display  = 'flex';
+    
+    // -----------------------------------------------------------------
+    // 🌟 PERBAIKAN: Ambil Nama Lengkap dari sessionUserAktif atau Cache
+    // -----------------------------------------------------------------
+    let namaUser = sessionUserAktif.nama || sessionUserAktif.namaLengkap;
+
+    // Fallback: Jika di sessionUserAktif belum ada, cari dari cloudUsersCache
+    if (!namaUser && typeof cloudUsersCache !== 'undefined' && Array.isArray(cloudUsersCache)) {
+        let uMatch = cloudUsersCache.find(u => u.username === sessionUserAktif.username || u[0] === sessionUserAktif.username);
+        if (uMatch) {
+            namaUser = uMatch.nama || uMatch[2]; // Indeks 2 adalah Nama Lengkap dari spreadsheet
+        }
     }
+
+    // Tampilkan Nama Lengkap (Jika tidak ada, baru fallback ke Username)
+    document.getElementById('lblUserAktif').innerText = namaUser || sessionUserAktif.username;
+    // -----------------------------------------------------------------
+
+    document.getElementById('lblRoleAktif').innerText      = sessionUserAktif.role;
+    tegakkanHakAksesSistem();
+    populateMapelDropdownKoreksi();
+    switchSidebarMenu(menuAktifSebelumnya);
+}
 
     function tegakkanHakAksesSistem() {
         if (!Array.isArray(cloudUsersCache))   cloudUsersCache   = [];
