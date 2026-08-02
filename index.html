@@ -3133,100 +3133,102 @@ function closeCustomAlert() {
     // CARI NILAI PERSONAL (FIXED AUTO-LOAD & PRECISE MENU STRIPPER)
     // ============================================================
     function cariNilaiSiswa() {
-        let searchKey = "";
+    let searchKey = "";
 
-        // 🔒 SEKAT KEAMANAN UTK SISWA (Toleransi 'SiswaSMAN1' atau 'siswaSMAN1')
-        if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
-           (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
-            
-            searchKey = sessionUserAktif.username; // Ambil mutlak dari NISN akun login (Bypass input layar)
+    // 🔒 SEKAT KEAMANAN UTK SISWA (Toleransi 'SiswaSMAN1' atau 'siswaSMAN1')
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
+       (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
+        
+        searchKey = sessionUserAktif.username; // Ambil mutlak dari NISN akun login (Bypass input layar)
 
-            // 🌟 SUNTIKKAN CSS KHUSUS PENGHANCUR ELEMEN SPESIFIK (TIDAK MERUSAK SIDEBAR UTAMA) 🌟
-            if (!document.getElementById('siswaSearchProtector')) {
-                const style = document.createElement('style');
-                style.id = 'siswaSearchProtector';
-                style.innerHTML = `
-                    /* 1. Menyembunyikan seluruh komponen pencarian nilai secara fisik & visual */
-                    .search-container, 
-                    .search-box, 
-                    .plotting-search, 
-                    #searchKey, 
-                    #searchSuggestions, 
-                    #boxPencarianSiswaIndividu,
-                    button[onclick="cariNilaiSiswa()"] {
-                        display: none !important;
-                        visibility: hidden !important;
-                        opacity: 0 !important;
-                        pointer-events: none !important;
-                    }
-
-                    /* 2. Sembunyikan ID menu terlarang jika menggunakan ID standar */
-                    #btnNavBiodata, #btnNavKehadiranSiswa, #btnNavKehadiranGuru, #btnNavKetidakhadiranGuru {
-                        display: none !important;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            // 🌟 PRECISE SCANNING: Hanya cari elemen baris menu (item) yang mengandung teks terlarang
-            // Kita batasi hanya memeriksa elemen link (a), list item (li), atau item menu bertingkat rendah
-            document.querySelectorAll('a, li, .nav-item, .menu-item').forEach(el => {
-                const txt = el.innerText || "";
-                if (txt.includes("Ketidakhadiran Guru") || 
-                    txt.includes("Kehadiran Guru") || 
-                    txt.includes("Kehadiran Siswa") || 
-                    txt.includes("Biodata Lengkap")) {
-                    el.style.setProperty('display', 'none', 'important');
+        // 🌟 SUNTIKKAN CSS KHUSUS PENGHANCUR ELEMEN SPESIFIK (TIDAK MERUSAK SIDEBAR UTAMA) 🌟
+        if (!document.getElementById('siswaSearchProtector')) {
+            const style = document.createElement('style');
+            style.id = 'siswaSearchProtector';
+            style.innerHTML = `
+                /* 1. Menyembunyikan seluruh komponen pencarian nilai secara fisik & visual */
+                .search-container, 
+                .search-box, 
+                .plotting-search, 
+                #searchKey, 
+                #searchSuggestions, 
+                #boxPencarianSiswaIndividu,
+                button[onclick="cariNilaiSiswa()"] {
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
                 }
-            });
 
-            // Pengaman tambahan: hapus isi rekomendasi nama siswa lain jika sempat muncul
-            const suggestionsEl = document.getElementById('searchSuggestions');
-            if (suggestionsEl) { 
-                suggestionsEl.innerHTML = '';
-                suggestionsEl.style.display = 'none'; 
-            }
-        } else {
-            // JIKA LOGIN SEBAGAI GURU / ADMIN
-            const inputEl = document.getElementById('searchKey');
-            searchKey = inputEl ? inputEl.value.trim() : "";
+                /* 2. Sembunyikan ID menu terlarang jika menggunakan ID standar */
+                #btnNavBiodata, #btnNavKehadiranSiswa, #btnNavKehadiranGuru, #btnNavKetidakhadiranGuru {
+                    display: none !important;
+                }
+            `;
+            document.head.appendChild(style);
         }
 
-        // Jika tidak ada kata kunci (untuk admin yang baru membuka halaman), hentikan proses
-        if (!searchKey) return;
-
-        // Cari data siswa di database berdasarkan searchKey yang aman
-        const siswa = dataSiswaGlobal.find(row =>
-            row[0] === searchKey ||
-            row[1] === searchKey ||
-            row[2].toLowerCase() === searchKey.toLowerCase()
-        );
-
-        // 🔒 PERTAHANAN GANDA TINGKAT DATA: Cegah manipulasi objek via konsol browser
-        if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
-           (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
-            if (siswa && siswa[0] !== sessionUserAktif.username) {
-                console.warn("Deteksi upaya bypass data! Sistem mengembalikan ke rapor mandiri.");
-                const dataSiswaAsli = dataSiswaGlobal.find(row => row[0] === sessionUserAktif.username);
-                if (dataSiswaAsli) renderNilaiKeHalamanWeb(dataSiswaAsli);
-                return;
+        // 🌟 PRECISE SCANNING: Hanya cari elemen baris menu (item) yang mengandung teks terlarang
+        document.querySelectorAll('a, li, .nav-item, .menu-item').forEach(el => {
+            const txt = el.innerText || "";
+            if (txt.includes("Ketidakhadiran Guru") || 
+                txt.includes("Kehadiran Guru") || 
+                txt.includes("Kehadiran Siswa") || 
+                txt.includes("Biodata Lengkap")) {
+                el.style.setProperty('display', 'none', 'important');
             }
-        }
+        });
 
-        if (!siswa) { 
-            if (sessionUserAktif && (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
-                console.log("Menyinkronkan data...");
-            } else {
-                alert("Siswa tidak ditemukan!"); 
-            }
-            return; 
+        // Pengaman tambahan: hapus isi rekomendasi nama siswa lain jika sempat muncul
+        const suggestionsEl = document.getElementById('searchSuggestions');
+        if (suggestionsEl) { 
+            suggestionsEl.innerHTML = '';
+            suggestionsEl.style.display = 'none'; 
         }
-
-        renderNilaiKeHalamanWeb(siswa);
+    } else {
+        // JIKA LOGIN SEBAGAI GURU / ADMIN
+        const inputEl = document.getElementById('searchKey');
+        searchKey = inputEl ? inputEl.value.trim() : "";
     }
 
-    // Fungsi steril khusus merender tabel nilai siswa
-    // ✅ KODE BARU (SUDAH DITAMBAHKAN PENCARIAN & PENCETAKAN TTL & AGAMA):
+    // Jika tidak ada kata kunci (untuk admin yang baru membuka halaman), hentikan proses
+    if (!searchKey) return;
+
+    // 🌟 PERBAIKAN DI SINI: Cari data siswa di database dengan konversi String (Anti-Crash)
+    const siswa = dataSiswaGlobal.find(row => {
+        if (!row) return false;
+        let sNisn = String(row[0] || "").trim();
+        let sNis  = String(row[1] || "").trim();
+        let sNama = String(row[2] || "").trim().toLowerCase();
+        let key   = searchKey.toLowerCase().trim();
+
+        return sNisn === key || sNis === key || sNama === key || sNama.includes(key);
+    });
+
+    // 🔒 PERTAHANAN GANDA TINGKAT DATA: Cegah manipulasi objek via konsol browser
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && 
+       (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
+        if (siswa && String(siswa[0]).trim() !== String(sessionUserAktif.username).trim()) {
+            console.warn("Deteksi upaya bypass data! Sistem mengembalikan ke rapor mandiri.");
+            const dataSiswaAsli = dataSiswaGlobal.find(row => String(row[0]).trim() === String(sessionUserAktif.username).trim());
+            if (dataSiswaAsli) renderNilaiKeHalamanWeb(dataSiswaAsli);
+            return;
+        }
+    }
+
+    if (!siswa) { 
+        if (sessionUserAktif && (sessionUserAktif.role === 'SiswaSMAN1' || sessionUserAktif.role === 'siswaSMAN1')) {
+            console.log("Menyinkronkan data...");
+        } else {
+            alert("Siswa tidak ditemukan!"); 
+        }
+        return; 
+    }
+
+    renderNilaiKeHalamanWeb(siswa);
+}
+
+// Fungsi steril khusus merender tabel nilai siswa
 function renderNilaiKeHalamanWeb(siswa) {
     document.getElementById('resNama').innerText       = siswa[2] || "-";
     document.getElementById('resKelas').innerText      = siswa[3] || "-";
@@ -3235,7 +3237,6 @@ function renderNilaiKeHalamanWeb(siswa) {
     // 🌟 PERBAIKAN PENCARIAN BIODATA: FLEKSIBEL TERHADAP STRING/NUMBER & FORMAT OBJECT
     let bioSiswa = null;
     if (typeof dataBiodataGlobal !== 'undefined' && dataBiodataGlobal) {
-        // Ekstrak array biodata utama (penanganan jika berbentuk objek ber-key 'biodata')
         let listBiodata = Array.isArray(dataBiodataGlobal) 
             ? dataBiodataGlobal 
             : (dataBiodataGlobal.biodata || []);
@@ -3256,7 +3257,7 @@ function renderNilaiKeHalamanWeb(siswa) {
         });
     }
 
-    // 🌟 PERBAIKAN PEMBACAAN TTL & AGAMA (Mendukung semua variasi nama kolom Google Sheets)
+    // 🌟 PERBAIKAN PEMBACAAN TTL & AGAMA
     if (document.getElementById('resTtl')) {
         let valTtl = bioSiswa 
             ? (bioSiswa.ttl || bioSiswa["TEMPAT TANGGAL LAHIR"] || bioSiswa.tempat_tanggal_lahir || bioSiswa.TTL || "-") 
@@ -3271,9 +3272,7 @@ function renderNilaiKeHalamanWeb(siswa) {
         document.getElementById('resAgama').innerText = valAgama;
     }
 
-    // ====================================================================
-    // LOGIKA PERHITUNGAN STATISTIK & TABEL NILAI 6 SEMESTER (UTUH)
-    // ====================================================================
+    // LOGIKA STATISTIK & TABEL NILAI 6 SEMESTER
     let info = hitungStatistikSiswa(siswa);
     document.getElementById('resSumNilai').innerText           = info.sum.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     document.getElementById('resCountNilai').innerText         = info.count + " Data";
@@ -3299,6 +3298,7 @@ function renderNilaiKeHalamanWeb(siswa) {
             document.getElementById('nilaiTableBody').innerHTML += rHtml + `</tr>`;
         }
     });
+}
 
     // ====================================================================
     // PEMETAAN TKA UTBK & REKOMENDASI RUMPUN (UTUH)
