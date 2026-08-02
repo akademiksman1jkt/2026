@@ -4486,7 +4486,15 @@ finally {
             return;
         }
 
-        if      (sortMode === 'rank_paralel') filterAngkatan.sort((a, b) => (parseFloat(hitungStatistikSiswa(b).average) || 0) - (parseFloat(hitungStatistikSiswa(a).average) || 0));
+        if (sortMode === 'rank_paralel') {
+    filterAngkatan.sort((a, b) => {
+        let statA = hitungStatistikSiswa(a);
+        let statB = hitungStatistikSiswa(b);
+        let avgA = statA.count > 0 ? (statA.sum / statA.count) : 0;
+        let avgB = statB.count > 0 ? (statB.sum / statB.count) : 0;
+        return avgB - avgA; // Urutkan dari rata-rata tertinggi ke terendah
+    });
+}
         else if (sortMode === 'nama_asc')     filterAngkatan.sort((a, b) => (a[2] || "").localeCompare(b[2] || ""));
         else if (sortMode === 'kelas_asc')    filterAngkatan.sort((a, b) => (a[3] || "").localeCompare(b[3] || "") || (a[2] || "").localeCompare(b[2] || ""));
 
@@ -4504,7 +4512,7 @@ finally {
 
         filterAngkatan.forEach((siswa, index) => {
             let stat       = hitungStatistikSiswa(siswa);
-            let rankParalel = (sortMode === 'rank_paralel') ? (index + 1) : (siswa[5] || "-");
+            let rankParalel = index + 1;
             let isTop3     = index < 3 && sortMode === 'rank_paralel';
             const tr       = document.createElement('tr');
             if (isTop3) tr.className = "highlight-rank";
