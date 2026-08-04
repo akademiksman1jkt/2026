@@ -1,0 +1,63 @@
+<!-- 1. BAGIAN MENU SIDEBAR -->
+<div id="btnNavBimbinganPerwalian" class="menu-item" onclick="toggleSubMenuPerwalian()" style="justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <i class="ri-user-shared-line"></i> Bimbingan Perwalian
+    </div>
+    <i class="ri-arrow-down-s-line" id="iconArrowPerwalian" style="transition: transform 0.3s ease;"></i>
+</div>
+
+<div id="subMenuPerwalianContainer" style="display: none; padding-left: 18px; flex-direction: column; gap: 4px; margin-top: 2px;">
+    <div id="btnSubPerkembanganSiswa" class="menu-item" onclick="switchSidebarMenu('perkembanganSiswaTab')" style="font-size: 13px; padding: 10px 14px;">
+        <i class="ri-line-chart-line"></i> Monitoring Perkembangan
+    </div>
+    <div id="btnSubKehadiranKedisiplinan" class="menu-item" onclick="switchSidebarMenu('kehadiranKedisiplinanTab')" style="font-size: 13px; padding: 10px 14px;">
+        <i class="ri-user-follow-line"></i> Kehadiran & Kedisiplinan
+    </div>
+    <div id="btnSubCatatanWali" class="menu-item" onclick="switchSidebarMenu('catatanWaliTab')" style="font-size: 13px; padding: 10px 14px;">
+        <i class="ri-draft-line"></i> Catatan & Karakter Murid
+    </div>
+    <div id="btnSubRekomendasiKarir" class="menu-item" onclick="switchSidebarMenu('rekomendasiKarirTab')" style="font-size: 13px; padding: 10px 14px;">
+        <i class="ri-compass-3-line"></i> Rekomendasi Studi & Karir
+    </div>
+</div>
+
+<!-- 2. BAGIAN HALAMAN KONTEN PERWALIAN -->
+<div id="perkembanganSiswaTab" class="tab-content-view" style="display:none;">
+    <div class="content-header">
+        <h1>Monitoring Perkembangan Siswa</h1>
+        <p>Pantauan perkembangan nilai dan grafik akademik murid perwalian.</p>
+    </div>
+    <div class="search-card">
+        <p>Halaman monitoring perkembangan siswa perwalian.</p>
+    </div>
+</div>
+
+<div id="kehadiranKedisiplinanTab" class="tab-content-view" style="display:none;">
+    <div class="content-header">
+        <h1>Kehadiran & Kedisiplinan Murid</h1>
+        <p>Rekapitulasi absensi bulanan dan rekam jejak kedisiplinan murid perwalian.</p>
+    </div>
+    <div class="search-card">
+        <p>Halaman rekap kehadiran dan kedisiplinan murid perwalian.</p>
+    </div>
+</div>
+
+<div id="catatanWaliTab" class="tab-content-view" style="display:none;">
+    <div class="content-header">
+        <h1>Catatan & Karakter Murid</h1>
+        <p>Evaluasi sikap, karakter, dan draf catatan rapor wali kelas.</p>
+    </div>
+    <div class="search-card">
+        <p>Halaman catatan dan pengembangan karakter murid.</p>
+    </div>
+</div>
+
+<div id="rekomendasiKarirTab" class="tab-content-view" style="display:none;">
+    <div class="content-header">
+        <h1>Rekomendasi Studi & Karir</h1>
+        <p>Analisis peminatan rumpun, peta TKA/UTBK, dan perencanaan studi lanjut.</p>
+    </div>
+    <div class="search-card">
+        <p>Halaman analisis rekomendasi studi lanjut dan karir murid.</p>
+    </div>
+</div>
