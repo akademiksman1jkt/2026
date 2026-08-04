@@ -2148,6 +2148,7 @@
 
             </div>
         </div>
+        <div id="areaContentPerwalian"></div>
 
         <!-- ==========================================
              TAB: KOREKSI & REVISI NILAI
@@ -2311,6 +2312,7 @@
                 <h1>Sidang Pleno &amp; Voting Kenaikan Kelas</h1>
                 <p>Mekanisme pengambilan keputusan dewan guru untuk siswa dengan kerawanan akademis (&lt; KKM) atau kasus khusus non-akademik.</p>
             </div>
+        <div id="areaSidebarPerwalian"></div>
 
             <!-- ═══════ ADMIN CONTROL PANEL ═══════ -->
             <div id="votingAdminPanel" class="search-card" style="display:none;">
@@ -2763,6 +2765,10 @@ function closeCustomAlert() {
         aiHubTab:             'btnNavAIHub',
         adminPanelSection:    'btnNavAdmin',
         adminValidasiSection: 'btnNavValidasi'
+        perkembanganSiswaTab:     'btnSubPerkembanganSiswa',
+        kehadiranKedisiplinanTab: 'btnSubKehadiranKedisiplinan',
+        catatanWaliTab:           'btnSubCatatanWali',
+        rekomendasiKarirTab:      'btnSubRekomendasiKarir'
     };
 
     // 5. Nyalakan warna aktif (biru/highlight) pada tombol menu yang diklik
@@ -8840,5 +8846,48 @@ function simpanAksesMenuDinamis() {
     <button class="custom-alert-btn" id="customAlertBtn" onclick="closeCustomAlert()">OK, Mengerti</button>
   </div>
 </div>
+<script>
+    // 1. Memuat file menu-perwalian.html secara otomatis
+    fetch('menu-perwalian.html')
+        .then(response => response.text())
+        .then(data => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = data;
+
+            // Tempelkan item menu ke Sidebar
+            const btnNav = tempDiv.querySelector('#btnNavBimbinganPerwalian');
+            const subMenu = tempDiv.querySelector('#subMenuPerwalianContainer');
+            const areaSidebar = document.getElementById('areaSidebarPerwalian');
+            
+            if (areaSidebar && btnNav && subMenu) {
+                areaSidebar.appendChild(btnNav);
+                areaSidebar.appendChild(subMenu);
+            }
+
+            // Tempelkan halaman konten ke area Main Content
+            const areaContent = document.getElementById('areaContentPerwalian');
+            if (areaContent) {
+                tempDiv.querySelectorAll('.tab-content-view').forEach(tab => {
+                    areaContent.appendChild(tab);
+                });
+            }
+        })
+        .catch(err => console.error('Gagal memuat file menu perwalian:', err));
+
+    // 2. Fungsi Buka/Tutup (Accordion) Sub-Menu Bimbingan Perwalian
+    function toggleSubMenuPerwalian() {
+        const container = document.getElementById('subMenuPerwalianContainer');
+        const arrow = document.getElementById('iconArrowPerwalian');
+        if (container && arrow) {
+            if (container.style.display === 'none' || container.style.display === '') {
+                container.style.display = 'flex';
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                container.style.display = 'none';
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+    }
+</script>
 </body>
 </html>
