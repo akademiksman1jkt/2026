@@ -82,14 +82,10 @@
                     </tr>
                 </thead>
                 <tbody id="tbodyJurnalPerwalianModern">
-                    <tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:12px 16px; text-align:center; color:#64748b;">1</td>
-                        <td style="padding:12px 16px; color:#475569;">04/08/2026</td>
-                        <td style="padding:12px 16px; font-weight:600; color:#0f172a;">RIZKI ADITYA IZHAR NABAWI</td>
-                        <td style="padding:12px 16px; color:#334155;">Konsultasi pemilihan jurusan perguruan tinggi &amp; kelanjutan studi.</td>
-                        <td style="padding:12px 16px; color:#334155;">Diberikan arahan pemetaan mata pelajaran pendukung TKA/UTBK.</td>
-                        <td style="padding:12px 16px; text-align:center;"><span style="background:#f1f5f9; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">X 5</span></td>
-                        <td style="padding:12px 16px; text-align:center;"><span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">XI 2</span></td>
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">
+                            Memuat data jurnal bimbingan perwalian...
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -152,7 +148,7 @@
 
             <div style="display:flex; justify-content:flex-end; gap:8px;">
                 <button type="button" onclick="tutupModalFormPerwalian()" style="padding:9px 16px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; font-size:13px; cursor:pointer;">Batal</button>
-                <button type="submit" style="padding:9px 16px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">Simpan Catatan</button>
+                <button type="submit" id="btnSimpanPerwalian" style="padding:9px 16px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">Simpan Catatan</button>
             </div>
         </form>
     </div>
@@ -164,6 +160,11 @@
 <div id="rekomendasiKarirTab" class="tab-content-view" style="display:none;"><div class="content-header"><h1>Rekomendasi Studi &amp; Karir</h1></div></div>
 
 <script>
+// 1. URL Apps Script
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpbuJlinPwRoqIiGPQ4mH8UWZAn91jaLbv6pHYtb9Ko2GjWpeMg3hYDedPmmXi6Cp4/exec';
+
+let dataGlobalMuridPerwalian = [];
+
 // Helper untuk memasukkan opsi rekomendasi otomatis ke dalam textarea
 function isiTeks(elementId, teks) {
     document.getElementById(elementId).value = teks;
@@ -171,9 +172,122 @@ function isiTeks(elementId, teks) {
 
 function bukaModalFormPerwalian() {
     document.getElementById('modalFormPerwalian').style.display = 'flex';
+    document.getElementById('inputTanggalPerwalian').valueAsDate = new Date();
 }
 
 function tutupModalFormPerwalian() {
     document.getElementById('modalFormPerwalian').style.display = 'none';
 }
+
+// 2. Memuat Murid Perwalian Khusus Guru yang Login
+function muatPlottingPerwalian() {
+    const userGuru = sessionStorage.getItem('loggedInUser') || '';
+    const selectSiswa = document.getElementById('inputSiswaPerwalian');
+    
+    if (!userGuru || !selectSiswa) return;
+
+    fetch(`${WEB_APP_URL}?action=getMuridPerwalian&username_guru=${encodeURIComponent(userGuru)}`)
+        .then(res => res.json())
+        .then(data => {
+            dataGlobalMuridPerwalian = data;
+            selectSiswa.innerHTML = '<option value="">-- Pilih Murid Perwalian --</option>';
+            data.forEach(siswa => {
+                selectSiswa.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`;
+            });
+        })
+        .catch(err => console.error('Gagal mengambil data murid:', err));
+}
+
+// 3. Memuat Jurnal Perwalian Bulanan
+function muatJurnalPerwalian() {
+    const userGuru = sessionStorage.getItem('loggedInUser') || '';
+    const bulan = document.getElementById('filterBulanJurnal').value;
+    const tbody = document.getElementById('tbodyJurnalPerwalianModern');
+
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">Memuat data jurnal...</td></tr>';
+
+    fetch(`${WEB_APP_URL}?action=getJurnalPerwalian&username_guru=${encodeURIComponent(userGuru)}&bulan=${encodeURIComponent(bulan)}`)
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
+                return;
+            }
+
+            data.forEach((item, index) => {
+                tbody.innerHTML += `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:12px 16px; text-align:center; color:#64748b;">${index + 1}</td>
+                        <td style="padding:12px 16px; color:#475569;">${item.tanggal}</td>
+                        <td style="padding:12px 16px; font-weight:600; color:#0f172a;">${item.nama}</td>
+                        <td style="padding:12px 16px; color:#334155;">${item.masalah}</td>
+                        <td style="padding:12px 16px; color:#334155;">${item.saran}</td>
+                        <td style="padding:12px 16px; text-align:center;"><span style="background:#f1f5f9; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">${item.kelas_asal || '-'}</span></td>
+                        <td style="padding:12px 16px; text-align:center;"><span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">${item.kelas_baru || '-'}</span></td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(err => {
+            console.error('Gagal memuat jurnal:', err);
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#ef4444;">Gagal mengambil data dari Google Sheets.</td></tr>';
+        });
+}
+
+// 4. Menyimpan Catatan Baru ke Google Sheets
+function simpanDataPerwalian(event) {
+    event.preventDefault();
+    
+    const userGuru = sessionStorage.getItem('loggedInUser') || '';
+    const nisnSelected = document.getElementById('inputSiswaPerwalian').value;
+    const murid = dataGlobalMuridPerwalian.find(m => m.nisn === nisnSelected);
+    
+    if (!murid) {
+        alert('Silakan pilih murid perwalian terlebih dahulu.');
+        return;
+    }
+
+    const payload = {
+        username_guru: userGuru,
+        nisn: murid.nisn,
+        nama_murid: murid.nama,
+        kelas_asal: murid.kelas,
+        kelas_baru: murid.kelas,
+        tanggal: document.getElementById('inputTanggalPerwalian').value,
+        bulan: document.getElementById('filterBulanJurnal').value,
+        masalah: document.getElementById('inputMasalahPerwalian').value,
+        saran: document.getElementById('inputSaranPerwalian').value
+    };
+
+    const btnSimpan = document.getElementById('btnSimpanPerwalian');
+    btnSimpan.disabled = true;
+    btnSimpan.innerText = 'Menyimpan...';
+
+    fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(response => {
+        if (response.status === 'success') {
+            tutupModalFormPerwalian();
+            document.getElementById('formInputPerwalian').reset();
+            muatJurnalPerwalian();
+        } else {
+            alert('Gagal menyimpan data.');
+        }
+    })
+    .catch(err => console.error('Error simpan data:', err))
+    .finally(() => {
+        btnSimpan.disabled = false;
+        btnSimpan.innerText = 'Simpan Catatan';
+    });
+}
+
+// Jalankan otomatis saat file dimuat
+muatPlottingPerwalian();
+muatJurnalPerwalian();
 </script>
