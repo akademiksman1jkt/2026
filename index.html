@@ -8888,6 +8888,36 @@ function simpanAksesMenuDinamis() {
             }
         }
     }
+// Tambahkan di bagian bawah script index.html
+window.bukaModalFormPerwalian = function() {
+    const modal = document.getElementById('modalFormPerwalian');
+    if (modal) {
+        modal.style.display = 'flex';
+        
+        // Set tanggal otomatis ke hari ini
+        const inputTanggal = document.getElementById('inputTanggalPerwalian');
+        if (inputTanggal) inputTanggal.valueAsDate = new Date();
+        
+        // Panggil muat data murid perwalian
+        if (typeof muatPlottingPerwalian === 'function') {
+            muatPlottingPerwalian();
+        }
+    } else {
+        console.error('Elemen #modalFormPerwalian tidak ditemukan di DOM.');
+    }
+};
+
+window.tutupModalFormPerwalian = function() {
+    const modal = document.getElementById('modalFormPerwalian');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+};
+
+window.isiTeks = function(elementId, teks) {
+    const el = document.getElementById(elementId);
+    if (el) el.value = teks;
+};
 </script>
 </body>
 </html>
