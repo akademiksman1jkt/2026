@@ -1,6 +1,6 @@
 <!-- FILE: menu-perwalian.html -->
 
-<!-- 1. MENU UTAMA SIDEBAR -->
+<!-- 1. MENU UTAMA SIDEBAR (Dropdown Accordion) -->
 <div id="btnNavBimbinganPerwalian" class="menu-item" onclick="toggleSubMenuPerwalian()" style="justify-content: space-between;">
     <div style="display: flex; align-items: center; gap: 12px;">
         <i class="ri-user-shared-line"></i> Bimbingan Perwalian
@@ -28,7 +28,6 @@
 <!-- 2. HALAMAN KONTEN SUB-MENU 1: MONITORING PERKEMBANGAN -->
 <div id="perkembanganSiswaTab" class="tab-content-view" style="display:none;">
     
-    <!-- Header Halaman -->
     <div class="content-header" style="margin-bottom: 20px;">
         <h2 style="font-size:20px; font-weight:700; color:#1e293b; margin-bottom:4px;">Jurnal Pelaksanaan Konsultasi Perwalian</h2>
         <p style="color:#64748b; font-size:13px;">Rekam jejak bimbingan, kendala, dan tindak lanjut perkembangan murid.</p>
@@ -36,29 +35,27 @@
 
     <!-- Toolbar Atas -->
     <div style="background:#fff; padding:16px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <label style="font-size:13px; font-weight:600; color:#475569;">Bulan:</label>
-                <select id="filterBulanJurnal" onchange="muatJurnalPerwalian()" style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; background:#fff;">
-                    <option value="Januari">Januari</option>
-                    <option value="Februari">Februari</option>
-                    <option value="Maret">Maret</option>
-                    <option value="April">April</option>
-                    <option value="Mei">Mei</option>
-                    <option value="Juni">Juni</option>
-                    <option value="Juli">Juli</option>
-                    <option value="Agustus" selected>Agustus</option>
-                    <option value="September">September</option>
-                    <option value="Oktober">Oktober</option>
-                    <option value="November">November</option>
-                    <option value="Desember">Desember</option>
-                </select>
-            </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <label style="font-size:13px; font-weight:600; color:#475569;">Bulan:</label>
+            <select id="filterBulanJurnal" onchange="muatJurnalPerwalian()" style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; background:#fff;">
+                <option value="Januari">Januari</option>
+                <option value="Februari">Februari</option>
+                <option value="Maret">Maret</option>
+                <option value="April">April</option>
+                <option value="Mei">Mei</option>
+                <option value="Juni">Juni</option>
+                <option value="Juli">Juli</option>
+                <option value="Agustus" selected>Agustus</option>
+                <option value="September">September</option>
+                <option value="Oktober">Oktober</option>
+                <option value="November">November</option>
+                <option value="Desember">Desember</option>
+            </select>
         </div>
 
         <div style="display:flex; gap:10px;">
             <button onclick="bukaModalFormPerwalian()" style="background:#2563eb; color:#fff; border:none; padding:9px 16px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                <i class="ri-add-line"></i> + Tambah Catatan Bimbingan
+                <i class="ri-add-line"></i> Tambah Catatan Bimbingan
             </button>
             <button onclick="window.print()" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:9px 16px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
                 <i class="ri-printer-line"></i> Cetak Laporan
@@ -66,7 +63,7 @@
         </div>
     </div>
 
-    <!-- Tabel Modern & Clean -->
+    <!-- Tabel Modern -->
     <div style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
         <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
@@ -94,7 +91,7 @@
 </div>
 
 
-<!-- 3. MODAL INPUT PERWALIAN DENGAN REKOMENDASI OTOMATIS -->
+<!-- 3. MODAL POP-UP INPUT CATATAN PERWALIAN -->
 <div id="modalFormPerwalian" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index:9999; align-items:center; justify-content:center;">
     <div style="background:#fff; width:100%; max-width:600px; border-radius:12px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
         
@@ -118,12 +115,11 @@
                 </div>
             </div>
 
-            <!-- FIELD MASALAH (DENGAN REKOMENDASI TEPAT DI BAWAH) -->
+            <!-- Field Masalah -->
             <div style="margin-bottom:14px;">
                 <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Masalah yang Dibicarakan</label>
                 <textarea id="inputMasalahPerwalian" rows="2" required placeholder="Ketik atau pilih rekomendasi umum di bawah..." style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;"></textarea>
                 
-                <!-- Rekomendasi Cepat Masalah -->
                 <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
                     <span style="font-size:11px; color:#64748b; font-weight:600; width:100%;">💡 Rekomendasi cepat:</span>
                     <button type="button" onclick="isiTeks('inputMasalahPerwalian', 'Konsultasi pemilihan jurusan perguruan tinggi & kelanjutan studi.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Pilihan Karir/Kuliah</button>
@@ -132,12 +128,11 @@
                 </div>
             </div>
 
-            <!-- FIELD SARAN (DENGAN REKOMENDASI TEPAT DI BAWAH) -->
+            <!-- Field Saran -->
             <div style="margin-bottom:20px;">
                 <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Saran dari Guru Wali / Tindak Lanjut</label>
                 <textarea id="inputSaranPerwalian" rows="2" required placeholder="Ketik atau pilih rekomendasi umum di bawah..." style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;"></textarea>
                 
-                <!-- Rekomendasi Cepat Saran -->
                 <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
                     <span style="font-size:11px; color:#64748b; font-weight:600; width:100%;">💡 Rekomendasi cepat:</span>
                     <button type="button" onclick="isiTeks('inputSaranPerwalian', 'Diberikan arahan pemetaan mata pelajaran pendukung TKA/UTBK serta konsultasi bersama orang tua.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Pemetaan TKA & Ortut</button>
@@ -159,31 +154,32 @@
 <div id="catatanWaliTab" class="tab-content-view" style="display:none;"><div class="content-header"><h1>Catatan &amp; Karakter Murid</h1></div></div>
 <div id="rekomendasiKarirTab" class="tab-content-view" style="display:none;"><div class="content-header"><h1>Rekomendasi Studi &amp; Karir</h1></div></div>
 
+<!-- SCRIPT UTAMA KONEKSI APPS SCRIPT -->
 <script>
-// 1. URL Apps Script
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpbuJlinPwRoqIiGPQ4mH8UWZAn91jaLbv6pHYtb9Ko2GjWpeMg3hYDedPmmXi6Cp4/exec';
-
 let dataGlobalMuridPerwalian = [];
 
-// Helper untuk memasukkan opsi rekomendasi otomatis ke dalam textarea
-function isiTeks(elementId, teks) {
-    document.getElementById(elementId).value = teks;
+function isiTeks(elementId, teks) { 
+    document.getElementById(elementId).value = teks; 
 }
 
 function bukaModalFormPerwalian() {
-    document.getElementById('modalFormPerwalian').style.display = 'flex';
-    document.getElementById('inputTanggalPerwalian').valueAsDate = new Date();
+    const modal = document.getElementById('modalFormPerwalian');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('inputTanggalPerwalian').valueAsDate = new Date();
+        muatPlottingPerwalian();
+    }
 }
 
-function tutupModalFormPerwalian() {
-    document.getElementById('modalFormPerwalian').style.display = 'none';
+function tutupModalFormPerwalian() { 
+    const modal = document.getElementById('modalFormPerwalian');
+    if (modal) modal.style.display = 'none'; 
 }
 
-// 2. Memuat Murid Perwalian Khusus Guru yang Login
 function muatPlottingPerwalian() {
     const userGuru = sessionStorage.getItem('loggedInUser') || '';
     const selectSiswa = document.getElementById('inputSiswaPerwalian');
-    
     if (!userGuru || !selectSiswa) return;
 
     fetch(`${WEB_APP_URL}?action=getMuridPerwalian&username_guru=${encodeURIComponent(userGuru)}`)
@@ -191,20 +187,19 @@ function muatPlottingPerwalian() {
         .then(data => {
             dataGlobalMuridPerwalian = data;
             selectSiswa.innerHTML = '<option value="">-- Pilih Murid Perwalian --</option>';
-            data.forEach(siswa => {
-                selectSiswa.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`;
+            data.forEach(siswa => { 
+                selectSiswa.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`; 
             });
         })
         .catch(err => console.error('Gagal mengambil data murid:', err));
 }
 
-// 3. Memuat Jurnal Perwalian Bulanan
 function muatJurnalPerwalian() {
     const userGuru = sessionStorage.getItem('loggedInUser') || '';
     const bulan = document.getElementById('filterBulanJurnal').value;
     const tbody = document.getElementById('tbodyJurnalPerwalianModern');
-
     if (!tbody) return;
+
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">Memuat data jurnal...</td></tr>';
 
     fetch(`${WEB_APP_URL}?action=getJurnalPerwalian&username_guru=${encodeURIComponent(userGuru)}&bulan=${encodeURIComponent(bulan)}`)
@@ -215,7 +210,6 @@ function muatJurnalPerwalian() {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
                 return;
             }
-
             data.forEach((item, index) => {
                 tbody.innerHTML += `
                     <tr style="border-bottom:1px solid #f1f5f9;">
@@ -226,35 +220,24 @@ function muatJurnalPerwalian() {
                         <td style="padding:12px 16px; color:#334155;">${item.saran}</td>
                         <td style="padding:12px 16px; text-align:center;"><span style="background:#f1f5f9; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">${item.kelas_asal || '-'}</span></td>
                         <td style="padding:12px 16px; text-align:center;"><span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">${item.kelas_baru || '-'}</span></td>
-                    </tr>
-                `;
+                    </tr>`;
             });
         })
         .catch(err => {
-            console.error('Gagal memuat jurnal:', err);
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#ef4444;">Gagal mengambil data dari Google Sheets.</td></tr>';
         });
 }
 
-// 4. Menyimpan Catatan Baru ke Google Sheets
 function simpanDataPerwalian(event) {
     event.preventDefault();
-    
     const userGuru = sessionStorage.getItem('loggedInUser') || '';
     const nisnSelected = document.getElementById('inputSiswaPerwalian').value;
     const murid = dataGlobalMuridPerwalian.find(m => m.nisn === nisnSelected);
-    
-    if (!murid) {
-        alert('Silakan pilih murid perwalian terlebih dahulu.');
-        return;
-    }
+    if (!murid) return alert('Silakan pilih murid terlebih dahulu.');
 
     const payload = {
-        username_guru: userGuru,
-        nisn: murid.nisn,
-        nama_murid: murid.nama,
-        kelas_asal: murid.kelas,
-        kelas_baru: murid.kelas,
+        username_guru: userGuru, nisn: murid.nisn, nama_murid: murid.nama,
+        kelas_asal: murid.kelas, kelas_baru: murid.kelas,
         tanggal: document.getElementById('inputTanggalPerwalian').value,
         bulan: document.getElementById('filterBulanJurnal').value,
         masalah: document.getElementById('inputMasalahPerwalian').value,
@@ -262,8 +245,7 @@ function simpanDataPerwalian(event) {
     };
 
     const btnSimpan = document.getElementById('btnSimpanPerwalian');
-    btnSimpan.disabled = true;
-    btnSimpan.innerText = 'Menyimpan...';
+    btnSimpan.disabled = true; btnSimpan.innerText = 'Menyimpan...';
 
     fetch(WEB_APP_URL, {
         method: 'POST',
@@ -280,14 +262,12 @@ function simpanDataPerwalian(event) {
             alert('Gagal menyimpan data.');
         }
     })
-    .catch(err => console.error('Error simpan data:', err))
-    .finally(() => {
-        btnSimpan.disabled = false;
-        btnSimpan.innerText = 'Simpan Catatan';
+    .finally(() => { 
+        btnSimpan.disabled = false; 
+        btnSimpan.innerText = 'Simpan Catatan'; 
     });
 }
 
-// Jalankan otomatis saat file dimuat
-muatPlottingPerwalian();
+// Panggil otomatis jurnal saat halaman aktif
 muatJurnalPerwalian();
 </script>
