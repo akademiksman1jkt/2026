@@ -8918,6 +8918,87 @@ window.isiTeks = function(elementId, teks) {
     const el = document.getElementById(elementId);
     if (el) el.value = teks;
 };
+function muatMenuPerwalianDinamis() {
+    fetch('menu-perwalian.html')
+        .then(response => {
+            if (!response.ok) throw new Error('File menu-perwalian.html tidak ditemukan');
+            return response.text();
+        })
+        .then(htmlText => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlText;
+
+            // 1. Masukkan Menu & Sub-menu ke areaSidebarPerwalian
+            const btnNav = tempDiv.querySelector('#btnNavBimbinganPerwalian');
+            const subMenu = tempDiv.querySelector('#subMenuPerwalianContainer');
+            const areaSidebar = document.getElementById('areaSidebarPerwalian');
+            
+            if (areaSidebar) {
+                areaSidebar.innerHTML = ''; // Bersihkan kontainer
+                if (btnNav) areaSidebar.appendChild(btnNav);
+                if (subMenu) areaSidebar.appendChild(subMenu);
+            }
+
+            // 2. Masukkan Seluruh Tab Konten & Modal ke areaContentPerwalian
+            const areaContent = document.getElementById('areaContentPerwalian');
+            if (areaContent) {
+                areaContent.innerHTML = ''; // Bersihkan kontainer
+                
+                // Ambil semua elemen HTML non-script untuk dipindahkan
+                Array.from(tempDiv.children).forEach(child => {
+                    if (child.tagName !== 'SCRIPT' && child.id !== 'btnNavBimbinganPerwalian' && child.id !== 'subMenuPerwalianContainer') {
+                        areaContent.appendChild(child);
+                    }
+                });
+            }
+
+            // 3. Eksekusi Ulang Script bawaan menu-perwalian.html agar fungsi-fungsinya aktif
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                newScript.textContent = oldScript.textContent;
+                document.body.appendChild(newScript);
+            });
+
+            console.log('✅ Menu Bimbingan Perwalian & Modal Berhasil Dimuat ke DOM!');
+        })
+        .catch(err => console.error('Gagal memuat menu perwalian:', err));
+}
+
+// Panggil fungsi pemuat secara otomatis saat halaman index dibuka
+document.addEventListener('DOMContentLoaded', muatMenuPerwalianDinamis);
+// ==========================================
+        // FUNGSI GLOBAL MODAL PERWALIAN
+        // ==========================================
+        window.bukaModalFormPerwalian = function() {
+            const modal = document.getElementById('modalFormPerwalian');
+            if (modal) {
+                modal.style.display = 'flex';
+                
+                // Set tanggal otomatis ke hari ini
+                const inputTanggal = document.getElementById('inputTanggalPerwalian');
+                if (inputTanggal) inputTanggal.valueAsDate = new Date();
+                
+                // Panggil fungsi muat data murid jika tersedia
+                if (typeof muatPlottingPerwalian === 'function') {
+                    muatPlottingPerwalian();
+                }
+            } else {
+                alert('Menu perwalian masih dimuat. Silakan tunggu sebentar lalu klik kembali.');
+            }
+        };
+
+        window.tutupModalFormPerwalian = function() {
+            const modal = document.getElementById('modalFormPerwalian');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        };
+
+        window.isiTeks = function(elementId, teks) {
+            const el = document.getElementById(elementId);
+            if (el) el.value = teks;
+        };
 </script>
 </body>
 </html>
