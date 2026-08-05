@@ -170,4 +170,44 @@ function bukaModalFormKhusus(nisn) {
 // Jalankan saat tab aktif
 muatDaftarMuridBinaanLangsung();
 muatJurnalPerwalian();
+// Tambahkan fungsi ini di dalam tag <script> menu-perwalian.html
+
+function muatJurnalPerwalian() {
+    let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    
+    const filterBulan = document.getElementById('filterBulanJurnal');
+    const bulan = filterBulan ? filterBulan.value : 'Agustus';
+    const tbody = document.getElementById('tbodyJurnalPerwalianModern');
+
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Memuat riwayat jurnal...</td></tr>';
+
+    fetch(`${WEB_APP_URL}?action=getJurnalPerwalian&username_guru=${encodeURIComponent(userGuru)}&bulan=${encodeURIComponent(bulan)}`)
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
+                return;
+            }
+            data.forEach((item, index) => {
+                tbody.innerHTML += `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px 12px; text-align:center; color:#64748b;">${index + 1}</td>
+                        <td style="padding:10px 12px; color:#475569;">${item.tanggal}</td>
+                        <td style="padding:10px 12px; font-weight:600; color:#0f172a;">${item.nama}</td>
+                        <td style="padding:10px 12px; color:#334155;">${item.masalah}</td>
+                        <td style="padding:10px 12px; color:#334155;">${item.saran}</td>
+                    </tr>`;
+            });
+        })
+        .catch(err => {
+            console.error('Gagal mengambil jurnal:', err);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#ef4444;">Gagal memuat jurnal perwalian.</td></tr>';
+        });
+}
+
+// Daftarkan juga ke level window agar bisa dipanggil langsung
+window.muatJurnalPerwalian = muatJurnalPerwalian;
 </script>
