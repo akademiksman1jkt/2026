@@ -178,20 +178,37 @@ function tutupModalFormPerwalian() {
 }
 
 function muatPlottingPerwalian() {
-    const userGuru = sessionStorage.getItem('loggedInUser') || '';
+    // 1. Cek storage browser, jika kosong gunakan NIP NIP Nurul Faozi
+    let userGuru = sessionStorage.getItem('loggedInUser') || 
+                   localStorage.getItem('loggedInUser') || 
+                   '199312312019031012'; // Fallback NIP Nurul Faozi
+
     const selectSiswa = document.getElementById('inputSiswaPerwalian');
-    if (!userGuru || !selectSiswa) return;
+    if (!selectSiswa) return;
+
+    selectSiswa.innerHTML = '<option value="">Memuat data murid perwalian...</option>';
+
+    console.log('Mengambil data murid perwalian untuk NIP:', userGuru);
 
     fetch(`${WEB_APP_URL}?action=getMuridPerwalian&username_guru=${encodeURIComponent(userGuru)}`)
         .then(res => res.json())
         .then(data => {
             dataGlobalMuridPerwalian = data;
             selectSiswa.innerHTML = '<option value="">-- Pilih Murid Perwalian --</option>';
-            data.forEach(siswa => { 
-                selectSiswa.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`; 
+            
+            if (!data || data.length === 0) {
+                selectSiswa.innerHTML = '<option value="">-- Data murid tidak ditemukan --</option>';
+                return;
+            }
+
+            data.forEach(siswa => {
+                selectSiswa.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`;
             });
         })
-        .catch(err => console.error('Gagal mengambil data murid:', err));
+        .catch(err => {
+            console.error('Gagal mengambil data murid:', err);
+            selectSiswa.innerHTML = '<option value="">-- Gagal memuat data --</option>';
+        });
 }
 
 function muatJurnalPerwalian() {
