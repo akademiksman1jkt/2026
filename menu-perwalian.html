@@ -62,7 +62,7 @@
         </div>
     </div>
 
-    <!-- 2. RIWAYAT JURNAL PERWALIAN (DI BAGIAN BWAH) -->
+    <!-- 2. RIWAYAT JURNAL PERWALIAN (DI BAGIAN BAWAH) -->
     <div style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
             <h3 style="font-size:15px; font-weight:700; color:#0f172a; margin:0;">
@@ -102,8 +102,52 @@
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- MODAL FORM CATATAN PERWALIAN -->
+<!-- ========================================== -->
+<div id="modalFormPerwalian" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; padding: 16px;">
+    <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">Tambah Catatan Bimbingan</h3>
+            <button onclick="tutupModalFormPerwalian()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+
+        <form id="formPerwalian" onsubmit="simpanCatatanPerwalian(event)">
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tanggal Bimbingan</label>
+                <input type="date" id="inputTanggalPerwalian" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Pilih Murid</label>
+                <select id="inputSiswaPerwalian" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+                    <option value="">-- Pilih Murid Perwalian --</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Permasalahan / Topik Bimbingan</label>
+                <textarea id="inputMasalahPerwalian" rows="3" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;"></textarea>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Saran / Tindak Lanjut</label>
+                <textarea id="inputSaranPerwalian" rows="3" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" onclick="tutupModalFormPerwalian()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; font-size: 13px; cursor: pointer;">Batal</button>
+                <button type="submit" id="btnSimpanPerwalian" style="padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">Simpan Catatan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SCRIPT LOGIKA JAVASCRIPT -->
 <script>
-// Fungsi Pemuat Murid Binaan Otomatis ke Tabel Utama
+var dataGlobalMuridPerwalian = [];
+
+// 1. Fungsi Pemuat Murid Binaan Otomatis ke Tabel Utama
 function muatDaftarMuridBinaanLangsung() {
     let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
     
@@ -130,7 +174,6 @@ function muatDaftarMuridBinaanLangsung() {
             if (badgeTotal) badgeTotal.innerText = `${data.length} Murid Binaan`;
 
             data.forEach((siswa, index) => {
-                // Render ke Tabel Utama
                 tbodyMurid.innerHTML += `
                     <tr style="border-bottom:1px solid #f1f5f9;">
                         <td style="padding:10px 12px; text-align:center; color:#64748b;">${index + 1}</td>
@@ -146,7 +189,6 @@ function muatDaftarMuridBinaanLangsung() {
                         </td>
                     </tr>`;
 
-                // Populasikan juga opsi modal
                 if (selectModal) {
                     selectModal.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`;
                 }
@@ -158,24 +200,7 @@ function muatDaftarMuridBinaanLangsung() {
         });
 }
 
-// Fungsi Buka Modal Pilihan Langsung dari Baris Tabel
-function bukaModalFormKhusus(nisn) {
-    if (typeof window.bukaModalFormPerwalian === 'function') {
-        window.bukaModalFormPerwalian();
-    }
-    
-    // Berikan jeda 200ms agar elemen dropdown siap menerima value NISN
-    setTimeout(() => {
-        const selectModal = document.getElementById('inputSiswaPerwalian');
-        if (selectModal) selectModal.value = nisn;
-    }, 200);
-}
-
-// Jalankan saat tab aktif
-muatDaftarMuridBinaanLangsung();
-muatJurnalPerwalian();
-// Tambahkan fungsi ini di dalam tag <script> menu-perwalian.html
-
+// 2. Fungsi Pemuat Jurnal Bimbingan Bulanan
 function muatJurnalPerwalian() {
     let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
     
@@ -212,46 +237,68 @@ function muatJurnalPerwalian() {
         });
 }
 
-// Daftarkan juga ke level window agar bisa dipanggil langsung
+// 3. Fungsi Buka Modal dari Tabel
+function bukaModalFormKhusus(nisn) {
+    if (typeof window.bukaModalFormPerwalian === 'function') {
+        window.bukaModalFormPerwalian();
+    }
+    setTimeout(() => {
+        const selectModal = document.getElementById('inputSiswaPerwalian');
+        if (selectModal) selectModal.value = nisn;
+    }, 200);
+}
+
+// 4. Fungsi Simpan Form Perwalian ke Apps Script
+function simpanCatatanPerwalian(event) {
+    event.preventDefault();
+    const btnSimpan = document.getElementById('btnSimpanPerwalian');
+    if (btnSimpan) {
+        btnSimpan.disabled = true;
+        btnSimpan.innerText = 'Menyimpan...';
+    }
+
+    let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    
+    const payload = {
+        action: 'simpanJurnalPerwalian',
+        username_guru: userGuru,
+        tanggal: document.getElementById('inputTanggalPerwalian').value,
+        nisn: document.getElementById('inputSiswaPerwalian').value,
+        masalah: document.getElementById('inputMasalahPerwalian').value,
+        saran: document.getElementById('inputSaranPerwalian').value
+    };
+
+    fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(res => {
+        alert('Catatan bimbingan berhasil disimpan!');
+        if (typeof window.tutupModalFormPerwalian === 'function') {
+            window.tutupModalFormPerwalian();
+        }
+        document.getElementById('formPerwalian').reset();
+        muatJurnalPerwalian();
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Gagal menyimpan catatan bimbingan.');
+    })
+    .finally(() => {
+        if (btnSimpan) {
+            btnSimpan.disabled = false;
+            btnSimpan.innerText = 'Simpan Catatan';
+        }
+    });
+}
+
+// Registrasi fungsi ke Global Scope
 window.muatJurnalPerwalian = muatJurnalPerwalian;
-<!-- ========================================== -->
-<!-- MODAL FORM CATATAN PERWALIAN -->
-<!-- ========================================== -->
-<div id="modalFormPerwalian" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; padding: 16px;">
-    <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">Tambah Catatan Bimbingan</h3>
-            <button onclick="tutupModalFormPerwalian()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">&times;</button>
-        </div>
+window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 
-        <form id="formPerwalian" onsubmit="simpanCatatanPerwalian(event)">
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tanggal Bimbingan</label>
-                <input type="date" id="inputTanggalPerwalian" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
-            </div>
-
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Pilih Murid</label>
-                <select id="inputSiswaPerwalian" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
-                    <option value="">-- Pilih Murid Perwalian --</option>
-                </select>
-            </div>
-
-            <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Permasalahan / Topik Bimbingan</label>
-                <textarea id="inputMasalahPerwalian" rows="3" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;"></textarea>
-            </div>
-
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Saran / Tindak Lanjut</label>
-                <textarea id="inputSaranPerwalian" rows="3" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;"></textarea>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                <button type="button" onclick="tutupModalFormPerwalian()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; font-size: 13px; cursor: pointer;">Batal</button>
-                <button type="submit" style="padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">Simpan Catatan</button>
-            </div>
-        </form>
-    </div>
-</div>
+// Jalankan Pemuatan Otomatis
+muatDaftarMuridBinaanLangsung();
+muatJurnalPerwalian();
 </script>
