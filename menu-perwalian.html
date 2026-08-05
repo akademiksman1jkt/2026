@@ -160,11 +160,15 @@ function muatDaftarMuridBinaanLangsung() {
 
 // Fungsi Buka Modal Pilihan Langsung dari Baris Tabel
 function bukaModalFormKhusus(nisn) {
-    bukaModalFormPerwalian();
+    if (typeof window.bukaModalFormPerwalian === 'function') {
+        window.bukaModalFormPerwalian();
+    }
+    
+    // Berikan jeda 200ms agar elemen dropdown siap menerima value NISN
     setTimeout(() => {
         const selectModal = document.getElementById('inputSiswaPerwalian');
         if (selectModal) selectModal.value = nisn;
-    }, 100);
+    }, 200);
 }
 
 // Jalankan saat tab aktif
