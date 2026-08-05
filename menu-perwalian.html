@@ -25,266 +25,149 @@
 </div>
 
 
-<!-- 2. HALAMAN KONTEN SUB-MENU 1: MONITORING PERKEMBANGAN -->
+<!-- HALAMAN KONTEN SUB-MENU 1: MONITORING PERKEMBANGAN -->
 <div id="perkembanganSiswaTab" class="tab-content-view" style="display:none;">
     
     <div class="content-header" style="margin-bottom: 20px;">
-        <h2 style="font-size:20px; font-weight:700; color:#1e293b; margin-bottom:4px;">Jurnal Pelaksanaan Konsultasi Perwalian</h2>
-        <p style="color:#64748b; font-size:13px;">Rekam jejak bimbingan, kendala, dan tindak lanjut perkembangan murid.</p>
+        <h2 style="font-size:20px; font-weight:700; color:#1e293b; margin-bottom:4px;">Daftar Murid Binaan &amp; Jurnal Perwalian</h2>
+        <p style="color:#64748b; font-size:13px;">Daftar siswa binaan aktif beserta rekam jejak bimbingan perwalian.</p>
     </div>
 
-    <!-- Toolbar Atas -->
-    <div style="background:#fff; padding:16px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <label style="font-size:13px; font-weight:600; color:#475569;">Bulan:</label>
-            <select id="filterBulanJurnal" onchange="muatJurnalPerwalian()" style="padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; background:#fff;">
-                <option value="Januari">Januari</option>
-                <option value="Februari">Februari</option>
-                <option value="Maret">Maret</option>
-                <option value="April">April</option>
-                <option value="Mei">Mei</option>
-                <option value="Juni">Juni</option>
-                <option value="Juli">Juli</option>
-                <option value="Agustus" selected>Agustus</option>
-                <option value="September">September</option>
-                <option value="Oktober">Oktober</option>
-                <option value="November">November</option>
-                <option value="Desember">Desember</option>
-            </select>
+    <!-- 1. TABEL DAFTAR MURID BINAAN (LANGSUNG TAMPIL ATAS) -->
+    <div style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="font-size:15px; font-weight:700; color:#0f172a; margin:0;">
+                <i class="ri-user-star-line" style="color:#2563eb;"></i> Daftar Murid Binaan Aktif
+            </h3>
+            <span id="totalMuridBadge" style="background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600;">Memuat data...</span>
         </div>
-
-        <div style="display:flex; gap:10px;">
-            <button onclick="bukaModalFormPerwalian()" style="background:#2563eb; color:#fff; border:none; padding:9px 16px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                <i class="ri-add-line"></i> Tambah Catatan Bimbingan
-            </button>
-            <button onclick="window.print()" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:9px 16px; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                <i class="ri-printer-line"></i> Cetak Laporan
-            </button>
-        </div>
-    </div>
-
-    <!-- Tabel Modern -->
-    <div style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        
         <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
                 <thead>
                     <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569; font-weight:600;">
-                        <th style="padding:12px 16px; width:50px; text-align:center;">No.</th>
-                        <th style="padding:12px 16px; width:110px;">Tanggal</th>
-                        <th style="padding:12px 16px; width:220px;">Nama Murid</th>
-                        <th style="padding:12px 16px;">Masalah yang Dibicarakan</th>
-                        <th style="padding:12px 16px;">Saran &amp; Tindak Lanjut</th>
-                        <th style="padding:12px 16px; width:90px; text-align:center;">Kelas Asal</th>
-                        <th style="padding:12px 16px; width:90px; text-align:center;">Kelas Baru</th>
+                        <th style="padding:10px 12px; width:40px; text-align:center;">No.</th>
+                        <th style="padding:10px 12px; width:120px;">NISN</th>
+                        <th style="padding:10px 12px;">Nama Siswa</th>
+                        <th style="padding:10px 12px; width:100px; text-align:center;">Kelas</th>
+                        <th style="padding:10px 12px; width:80px; text-align:center;">Rata-Rata</th>
+                        <th style="padding:10px 12px; width:80px; text-align:center;">Rank</th>
+                        <th style="padding:10px 12px; width:120px; text-align:center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyDaftarMuridBinaan">
+                    <tr><td colspan="7" style="text-align:center; padding:16px; color:#94a3b8;">Memuat daftar siswa binaan...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2. RIWAYAT JURNAL PERWALIAN (DI BAGIAN BWAH) -->
+    <div style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <h3 style="font-size:15px; font-weight:700; color:#0f172a; margin:0;">
+                <i class="ri-file-list-3-line" style="color:#2563eb;"></i> Riwayat Bimbingan Bulanan
+            </h3>
+
+            <div style="display:flex; align-items:center; gap:10px;">
+                <label style="font-size:13px; font-weight:600; color:#475569;">Bulan:</label>
+                <select id="filterBulanJurnal" onchange="muatJurnalPerwalian()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;">
+                    <option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option>
+                    <option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option>
+                    <option value="Juli">Juli</option><option value="Agustus" selected>Agustus</option><option value="September">September</option>
+                    <option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option>
+                </select>
+                <button onclick="bukaModalFormPerwalian()" style="background:#2563eb; color:#fff; border:none; padding:7px 14px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;">
+                    <i class="ri-add-line"></i> Tambah Catatan Manual
+                </button>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+                <thead>
+                    <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569;">
+                        <th style="padding:10px 12px; width:40px; text-align:center;">No.</th>
+                        <th style="padding:10px 12px; width:100px;">Tanggal</th>
+                        <th style="padding:10px 12px; width:180px;">Nama Murid</th>
+                        <th style="padding:10px 12px;">Masalah</th>
+                        <th style="padding:10px 12px;">Saran / Tindak Lanjut</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyJurnalPerwalianModern">
-                    <tr>
-                        <td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">
-                            Memuat data jurnal bimbingan perwalian...
-                        </td>
-                    </tr>
+                    <tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Memuat data jurnal...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-
-<!-- 3. MODAL POP-UP INPUT CATATAN PERWALIAN -->
-<div id="modalFormPerwalian" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.5); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:#fff; width:100%; max-width:600px; border-radius:12px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); max-height:90vh; overflow-y:auto;">
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
-            <h3 style="margin:0; font-size:16px; font-weight:700; color:#0f172a;">Catat Konsultasi Perwalian</h3>
-            <button onclick="tutupModalFormPerwalian()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">&times;</button>
-        </div>
-
-        <form id="formInputPerwalian" onsubmit="simpanDataPerwalian(event)">
-            
-            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:12px; margin-bottom:12px;">
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Nama Murid</label>
-                    <select id="inputSiswaPerwalian" required style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;">
-                        <option value="">-- Pilih Murid Perwalian --</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Tanggal Bimbingan</label>
-                    <input type="date" id="inputTanggalPerwalian" required style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;">
-                </div>
-            </div>
-
-            <!-- Field Masalah -->
-            <div style="margin-bottom:14px;">
-                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Masalah yang Dibicarakan</label>
-                <textarea id="inputMasalahPerwalian" rows="2" required placeholder="Ketik atau pilih rekomendasi umum di bawah..." style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;"></textarea>
-                
-                <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
-                    <span style="font-size:11px; color:#64748b; font-weight:600; width:100%;">💡 Rekomendasi cepat:</span>
-                    <button type="button" onclick="isiTeks('inputMasalahPerwalian', 'Konsultasi pemilihan jurusan perguruan tinggi & kelanjutan studi.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Pilihan Karir/Kuliah</button>
-                    <button type="button" onclick="isiTeks('inputMasalahPerwalian', 'Peningkatan motivasi dan konsistensi belajar mandiri.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Motivasi Belajar</button>
-                    <button type="button" onclick="isiTeks('inputMasalahPerwalian', 'Evaluasi kedisiplinan kehadiran dan ketepatan waktu.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Kedisiplinan Kehadiran</button>
-                </div>
-            </div>
-
-            <!-- Field Saran -->
-            <div style="margin-bottom:20px;">
-                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Saran dari Guru Wali / Tindak Lanjut</label>
-                <textarea id="inputSaranPerwalian" rows="2" required placeholder="Ketik atau pilih rekomendasi umum di bawah..." style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;"></textarea>
-                
-                <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
-                    <span style="font-size:11px; color:#64748b; font-weight:600; width:100%;">💡 Rekomendasi cepat:</span>
-                    <button type="button" onclick="isiTeks('inputSaranPerwalian', 'Diberikan arahan pemetaan mata pelajaran pendukung TKA/UTBK serta konsultasi bersama orang tua.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Pemetaan TKA & Ortut</button>
-                    <button type="button" onclick="isiTeks('inputSaranPerwalian', 'Penyusunan jadwal belajar harian terstruktur dan monitoring mingguan oleh guru wali.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Jadwal Belajar</button>
-                    <button type="button" onclick="isiTeks('inputSaranPerwalian', 'Pembinaan komitmen tata tertib serta koordinasi bersama Guru BK.')" style="background:#f1f5f9; border:1px solid #e2e8f0; font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; color:#334155;">Koordinasi BK</button>
-                </div>
-            </div>
-
-            <div style="display:flex; justify-content:flex-end; gap:8px;">
-                <button type="button" onclick="tutupModalFormPerwalian()" style="padding:9px 16px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; font-size:13px; cursor:pointer;">Batal</button>
-                <button type="submit" id="btnSimpanPerwalian" style="padding:9px 16px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">Simpan Catatan</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- SUB-MENU LAINNYA -->
-<div id="kehadiranKedisiplinanTab" class="tab-content-view" style="display:none;"><div class="content-header"><h1>Kehadiran &amp; Kedisiplinan</h1></div></div>
-<div id="catatanWaliTab" class="tab-content-view" style="display:none;"><div class="content-header"><h1>Catatan &amp; Karakter Murid</h1></div></div>
-<div id="rekomendasiKarirTab" class="tab-content-view" style="display:none;"><div class="content-header"><h1>Rekomendasi Studi &amp; Karir</h1></div></div>
-
-<!-- SCRIPT UTAMA KONEKSI APPS SCRIPT -->
 <script>
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpbuJlinPwRoqIiGPQ4mH8UWZAn91jaLbv6pHYtb9Ko2GjWpeMg3hYDedPmmXi6Cp4/exec';
-let dataGlobalMuridPerwalian = [];
+// Fungsi Pemuat Murid Binaan Otomatis ke Tabel Utama
+function muatDaftarMuridBinaanLangsung() {
+    let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    
+    const tbodyMurid = document.getElementById('tbodyDaftarMuridBinaan');
+    const badgeTotal = document.getElementById('totalMuridBadge');
+    const selectModal = document.getElementById('inputSiswaPerwalian');
 
-function isiTeks(elementId, teks) { 
-    document.getElementById(elementId).value = teks; 
-}
-
-function bukaModalFormPerwalian() {
-    const modal = document.getElementById('modalFormPerwalian');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.getElementById('inputTanggalPerwalian').valueAsDate = new Date();
-        muatPlottingPerwalian();
-    }
-}
-
-function tutupModalFormPerwalian() { 
-    const modal = document.getElementById('modalFormPerwalian');
-    if (modal) modal.style.display = 'none'; 
-}
-
-function muatPlottingPerwalian() {
-    // 1. Cek storage browser, jika kosong gunakan NIP NIP Nurul Faozi
-    let userGuru = sessionStorage.getItem('loggedInUser') || 
-                   localStorage.getItem('loggedInUser') || 
-                   '199312312019031012'; // Fallback NIP Nurul Faozi
-
-    const selectSiswa = document.getElementById('inputSiswaPerwalian');
-    if (!selectSiswa) return;
-
-    selectSiswa.innerHTML = '<option value="">Memuat data murid perwalian...</option>';
-
-    console.log('Mengambil data murid perwalian untuk NIP:', userGuru);
+    if (!tbodyMurid) return;
 
     fetch(`${WEB_APP_URL}?action=getMuridPerwalian&username_guru=${encodeURIComponent(userGuru)}`)
         .then(res => res.json())
         .then(data => {
             dataGlobalMuridPerwalian = data;
-            selectSiswa.innerHTML = '<option value="">-- Pilih Murid Perwalian --</option>';
+            tbodyMurid.innerHTML = '';
             
+            if (selectModal) selectModal.innerHTML = '<option value="">-- Pilih Murid Perwalian --</option>';
+
             if (!data || data.length === 0) {
-                selectSiswa.innerHTML = '<option value="">-- Data murid tidak ditemukan --</option>';
+                tbodyMurid.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:16px; color:#94a3b8;">Tidak ada data murid binaan.</td></tr>';
+                if (badgeTotal) badgeTotal.innerText = '0 Murid';
                 return;
             }
 
-            data.forEach(siswa => {
-                selectSiswa.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`;
-            });
-        })
-        .catch(err => {
-            console.error('Gagal mengambil data murid:', err);
-            selectSiswa.innerHTML = '<option value="">-- Gagal memuat data --</option>';
-        });
-}
+            if (badgeTotal) badgeTotal.innerText = `${data.length} Murid Binaan`;
 
-function muatJurnalPerwalian() {
-    const userGuru = sessionStorage.getItem('loggedInUser') || '';
-    const bulan = document.getElementById('filterBulanJurnal').value;
-    const tbody = document.getElementById('tbodyJurnalPerwalianModern');
-    if (!tbody) return;
-
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">Memuat data jurnal...</td></tr>';
-
-    fetch(`${WEB_APP_URL}?action=getJurnalPerwalian&username_guru=${encodeURIComponent(userGuru)}&bulan=${encodeURIComponent(bulan)}`)
-        .then(res => res.json())
-        .then(data => {
-            tbody.innerHTML = '';
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
-                return;
-            }
-            data.forEach((item, index) => {
-                tbody.innerHTML += `
+            data.forEach((siswa, index) => {
+                // Render ke Tabel Utama
+                tbodyMurid.innerHTML += `
                     <tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:12px 16px; text-align:center; color:#64748b;">${index + 1}</td>
-                        <td style="padding:12px 16px; color:#475569;">${item.tanggal}</td>
-                        <td style="padding:12px 16px; font-weight:600; color:#0f172a;">${item.nama}</td>
-                        <td style="padding:12px 16px; color:#334155;">${item.masalah}</td>
-                        <td style="padding:12px 16px; color:#334155;">${item.saran}</td>
-                        <td style="padding:12px 16px; text-align:center;"><span style="background:#f1f5f9; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">${item.kelas_asal || '-'}</span></td>
-                        <td style="padding:12px 16px; text-align:center;"><span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;">${item.kelas_baru || '-'}</span></td>
+                        <td style="padding:10px 12px; text-align:center; color:#64748b;">${index + 1}</td>
+                        <td style="padding:10px 12px; font-family:monospace; color:#334155;">${siswa.nisn}</td>
+                        <td style="padding:10px 12px; font-weight:600; color:#0f172a;">${siswa.nama}</td>
+                        <td style="padding:10px 12px; text-align:center;"><span style="background:#f1f5f9; padding:2px 8px; border-radius:6px; font-weight:600;">${siswa.kelas}</span></td>
+                        <td style="padding:10px 12px; text-align:center;">${siswa.avg || '-'}</td>
+                        <td style="padding:10px 12px; text-align:center;">${siswa.rank || '-'}</td>
+                        <td style="padding:10px 12px; text-align:center;">
+                            <button onclick="bukaModalFormKhusus('${siswa.nisn}')" style="background:#2563eb; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
+                                + Catat Bimbingan
+                            </button>
+                        </td>
                     </tr>`;
+
+                // Populasikan juga opsi modal
+                if (selectModal) {
+                    selectModal.innerHTML += `<option value="${siswa.nisn}">${siswa.nama} (${siswa.kelas})</option>`;
+                }
             });
         })
         .catch(err => {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:#ef4444;">Gagal mengambil data dari Google Sheets.</td></tr>';
+            console.error(err);
+            tbodyMurid.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:16px; color:#ef4444;">Gagal memuat daftar murid.</td></tr>';
         });
 }
 
-function simpanDataPerwalian(event) {
-    event.preventDefault();
-    const userGuru = sessionStorage.getItem('loggedInUser') || '';
-    const nisnSelected = document.getElementById('inputSiswaPerwalian').value;
-    const murid = dataGlobalMuridPerwalian.find(m => m.nisn === nisnSelected);
-    if (!murid) return alert('Silakan pilih murid terlebih dahulu.');
-
-    const payload = {
-        username_guru: userGuru, nisn: murid.nisn, nama_murid: murid.nama,
-        kelas_asal: murid.kelas, kelas_baru: murid.kelas,
-        tanggal: document.getElementById('inputTanggalPerwalian').value,
-        bulan: document.getElementById('filterBulanJurnal').value,
-        masalah: document.getElementById('inputMasalahPerwalian').value,
-        saran: document.getElementById('inputSaranPerwalian').value
-    };
-
-    const btnSimpan = document.getElementById('btnSimpanPerwalian');
-    btnSimpan.disabled = true; btnSimpan.innerText = 'Menyimpan...';
-
-    fetch(WEB_APP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(response => {
-        if (response.status === 'success') {
-            tutupModalFormPerwalian();
-            document.getElementById('formInputPerwalian').reset();
-            muatJurnalPerwalian();
-        } else {
-            alert('Gagal menyimpan data.');
-        }
-    })
-    .finally(() => { 
-        btnSimpan.disabled = false; 
-        btnSimpan.innerText = 'Simpan Catatan'; 
-    });
+// Fungsi Buka Modal Pilihan Langsung dari Baris Tabel
+function bukaModalFormKhusus(nisn) {
+    bukaModalFormPerwalian();
+    setTimeout(() => {
+        const selectModal = document.getElementById('inputSiswaPerwalian');
+        if (selectModal) selectModal.value = nisn;
+    }, 100);
 }
 
-// Panggil otomatis jurnal saat halaman aktif
+// Jalankan saat tab aktif
+muatDaftarMuridBinaanLangsung();
 muatJurnalPerwalian();
 </script>
