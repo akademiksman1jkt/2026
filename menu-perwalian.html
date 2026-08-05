@@ -103,13 +103,28 @@
 </div>
 
 <!-- ========================================== -->
-<!-- MODAL FORM CATATAN PERWALIAN -->
+<!-- MODAL FORM CATATAN PERWALIAN FITUR INSTAN -->
 <!-- ========================================== -->
 <div id="modalFormPerwalian" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; padding: 16px;">
-    <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+    <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); max-height: 90vh; overflow-y: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">Tambah Catatan Bimbingan</h3>
             <button onclick="tutupModalFormPerwalian()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+
+        <!-- FITUR INSTAN: REKOMENDASI CATATAN CEPAT (BANYAK PILIHAN) -->
+        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
+            <label style="display: block; font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">⚡ Pilihan Rekomendasi Instan:</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow-y: auto; padding-right: 4px;">
+                <button type="button" onclick="isiTemplateInstan('disiplin')" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Kedisiplinan</button>
+                <button type="button" onclick="isiTemplateInstan('akademik')" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Motivasi Belajar</button>
+                <button type="button" onclick="isiTemplateInstan('karir')" style="background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Studi & Karir</button>
+                <button type="button" onclick="isiTemplateInstan('karakter')" style="background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Sikap & Karakter</button>
+                <button type="button" onclick="isiTemplateInstan('presensi')" style="background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Kehadiran / Presensi</button>
+                <button type="button" onclick="isiTemplateInstan('ujian')" style="background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Persiapan Ujian</button>
+                <button type="button" onclick="isiTemplateInstan('bakat')" style="background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Pengembangan Bakat</button>
+                <button type="button" onclick="isiTemplateInstan('evaluasi')" style="background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Evaluasi Semester</button>
+            </div>
         </div>
 
         <form id="formPerwalian" onsubmit="simpanCatatanPerwalian(event)">
@@ -122,6 +137,7 @@
                 <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Pilih Murid</label>
                 <select id="inputSiswaPerwalian" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
                     <option value="">-- Pilih Murid Perwalian --</option>
+                    <option value="SEMUA_SISWA" style="font-weight:700; color:#2563eb;">🌐 -- SEMUA MURID BINAAN (Input Massal) --</option>
                 </select>
             </div>
 
@@ -147,6 +163,50 @@
 <script>
 var dataGlobalMuridPerwalian = [];
 
+// TEMPLATE REKOMENDASI CATATAN INSTAN LENGKAP
+const TEMPLATE_CATATAN = {
+    disiplin: {
+        masalah: 'Monitoring ketepatan waktu dan kedisiplinan belajar di kelas.',
+        saran: 'Mempertahankan kedisiplinan hadir, mematuhi tata tertib sekolah, dan menjaga kerapian berpakaian.'
+    },
+    akademik: {
+        masalah: 'Evaluasi capaian hasil belajar dan konsistensi waktu belajar mandiri.',
+        saran: 'Menyusun jadwal belajar rutin di rumah, mengurangi penggunaan gawai berlebihan, serta aktif bertanya saat pembelajaran.'
+    },
+    karir: {
+        masalah: 'Konsultasi minat jurusan perguruan tinggi dan eksplorasi karir masa depan.',
+        saran: 'Diarahkan mempelajari kekeketatan jalur SNBP/SNBT, menjaga stabilitas nilai rapor, serta melatih soal tes masuk perguruan tinggi.'
+    },
+    karakter: {
+        masalah: 'Pembinaan karakter, pergaulan dengan teman sebaya, serta sikap kepemimpinan.',
+        saran: 'Tingkatkan kerja sama dalam kelompok, jaga kesantunan berkomunikasi dengan guru, dan aktif dalam kegiatan positif.'
+    },
+    presensi: {
+        masalah: 'Klarifikasi catatan ketidakhadiran (izin/sakit/tanpa keterangan) dalam bulan ini.',
+        saran: 'Diharapkan selalu memberikan surat keterangan resmi jika berhalangan hadir dan menjaga kondisi kesehatan fisik.'
+    },
+    ujian: {
+        masalah: 'Kesiapan fisik dan mental menjelang pelaksanaan ujian/asesmen mendatang.',
+        saran: 'Lakukan review materi pembelajaran secara berkala, hindari sistem belajar semalam (SKS), dan tingkatkan ibadah serta restu orang tua.'
+    },
+    bakat: {
+        masalah: 'Pengembangan potensi non-akademik, bakat minat, dan kegiatan ekstrakurikuler.',
+        saran: 'Seimbangkan waktu antara kesibukan organisasi/ekstrakurikuler dengan kewajiban akademik utama.'
+    },
+    evaluasi: {
+        masalah: 'Refleksi pencapaian hasil belajar dan target perbaikan nilai semester ini.',
+        saran: 'Lakukan perbaikan pada mata pelajaran yang belum mencapai KKM/KKTP dan pertahankan nilai pada mata pelajaran unggulan.'
+    }
+};
+
+// Fungsi Mengisi Template Instan
+function isiTemplateInstan(kategori) {
+    if (TEMPLATE_CATATAN[kategori]) {
+        document.getElementById('inputMasalahPerwalian').value = TEMPLATE_CATATAN[kategori].masalah;
+        document.getElementById('inputSaranPerwalian').value = TEMPLATE_CATATAN[kategori].saran;
+    }
+}
+
 // 1. Fungsi Pemuat Murid Binaan Otomatis ke Tabel Utama
 function muatDaftarMuridBinaanLangsung() {
     let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
@@ -163,7 +223,11 @@ function muatDaftarMuridBinaanLangsung() {
             dataGlobalMuridPerwalian = data;
             tbodyMurid.innerHTML = '';
             
-            if (selectModal) selectModal.innerHTML = '<option value="">-- Pilih Murid Perwalian --</option>';
+            if (selectModal) {
+                selectModal.innerHTML = `
+                    <option value="">-- Pilih Murid Perwalian --</option>
+                    <option value="SEMUA_SISWA" style="font-weight:700; color:#2563eb;">🌐 -- SEMUA MURID BINAAN (Input Massal) --</option>`;
+            }
 
             if (!data || data.length === 0) {
                 tbodyMurid.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:16px; color:#94a3b8;">Tidak ada data murid binaan.</td></tr>';
@@ -248,7 +312,7 @@ function bukaModalFormKhusus(nisn) {
     }, 200);
 }
 
-// 4. Fungsi Simpan Form Perwalian ke Apps Script
+// 4. Fungsi Simpan Form Perwalian
 function simpanCatatanPerwalian(event) {
     event.preventDefault();
     const btnSimpan = document.getElementById('btnSimpanPerwalian');
@@ -258,12 +322,26 @@ function simpanCatatanPerwalian(event) {
     }
 
     let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    const sasaranSiswa = document.getElementById('inputSiswaPerwalian').value;
     
+    let daftarNisnTarget = [];
+    if (sasaranSiswa === 'SEMUA_SISWA') {
+        if (!dataGlobalMuridPerwalian || dataGlobalMuridPerwalian.length === 0) {
+            alert('Tidak ada data murid binaan untuk disimpan secara massal.');
+            if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.innerText = 'Simpan Catatan'; }
+            return;
+        }
+        daftarNisnTarget = dataGlobalMuridPerwalian.map(s => s.nisn);
+    } else {
+        daftarNisnTarget = [sasaranSiswa];
+    }
+
     const payload = {
         action: 'simpanJurnalPerwalian',
         username_guru: userGuru,
         tanggal: document.getElementById('inputTanggalPerwalian').value,
-        nisn: document.getElementById('inputSiswaPerwalian').value,
+        nisn_list: daftarNisnTarget,
+        nisn: sasaranSiswa !== 'SEMUA_SISWA' ? sasaranSiswa : '',
         masalah: document.getElementById('inputMasalahPerwalian').value,
         saran: document.getElementById('inputSaranPerwalian').value
     };
@@ -275,7 +353,7 @@ function simpanCatatanPerwalian(event) {
     })
     .then(res => res.json())
     .then(res => {
-        alert('Catatan bimbingan berhasil disimpan!');
+        alert(sasaranSiswa === 'SEMUA_SISWA' ? 'Catatan berhasil dikirim ke seluruh murid binaan!' : 'Catatan bimbingan berhasil disimpan!');
         if (typeof window.tutupModalFormPerwalian === 'function') {
             window.tutupModalFormPerwalian();
         }
@@ -297,6 +375,7 @@ function simpanCatatanPerwalian(event) {
 // Registrasi fungsi ke Global Scope
 window.muatJurnalPerwalian = muatJurnalPerwalian;
 window.simpanCatatanPerwalian = simpanCatatanPerwalian;
+window.isiTemplateInstan = isiTemplateInstan;
 
 // Jalankan Pemuatan Otomatis
 muatDaftarMuridBinaanLangsung();
