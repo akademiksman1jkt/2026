@@ -1,5 +1,8 @@
 <!-- FILE: menu-perwalian.html -->
 
+<!-- PUSTAKA SHEETJS UNTUK EKSPOR EXCEL (TIDAK MERUSAK TAMPILAN) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <!-- 1. MENU UTAMA SIDEBAR (Dropdown Accordion) -->
 <div id="btnNavBimbinganPerwalian" class="menu-item" onclick="toggleSubMenuPerwalian()" style="justify-content: space-between;">
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -69,7 +72,7 @@
                 <i class="ri-file-list-3-line" style="color:#2563eb;"></i> Riwayat Bimbingan Bulanan
             </h3>
 
-            <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <label style="font-size:13px; font-weight:600; color:#475569;">Bulan:</label>
                 <select id="filterBulanJurnal" onchange="muatJurnalPerwalian()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px;">
                     <option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option>
@@ -77,7 +80,16 @@
                     <option value="Juli">Juli</option><option value="Agustus" selected>Agustus</option><option value="September">September</option>
                     <option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option>
                 </select>
-                <button onclick="bukaModalFormPerwalian()" style="background:#2563eb; color:#fff; border:none; padding:7px 14px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;">
+
+                <!-- TOMBOL EKSPOR EXCEL & CETAK PDF LAPORAN -->
+                <button onclick="eksporJurnalKeExcel()" style="background:#16a34a; color:#fff; border:none; padding:7px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    <i class="ri-file-excel-2-line"></i> Ekspor Excel
+                </button>
+                <button onclick="cetakLaporanPerwalianPDF()" style="background:#0284c7; color:#fff; border:none; padding:7px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    <i class="ri-printer-line"></i> Cetak PDF
+                </button>
+
+                <button onclick="bukaModalFormPerwalian()" style="background:#2563eb; color:#fff; border:none; padding:7px 14px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:4px;">
                     <i class="ri-add-line"></i> Tambah Catatan Manual
                 </button>
             </div>
@@ -162,6 +174,7 @@
 <!-- SCRIPT LOGIKA JAVASCRIPT -->
 <script>
 var dataGlobalMuridPerwalian = [];
+var dataGlobalJurnalPerwalian = []; // PENAMPUNG DATA KETIKA EKSPOR EXCEL / CETAK PDF
 
 // TEMPLATE REKOMENDASI CATATAN INSTAN LENGKAP
 const TEMPLATE_CATATAN = {
@@ -279,6 +292,7 @@ function muatJurnalPerwalian() {
     fetch(`${WEB_APP_URL}?action=getJurnalPerwalian&username_guru=${encodeURIComponent(userGuru)}&bulan=${encodeURIComponent(bulan)}`)
         .then(res => res.json())
         .then(data => {
+            dataGlobalJurnalPerwalian = data || []; // Simpan ke penampung global ekspor
             tbody.innerHTML = '';
             if (!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
@@ -301,7 +315,121 @@ function muatJurnalPerwalian() {
         });
 }
 
-// 3. Fungsi Buka Modal dari Tabel
+// 3. FITUR EKSPOR JURNAL PEMBINAAN KE EXCEL (.XLSX)
+function eksporJurnalKeExcel() {
+    if (!dataGlobalJurnalPerwalian || dataGlobalJurnalPerwalian.length === 0) {
+        alert("Belum ada data jurnal pembinaan untuk diekspor pada bulan ini.");
+        return;
+    }
+
+    const bulan = document.getElementById('filterBulanJurnal') ? document.getElementById('filterBulanJurnal').value : 'Bulanan';
+
+    // Format Data Rapi untuk Spreadsheet Excel
+    const excelRows = dataGlobalJurnalPerwalian.map((item, index) => ({
+        "No": index + 1,
+        "ID Jurnal": item.id_jurnal || '-',
+        "Tanggal": item.tanggal || '-',
+        "Bulan": item.bulan || bulan,
+        "NISN": item.nisn || '-',
+        "Nama Murid Binaan": item.nama || '-',
+        "Kelas": item.kelas_asal || '-',
+        "Permasalahan / Catatan": item.masalah || '-',
+        "Saran / Tindak Lanjut": item.saran || '-'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelRows);
+    
+    // Atur Lebar Kolom Otomatis
+    worksheet['!cols'] = [
+        { wch: 5 },  // No
+        { wch: 18 }, // ID Jurnal
+        { wch: 12 }, // Tanggal
+        { wch: 12 }, // Bulan
+        { wch: 14 }, // NISN
+        { wch: 26 }, // Nama
+        { wch: 10 }, // Kelas
+        { wch: 40 }, // Masalah
+        { wch: 40 }  // Saran
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, `Pembinaan ${bulan}`);
+
+    XLSX.writeFile(workbook, `Laporan_Pembinaan_Siswa_${bulan}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// 4. FITUR CETAK LAPORAN / PDF RESMI PERWALIAN
+function cetakLaporanPerwalianPDF() {
+    if (!dataGlobalJurnalPerwalian || dataGlobalJurnalPerwalian.length === 0) {
+        alert("Belum ada data jurnal pembinaan untuk dicetak pada bulan ini.");
+        return;
+    }
+
+    const bulan = document.getElementById('filterBulanJurnal') ? document.getElementById('filterBulanJurnal').value : '';
+
+    let htmlTabel = dataGlobalJurnalPerwalian.map((item, index) => `
+        <tr>
+            <td style="text-align:center; padding: 6px;">${index + 1}</td>
+            <td style="padding: 6px;">${item.tanggal || '-'}</td>
+            <td style="padding: 6px; font-weight: bold;">${item.nama || '-'}</td>
+            <td style="text-align:center; padding: 6px;">${item.nisn || '-'}</td>
+            <td style="padding: 6px;">${item.masalah || '-'}</td>
+            <td style="padding: 6px;">${item.saran || '-'}</td>
+        </tr>
+    `).join('');
+
+    let win = window.open('', '', 'height=750,width=950');
+    win.document.write(`
+        <html>
+            <head>
+                <title>Laporan Pembinaan Perwalian - ${bulan}</title>
+                <style>
+                    body { font-family: 'Times New Roman', Times, serif; padding: 20px; color: #000; }
+                    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                    .header h2 { margin: 0; font-size: 18px; text-transform: uppercase; }
+                    .header h3 { margin: 4px 0 0 0; font-size: 14px; font-weight: normal; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+                    th, td { border: 1px solid #000; word-wrap: break-word; }
+                    th { background-color: #f2f2f2; padding: 8px; text-align: center; font-weight: bold; }
+                    .ttd-container { margin-top: 40px; float: right; text-align: center; width: 220px; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>LAPORAN REKAPITULASI PEMBINAAN SISWA BINAAN</h2>
+                    <h3>PERIODE BULAN: ${bulan.toUpperCase()}</h3>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 30px;">NO</th>
+                            <th style="width: 80px;">TANGGAL</th>
+                            <th style="width: 160px;">NAMA MURID</th>
+                            <th style="width: 90px;">NISN</th>
+                            <th>PERMASALAHAN / CATATAN</th>
+                            <th>SARAN / TINDAK LANJUT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${htmlTabel}
+                    </tbody>
+                </table>
+
+                <div class="ttd-container">
+                    <p>Jakarta, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                    <p>Guru Wali Kelas / Pembimbing,</p>
+                    <br><br><br>
+                    <p><b>_______________________</b></p>
+                </div>
+            </body>
+        </html>
+    `);
+    win.document.close();
+    win.print();
+}
+
+// 5. Fungsi Buka Modal dari Tabel
 function bukaModalFormKhusus(nisn) {
     if (typeof window.bukaModalFormPerwalian === 'function') {
         window.bukaModalFormPerwalian();
@@ -312,7 +440,7 @@ function bukaModalFormKhusus(nisn) {
     }, 200);
 }
 
-// 4. Fungsi Simpan Form Perwalian
+// 6. Fungsi Simpan Form Perwalian
 function simpanCatatanPerwalian(event) {
     event.preventDefault();
     const btnSimpan = document.getElementById('btnSimpanPerwalian');
@@ -376,6 +504,8 @@ function simpanCatatanPerwalian(event) {
 window.muatJurnalPerwalian = muatJurnalPerwalian;
 window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 window.isiTemplateInstan = isiTemplateInstan;
+window.eksporJurnalKeExcel = eksporJurnalKeExcel;
+window.cetakLaporanPerwalianPDF = cetakLaporanPerwalianPDF;
 
 // Jalankan Pemuatan Otomatis
 muatDaftarMuridBinaanLangsung();
