@@ -579,4 +579,25 @@ window.cetakLaporanPerwalianPDF = cetakLaporanPerwalianPDF;
 // Jalankan Pemuatan Otomatis
 muatDaftarMuridBinaanLangsung();
 muatJurnalPerwalian();
+// MEMANTAU PERUBAHAN TAMPILAN NAMA GURU DI SIDEBAR SECARA OTOMATIS
+var namaGuruTerakhir = '';
+
+function pantauPerubahanAkunAktif() {
+    setInterval(function() {
+        var namaSekarang = getUsernameGuruAktif();
+        
+        // Jika terdeteksi nama guru berubah (misal: dari Nurul Faozi ke Dewi Marianti Simamora)
+        if (namaSekarang && namaSekarang !== namaGuruTerakhir && namaSekarang !== '-' && namaSekarang !== 'Nurul Faozi') {
+            console.log("Terdeteksi alih akun ke:", namaSekarang);
+            namaGuruTerakhir = namaSekarang;
+            
+            // Muat ulang data murid & jurnal secara otomatis tanpa refresh halaman
+            if (typeof muatDaftarMuridBinaanLangsung === 'function') muatDaftarMuridBinaanLangsung();
+            if (typeof muatJurnalPerwalian === 'function') muatJurnalPerwalian();
+        }
+    }, 1000); // Mengecek setiap 1 detik
+}
+
+// Jalankan pemantau otomatis
+pantauPerubahanAkunAktif();
 </script>
