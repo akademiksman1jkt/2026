@@ -2848,21 +2848,21 @@ function closeCustomAlert() {
 
     // 4. Pemetaan ID Tombol Sidebar Menu (Termasuk biodataTab Baru)
     const navMap = {
-        personalTab:          'btnNavPersonal',
-        biodataTab:           'btnNavBiodata',
-        kehadiranSiswaTab:    'btnNavKehadiranSiswa',
-        kehadiranGuruTab:     'btnNavKehadiranGuru',
-        absenGuruTab:         'btnNavAbsenGuru',
-        kelasTab:             'btnNavKelas',
-        angkatanTab:          'btnNavAngkatan',
-        eraporTab:            'btnNavErapor',
-        koreksiTab:           'btnNavKoreksi',
-        evaluasiTab:          'btnNavEvaluasi',
-        votingRapatSection:   'btnNavVoting',
-        aiHubTab:             'btnNavAIHub',
-        adminPanelSection:    'btnNavAdmin',
-        perangkatAjarTab:      'btnNavPerangkatAjar',
-        adminValidasiSection: 'btnNavValidasi',
+        personalTab:              'btnNavPersonal',
+        biodataTab:               'btnNavBiodata',
+        kehadiranSiswaTab:        'btnNavKehadiranSiswa',
+        kehadiranGuruTab:         'btnNavKehadiranGuru',
+        absenGuruTab:             'btnNavAbsenGuru',
+        kelasTab:                 'btnNavKelas',
+        angkatanTab:              'btnNavAngkatan',
+        eraporTab:                'btnNavErapor',
+        koreksiTab:               'btnNavKoreksi',
+        evaluasiTab:              'btnNavEvaluasi',
+        votingRapatSection:       'btnNavVoting',
+        aiHubTab:                 'btnNavAIHub',
+        adminPanelSection:        'btnNavAdmin',
+        perangkatAjarTab:         'btnNavPerangkatAjar',
+        adminValidasiSection:     'btnNavValidasi',
         perkembanganSiswaTab:     'btnSubPerkembanganSiswa',
         kehadiranKedisiplinanTab: 'btnSubKehadiranKedisiplinan',
         catatanWaliTab:           'btnSubCatatanWali',
@@ -2881,14 +2881,21 @@ function closeCustomAlert() {
     try { if (viewId === 'kelasTab')             kunciDropdownKelasWali(); }          catch(e){ console.error('[kelasTab]',e); }
     try { if (viewId === 'eraporTab')            { renderDropdownEraporKunci(); updateTabVisibilityErapor(); } } catch(e){ console.error('[eraporTab]',e); }
     try { if (viewId === 'koreksiTab')           renderRiwayatKoreksiSistem(); }    catch(e){ console.error('[koreksiTab]',e); }
-    try { if (viewId === 'adminPanelSection')    renderTabelUserAdmin(); }           catch(e){ console.error('[adminPanel]',e); }
+    try { if (viewId === 'adminPanelSection')    renderTabelUserAdmin(); }            catch(e){ console.error('[adminPanel]',e); }
     try { if (viewId === 'adminValidasiSection') renderAdminValidasiSistem(); }      catch(e){ console.error('[adminValidasi]',e); }
     try { if (viewId === 'evaluasiTab')          SinkronDropdownEvaluasiKelas(); }   catch(e){ console.error('[evaluasiTab]',e); }
+
+    // 🌟 KODE BARU: Pemicu muat data tabel perangkat ajar saat menu diklik
+    try { 
+        if (viewId === 'perangkatAjarTab' && typeof muatDataPerangkat === 'function') {
+            muatDataPerangkat();
+        } 
+    } catch(e){ console.error('[perangkatAjarTab]',e); }
 
     if (viewId === 'angkatanTab') {
         const selectJenjang = document.getElementById('selectAngkatanJenjang');
         if (selectJenjang && selectJenjang.value === "") selectJenjang.value = "X";
-        if (dataSiswaGlobal && dataSiswaGlobal.length > 0) tampilkanLegerSatuAngkatan();
+        if (typeof dataSiswaGlobal !== "undefined" && dataSiswaGlobal && dataSiswaGlobal.length > 0) tampilkanLegerSatuAngkatan();
     }
 
     if (viewId === 'votingRapatSection') {
@@ -2897,27 +2904,25 @@ function closeCustomAlert() {
 
     // Otomatis muat data kehadiran & isi dropdown kelas saat tab dibuka
     if (viewId === 'kehadiranSiswaTab') {
-        // Set tanggal hari ini
         let tgl = document.getElementById('inputTanggalSiswa');
         if (tgl && !tgl.value) tgl.value = new Date().toISOString().slice(0,10);
-        // Isi dropdown kelas input dari dataSiswaGlobal
         let selKelasInput = document.getElementById('inputKelasKehadiranSiswa');
-        if (selKelasInput && selKelasInput.options.length <= 1 && dataSiswaGlobal.length > 0) {
+        if (selKelasInput && selKelasInput.options.length <= 1 && typeof dataSiswaGlobal !== "undefined" && dataSiswaGlobal.length > 0) {
             let listK = [...new Set(dataSiswaGlobal.map(r => (r[3]||"").toString().trim()))].filter(k => k && k.toLowerCase() !== "kelas").sort();
             listK.forEach(k => selKelasInput.add(new Option(k, k)));
         }
-        muatDataKehadiranSiswa(null);
+        if (typeof muatDataKehadiranSiswa === "function") muatDataKehadiranSiswa(null);
     }
     if (viewId === 'kehadiranGuruTab') {
         let tgl = document.getElementById('inputTanggalGuru');
         if (tgl && !tgl.value) tgl.value = new Date().toISOString().slice(0,10);
-        muatDataKehadiranGuru(null);
+        if (typeof muatDataKehadiranGuru === "function") muatDataKehadiranGuru(null);
     }
     if (viewId === 'absenGuruTab') {
-        muatDataKehadiranGuru(null);
+        if (typeof muatDataKehadiranGuru === "function") muatDataKehadiranGuru(null);
     }
 
-    // 🌟 LOGIKA BARU: Otomatis isi daftar dropdown kelas saat menu biodata dibuka
+    // LOGIKA: Otomatis isi daftar dropdown kelas saat menu biodata dibuka
     if (viewId === 'biodataTab') {
         let selectB = document.getElementById('selectKelasBiodata');
         if (selectB && selectB.options.length <= 1 && typeof dataSiswaGlobal !== "undefined") {
@@ -3161,9 +3166,9 @@ function closeCustomAlert() {
         
         // Hak Akses Default Admin dan Wali
         if (role === 'AdminSMAN1' || role === 'WaliSMAN1') {
-            ['btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','btnNavKehadiranGuru','btnNavAbsenGuru','btnNavKelas','btnNavAngkatan','btnNavErapor','btnNavKoreksi','btnNavEvaluasi','btnNavVoting','btnNavAIHub','containerMenuPerwalianGroup','btnNavBimbinganPerwalian','btnNavPerangkatAjar'].forEach(id => {
+            ['btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','btnNavKehadiranGuru','btnNavAbsenGuru','btnNavKelas','btnNavAngkatan','btnNavErapor','btnNavKoreksi','btnNavEvaluasi','btnNavVoting','btnNavAIHub','containerMenuPerwalianGroup','btnNavBimbinganPerwalian','containerMenuPerangkatAjarGroup','btnNavPerangkatAjar'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.style.display = (id === 'containerMenuPerwalianGroup') ? 'block' : 'flex';
+                if (el) el.style.display = (id === 'containerMenuPerwalianGroup' || id === 'containerMenuPerangkatAjarGroup') ? 'block' : 'flex';
             });
             if (role === 'AdminSMAN1') {
                 const elAdmin = document.getElementById('sidebarAdminGroup');
@@ -3174,9 +3179,9 @@ function closeCustomAlert() {
             
         // Hak Akses Default Guru
         } else if (role === 'GuruSMAN1') {
-            ['btnNavErapor','btnNavVoting','btnNavKelas','btnNavAngkatan','btnNavEvaluasi','btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','containerMenuPerwalianGroup','btnNavBimbinganPerwalian','btnNavPerangkatAjar'].forEach(id => {
+            ['btnNavErapor','btnNavVoting','btnNavKelas','btnNavAngkatan','btnNavEvaluasi','btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','containerMenuPerwalianGroup','btnNavBimbinganPerwalian','containerMenuPerangkatAjarGroup','btnNavPerangkatAjar'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.style.display = (id === 'containerMenuPerwalianGroup') ? 'block' : 'flex';
+                if (el) el.style.display = (id === 'containerMenuPerwalianGroup' || id === 'containerMenuPerangkatAjarGroup') ? 'block' : 'flex';
             });
             
         // Hak Akses Default Siswa
@@ -3186,8 +3191,8 @@ function closeCustomAlert() {
                 if (el) el.style.display = 'flex';
             });
 
-            // 🔒 SEMBUNYIKAN PAKSA MENU PERWALIAN DARI PANDANGAN SISWA
-            ['btnNavBiodata', 'btnNavKehadiranSiswa', 'btnNavKehadiranGuru', 'btnNavAbsenGuru', 'containerMenuPerwalianGroup', 'btnNavBimbinganPerwalian'].forEach(id => {
+            // 🔒 SEMBUNYIKAN PAKSA MENU DARI PANDANGAN SISWA
+            ['btnNavBiodata', 'btnNavKehadiranSiswa', 'btnNavKehadiranGuru', 'btnNavAbsenGuru', 'containerMenuPerwalianGroup', 'btnNavBimbinganPerwalian', 'containerMenuPerangkatAjarGroup', 'btnNavPerangkatAjar'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.setProperty('display', 'none', 'important');
             });
