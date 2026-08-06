@@ -176,16 +176,34 @@
 var dataGlobalMuridPerwalian = [];
 var dataGlobalJurnalPerwalian = []; 
 
-// FUNGSI MENDAPATKAN USERNAME / ID AKUN GURU AKTIF SAAT INI (PREVENT STUCK AKUN)
+// FUNGSI MENDAPATKAN USERNAME / NAMA GURU AKTIF SAAT INI (PREVENT STUCK AKUN)
 function getUsernameGuruAktif() {
+    // 1. UTAMAKAN membaca langsung dari elemen nama di sidebar (SANGAT AKURAT)
+    let elNama = document.getElementById('lblUserAktif');
+    if (elNama) {
+        let teksNama = (elNama.innerText || elNama.textContent || '').trim();
+        if (teksNama && teksNama !== '-' && teksNama.length > 2) {
+            return teksNama; // Langsung mengirimkan "Dewi Marianti Simamora" ke Apps Script
+        }
+    }
+
+    // 2. CEK variabel global sessionUserAktif (sesuai variabel di index.html Anda)
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) {
+        if (sessionUserAktif.nama && sessionUserAktif.nama.trim() !== '') return sessionUserAktif.nama;
+        if (sessionUserAktif.username_guru) return sessionUserAktif.username_guru;
+        if (sessionUserAktif.username) return sessionUserAktif.username;
+        if (sessionUserAktif.nip && sessionUserAktif.nip !== 'GURUSMAN1') return sessionUserAktif.nip;
+    }
+
+    // 3. CEK variabel userActive (jika ada di modul lain)
     if (typeof userActive !== 'undefined' && userActive) {
         if (userActive.nama && userActive.nama.trim() !== '') return userActive.nama;
-        if (userActive.nip && userActive.nip !== 'GURUSMAN1') return userActive.nip;
         if (userActive.username) return userActive.username;
     }
-    
+
+    // 4. Fallback dari Storage
     let namaUser = localStorage.getItem('loggedInNama') || sessionStorage.getItem('loggedInNama');
-    if (namaUser && namaUser.trim() !== '') {
+    if (namaUser && namaUser.trim() !== '' && namaUser !== 'GURUSMAN1') {
         return namaUser;
     }
 
