@@ -3009,47 +3009,43 @@ function closeCustomAlert() {
         if (!Array.isArray(cloudPlottingCache)) cloudPlottingCache = [];
         if (typeof cloudUserMenuMapping === 'undefined') cloudUserMenuMapping = {};
 
-        const role = sessionUserAktif.role;
-        const usernameAktif = sessionUserAktif.username;
+        const role = sessionUserAktif ? sessionUserAktif.role : '';
+        const usernameAktif = sessionUserAktif ? sessionUserAktif.username : '';
         
-        // 1. DAFTAR MASTER SEMUA ID ELEMEN MENU SIDEBAR (Sesuai dengan HTML Anda)
+        // 1. DAFTAR MASTER SEMUA ID ELEMEN MENU SIDEBAR (Termasuk Menu Perwalian)
         const masterMenu = [
             'btnNavPersonal', 'btnNavBiodata', 'btnNavKehadiranSiswa', 
             'btnNavKehadiranGuru', 'btnNavAbsenGuru', 'btnNavKelas', 
             'btnNavAngkatan', 'btnNavErapor', 'btnNavKoreksi', 
             'btnNavEvaluasi', 'btnNavVoting', 'btnNavAIHub', 
-            'sidebarAdminGroup', 'btnNavKelolaAkses'
+            'sidebarAdminGroup', 'btnNavKelolaAkses',
+            'containerMenuPerwalianGroup', 'btnNavBimbinganPerwalian'
         ];
 
         // Sembunyikan semua menu terlebih dahulu secara total
         masterMenu.forEach(id => { 
             const el = document.getElementById(id);
-            if (el) el.style.display = 'none'; 
+            if (el) el.style.setProperty('display', 'none', 'important'); 
         });
 
         // ============================================================
         // ⭐ JALUR UTAMA: JIKA USER INI PUNYA HAK AKSES KUSTOM DARI ADMIN
         // ============================================================
         if (cloudUserMenuMapping[usernameAktif] && Array.isArray(cloudUserMenuMapping[usernameAktif])) {
-            
-            // Hidupkan hanya menu-menu tertentu yang dicentang oleh Admin
             cloudUserMenuMapping[usernameAktif].forEach(id => {
-                // Konversi jika data lama checkbox masih mengirimkan teks ID 'btnNavKetidakhadiranGuru'
                 let realId = id;
                 if (id === 'btnNavKetidakhadiranGuru') realId = 'btnNavAbsenGuru';
                 
                 const el = document.getElementById(realId);
-                if (el) el.style.display = 'flex';
+                if (el) el.style.display = (realId === 'containerMenuPerwalianGroup') ? 'block' : 'flex';
             });
 
-            // Pengondisian otomatis jika yang login adalah akun siswa
             if (role === 'SiswaSMAN1' || role === 'siswaSMAN1') {
                 if (cloudUserMenuMapping[usernameAktif].includes('btnNavPersonal')) {
                     if (typeof cariNilaiSiswa === 'function') cariNilaiSiswa();
                 }
             }
             
-            // Jaga agar Admin tetap bisa mengelola akses walau hak menunya dikustomisasi
             if (role === 'AdminSMAN1') {
                 const elAdminGroup = document.getElementById('sidebarAdminGroup');
                 if (elAdminGroup) elAdminGroup.style.display = 'block';
@@ -3057,7 +3053,7 @@ function closeCustomAlert() {
                 if (elKelola) elKelola.style.display = 'flex';
             }
             
-            return; // 🛑 Keluar dari fungsi, abaikan aturan default role di bawah!
+            return;
         }
 
         // ============================================================
@@ -3066,9 +3062,9 @@ function closeCustomAlert() {
         
         // Hak Akses Default Admin dan Wali
         if (role === 'AdminSMAN1' || role === 'WaliSMAN1') {
-            ['btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','btnNavKehadiranGuru','btnNavAbsenGuru','btnNavKelas','btnNavAngkatan','btnNavErapor','btnNavKoreksi','btnNavEvaluasi','btnNavVoting','btnNavAIHub'].forEach(id => {
+            ['btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','btnNavKehadiranGuru','btnNavAbsenGuru','btnNavKelas','btnNavAngkatan','btnNavErapor','btnNavKoreksi','btnNavEvaluasi','btnNavVoting','btnNavAIHub','containerMenuPerwalianGroup','btnNavBimbinganPerwalian'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.style.display = 'flex';
+                if (el) el.style.display = (id === 'containerMenuPerwalianGroup') ? 'block' : 'flex';
             });
             if (role === 'AdminSMAN1') {
                 const elAdmin = document.getElementById('sidebarAdminGroup');
@@ -3079,9 +3075,9 @@ function closeCustomAlert() {
             
         // Hak Akses Default Guru
         } else if (role === 'GuruSMAN1') {
-            ['btnNavErapor','btnNavVoting','btnNavKelas','btnNavAngkatan','btnNavEvaluasi','btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa'].forEach(id => {
+            ['btnNavErapor','btnNavVoting','btnNavKelas','btnNavAngkatan','btnNavEvaluasi','btnNavPersonal','btnNavBiodata','btnNavKehadiranSiswa','containerMenuPerwalianGroup','btnNavBimbinganPerwalian'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.style.display = 'flex';
+                if (el) el.style.display = (id === 'containerMenuPerwalianGroup') ? 'block' : 'flex';
             });
             
         // Hak Akses Default Siswa
@@ -3091,13 +3087,12 @@ function closeCustomAlert() {
                 if (el) el.style.display = 'flex';
             });
 
-            // 🔒 Sembunyikan paksa menu-menu sensitif berikut dari pandangan siswa default
-            ['btnNavBiodata', 'btnNavKehadiranSiswa', 'btnNavKehadiranGuru', 'btnNavAbsenGuru'].forEach(id => {
+            // 🔒 SEMBUNYIKAN PAKSA MENU PERWALIAN DARI PANDANGAN SISWA
+            ['btnNavBiodata', 'btnNavKehadiranSiswa', 'btnNavKehadiranGuru', 'btnNavAbsenGuru', 'containerMenuPerwalianGroup', 'btnNavBimbinganPerwalian'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.setProperty('display', 'none', 'important');
             });
 
-            // Jalankan operasi pembersihan kotak input cari nilai mandiri siswa
             const boxCariSiswa = document.getElementById('boxPencarianSiswaIndividu');
             if (boxCariSiswa) boxCariSiswa.style.setProperty('display', 'none', 'important');
 
