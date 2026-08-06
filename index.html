@@ -9136,6 +9136,120 @@ function simpanPerangkatAjar(event) {
     
     tutupModalFormPerangkat();
 }
+// =========================================================================
+// 🌟 MODUL INTEGRASI PERANGKAT AJAR GURU
+// =========================================================================
+
+// URL Web App Apps Script Perwalian
+const URL_SCRIPT_PERWALIAN = 'https://script.google.com/macros/s/AKfycbwpbuJlinPwRoqIiGPQ4mH8UWZAn91jaLbv6pHYtb9Ko2GjWpeMg3hYDedPmmXi6Cp4/exec';
+
+// 1. FUNGSI MEMBUKA & MENUTUP MODAL FORMULIR
+function bukaModalFormPerangkat() {
+    const modal = document.getElementById('modalFormPerangkat');
+    if (modal) {
+        modal.style.display = 'flex';
+    } else {
+        console.error('Elemen modalFormPerangkat tidak ditemukan di HTML');
+    }
+}
+
+function tutupModalFormPerangkat() {
+    const modal = document.getElementById('modalFormPerangkat');
+    if (modal) {
+        modal.style.display = 'none';
+        const form = document.getElementById('formUploadPerangkat');
+        if (form) form.reset();
+    }
+}
+
+// 2. FUNGSI SIMPAN DATA PERANGKAT AJAR KE SPREADSHEET
+function simpanPerangkatAjar(event) {
+    if (event) event.preventDefault();
+
+    const btnSubmit = document.getElementById('btnSimpanPerangkat');
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerText = 'Menyimpan...';
+    }
+
+    // Menyaraskan nama variabel payload persis seperti yang dibaca oleh doPost Apps Script Anda
+    const payload = {
+        action: 'simpanPerangkatAjar',
+        nama_guru: (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.nama) ? sessionUserAktif.nama : 'Nurul Faozi',
+        nip: (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.username) ? sessionUserAktif.username : '',
+        mapel: document.getElementById('inputMapelPerangkat')?.value || '',
+        kelas: document.getElementById('inputKelasPerangkat')?.value || '',
+        jenis_perangkat: document.getElementById('inputJenisPerangkat')?.value || '',
+        judul_materi: document.getElementById('inputJudulPerangkat')?.value || '',
+        link_drive: document.getElementById('inputLinkPerangkat')?.value || ''
+    };
+
+    fetch(URL_SCRIPT_PERWALIAN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Mencegah isu CORS preflight
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            alert('✅ Perangkat Ajar Berhasil Disimpan!');
+            tutupModalFormPerangkat();
+            muatDataPerangkat(); // Perbarui tabel otomatis
+        } else {
+            alert('❌ Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan pada server'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('❌ Terjadi kesalahan koneksi saat mengirim data.');
+    })
+    .finally(() => {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = 'Simpan Perangkat';
+        }
+    });
+}
+
+// 3. FUNGSI MEMUAT RIWAYAT DATA DARI SPREADSHEET KE TABEL
+function muatDataPerangkat() {
+    const tbody = document.getElementById('tbodyPerangkatAjar');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Memuat data perangkat ajar...</td></tr>';
+
+    const namaGuru = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.nama) ? sessionUserAktif.nama : '';
+
+    fetch(`${URL_SCRIPT_PERWALIAN}?action=getPerangkatAjar&username_guru=${encodeURIComponent(namaGuru)}`)
+    .then(res => res.json())
+    .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+            let html = '';
+            data.forEach((row, index) => {
+                html += `
+                    <tr>
+                        <td style="text-align:center;">${index + 1}</td>
+                        <td>${row.tanggal_upload || '-'}</td>
+                        <td>${row.mapel || '-'}</td>
+                        <td>${row.kelas || '-'}</td>
+                        <td>${row.jenis_perangkat || '-'}</td>
+                        <td>${row.judul_materi || '-'}</td>
+                        <td style="text-align:center;">
+                            ${row.link_drive ? `<a href="${row.link_drive}" target="_blank" style="color:#2563eb;font-weight:600;">Buka Berkas</a>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada perangkat ajar yang diunggah.</td></tr>';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat data dari server.</td></tr>';
+    });
+}
     
 </script>
 </body>
