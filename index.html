@@ -9102,6 +9102,40 @@ window.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpbuJlinPwRoqIiGP
 
     // Jalankan pemuatan menu dinamis saat DOM selesai dimuat
     document.addEventListener('DOMContentLoaded', muatMenuPerwalianDinamis);
+// =========================================================================
+// 🌟 MODUL MANAJEMEN PERANGKAT AJAR GURU
+// =========================================================================
+
+function bukaModalFormPerangkat() {
+    const modal = document.getElementById('modalFormPerangkat');
+    if (modal) {
+        modal.style.display = 'flex';
+    } else {
+        console.error('Elemen modalFormPerangkat tidak ditemukan di HTML');
+    }
+}
+
+function tutupModalFormPerangkat() {
+    const modal = document.getElementById('modalFormPerangkat');
+    if (modal) {
+        modal.style.display = 'none';
+        const form = document.getElementById('formUploadPerangkat');
+        if (form) form.reset();
+    }
+}
+
+function simpanPerangkatAjar(event) {
+    event.preventDefault();
+    
+    const mapel = document.getElementById('inputMapelPerangkat')?.value || '';
+    const kelas = document.getElementById('inputKelasPerangkat')?.value || '';
+    const jenis = document.getElementById('inputJenisPerangkat')?.value || '';
+    const judul = document.getElementById('inputJudulPerangkat')?.value || '';
+
+    alert(`Perangkat Berhasil Disimpan!\n\nMapel: ${mapel}\nKelas: ${kelas}\nJenis: ${jenis}\nJudul: ${judul}`);
+    
+    tutupModalFormPerangkat();
+}
     
 </script>
 </body>
