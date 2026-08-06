@@ -1,6 +1,6 @@
 <!-- FILE: menu-perwalian.html -->
 
-<!-- PUSTAKA SHEETJS UNTUK EKSPOR EXCEL (TIDAK MERUSAK TAMPILAN) -->
+<!-- PUSTAKA SHEETJS UNTUK EKSPOR EXCEL -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <!-- 1. MENU UTAMA SIDEBAR (Dropdown Accordion) -->
@@ -124,7 +124,7 @@
             <button onclick="tutupModalFormPerwalian()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">&times;</button>
         </div>
 
-        <!-- FITUR INSTAN: REKOMENDASI CATATAN CEPAT (BANYAK PILIHAN) -->
+        <!-- FITUR INSTAN: REKOMENDASI CATATAN CEPAT -->
         <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px; border-radius: 10px; margin-bottom: 16px;">
             <label style="display: block; font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">⚡ Pilihan Rekomendasi Instan:</label>
             <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow-y: auto; padding-right: 4px;">
@@ -176,14 +176,36 @@
 var dataGlobalMuridPerwalian = [];
 var dataGlobalJurnalPerwalian = []; 
 
-// FUNGSI MENDAPATKAN IDENTITAS GURU AKTIF
-function getIdentitasGuruAktif() {
-    let nama = typeof userActive !== 'undefined' && userActive.nama ? userActive.nama : (localStorage.getItem('loggedInNama') || 'Nurul Faozi');
-    let nip = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+// FUNGSI MENDAPATKAN USERNAME / ID AKUN GURU AKTIF SAAT INI (PREVENT STUCK AKUN)
+function getUsernameGuruAktif() {
+    if (typeof userActive !== 'undefined' && userActive) {
+        if (userActive.nama && userActive.nama.trim() !== '') return userActive.nama;
+        if (userActive.nip && userActive.nip !== 'GURUSMAN1') return userActive.nip;
+        if (userActive.username) return userActive.username;
+    }
     
-    // Jika username_guru adalah ID pendek (seperti GURUSMAN1), prioritaskan NIP asli jika ada
-    if (nip === 'GURUSMAN1') {
-        nip = '199312312019031012';
+    let namaUser = localStorage.getItem('loggedInNama') || sessionStorage.getItem('loggedInNama');
+    if (namaUser && namaUser.trim() !== '') {
+        return namaUser;
+    }
+
+    let user = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser');
+    return user || 'Nurul Faozi';
+}
+
+// FUNGSI MENDAPATKAN IDENTITAS GURU AKTIF LENGKAP
+function getIdentitasGuruAktif() {
+    let nama = 'Nurul Faozi';
+    let nip = '199312312019031012';
+
+    if (typeof userActive !== 'undefined' && userActive) {
+        if (userActive.nama) nama = userActive.nama;
+        if (userActive.nip && userActive.nip !== 'GURUSMAN1') nip = userActive.nip;
+    } else {
+        let storedNama = localStorage.getItem('loggedInNama') || sessionStorage.getItem('loggedInNama');
+        let storedNip = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser');
+        if (storedNama) nama = storedNama;
+        if (storedNip && storedNip !== 'GURUSMAN1') nip = storedNip;
     }
 
     return { nama: nama, nip: nip };
@@ -225,7 +247,6 @@ const TEMPLATE_CATATAN = {
     }
 };
 
-// Fungsi Mengisi Template Instan
 function isiTemplateInstan(kategori) {
     if (TEMPLATE_CATATAN[kategori]) {
         document.getElementById('inputMasalahPerwalian').value = TEMPLATE_CATATAN[kategori].masalah;
@@ -233,9 +254,9 @@ function isiTemplateInstan(kategori) {
     }
 }
 
-// 1. Fungsi Pemuat Murid Binaan Otomatis ke Tabel Utama
+// 1. Fungsi Pemuat Murid Binaan Otomatis Dinamis
 function muatDaftarMuridBinaanLangsung() {
-    let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    let userGuru = getUsernameGuruAktif();
     
     const tbodyMurid = document.getElementById('tbodyDaftarMuridBinaan');
     const badgeTotal = document.getElementById('totalMuridBadge');
@@ -290,9 +311,9 @@ function muatDaftarMuridBinaanLangsung() {
         });
 }
 
-// 2. Fungsi Pemuat Jurnal Bimbingan Bulanan
+// 2. Fungsi Pemuat Jurnal Bimbingan Bulanan Dinamis
 function muatJurnalPerwalian() {
-    let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    let userGuru = getUsernameGuruAktif();
     
     const filterBulan = document.getElementById('filterBulanJurnal');
     const bulan = filterBulan ? filterBulan.value : 'Agustus';
@@ -328,7 +349,7 @@ function muatJurnalPerwalian() {
         });
 }
 
-// 3. FITUR EKSPOR JURNAL PEMBINAAN KE EXCEL (.XLSX) DENGAN IDENTITAS GURU
+// 3. FITUR EKSPOR JURNAL PEMBINAAN KE EXCEL (.XLSX) WITH IDENTITAS GURU
 function eksporJurnalKeExcel() {
     if (!dataGlobalJurnalPerwalian || dataGlobalJurnalPerwalian.length === 0) {
         alert("Belum ada data jurnal pembinaan untuk diekspor pada bulan ini.");
@@ -338,13 +359,12 @@ function eksporJurnalKeExcel() {
     const guru = getIdentitasGuruAktif();
     const bulan = document.getElementById('filterBulanJurnal') ? document.getElementById('filterBulanJurnal').value : 'Bulanan';
 
-    // Header Laporan Beserta Identitas Guru
     const excelRows = [
         { "A": "LAPORAN REKAPITULASI PEMBINAAN SISWA BINAAN" },
         { "A": `Guru Pembimbing / Wali: ${guru.nama}` },
         { "A": `NIP: ${guru.nip}` },
         { "A": `Periode Bulan: ${bulan}` },
-        {}, // Baris Kosong
+        {}, 
         { 
             "A": "No.", 
             "B": "ID Jurnal", 
@@ -358,7 +378,6 @@ function eksporJurnalKeExcel() {
         }
     ];
 
-    // Masukkan Isi Data Jurnal
     dataGlobalJurnalPerwalian.forEach((item, index) => {
         excelRows.push({
             "A": index + 1,
@@ -375,17 +394,16 @@ function eksporJurnalKeExcel() {
 
     const worksheet = XLSX.utils.json_to_sheet(excelRows, { skipHeader: true });
     
-    // Atur Lebar Kolom
     worksheet['!cols'] = [
-        { wch: 6 },  // No
-        { wch: 18 }, // ID Jurnal
-        { wch: 12 }, // Tanggal
-        { wch: 12 }, // Bulan
-        { wch: 14 }, // NISN
-        { wch: 28 }, // Nama
-        { wch: 10 }, // Kelas
-        { wch: 40 }, // Masalah
-        { wch: 40 }  // Saran
+        { wch: 6 },  
+        { wch: 18 }, 
+        { wch: 12 }, 
+        { wch: 12 }, 
+        { wch: 14 }, 
+        { wch: 28 }, 
+        { wch: 10 }, 
+        { wch: 40 }, 
+        { wch: 40 }  
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -394,7 +412,7 @@ function eksporJurnalKeExcel() {
     XLSX.writeFile(workbook, `Laporan_Pembinaan_Siswa_${guru.nama.replace(/\s+/g, '_')}_${bulan}.xlsx`);
 }
 
-// 4. FITUR CETAK LAPORAN / PDF RESMI PERWALIAN DENGAN IDENTITAS GURU
+// 4. FITUR CETAK LAPORAN / PDF RESMI PERWALIAN WITH IDENTITAS GURU
 function cetakLaporanPerwalianPDF() {
     if (!dataGlobalJurnalPerwalian || dataGlobalJurnalPerwalian.length === 0) {
         alert("Belum ada data jurnal pembinaan untuk dicetak pada bulan ini.");
@@ -475,7 +493,7 @@ function cetakLaporanPerwalianPDF() {
     win.print();
 }
 
-// 5. Fungsi Buka Modal dari Tabel
+// 5. Buka Modal Khusus Siswa
 function bukaModalFormKhusus(nisn) {
     if (typeof window.bukaModalFormPerwalian === 'function') {
         window.bukaModalFormPerwalian();
@@ -486,7 +504,7 @@ function bukaModalFormKhusus(nisn) {
     }, 200);
 }
 
-// 6. Fungsi Simpan Form Perwalian
+// 6. Simpan Form Catatan Perwalian
 function simpanCatatanPerwalian(event) {
     event.preventDefault();
     const btnSimpan = document.getElementById('btnSimpanPerwalian');
@@ -495,7 +513,7 @@ function simpanCatatanPerwalian(event) {
         btnSimpan.innerText = 'Menyimpan...';
     }
 
-    let userGuru = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser') || '199312312019031012';
+    let userGuru = getUsernameGuruAktif();
     const sasaranSiswa = document.getElementById('inputSiswaPerwalian').value;
     
     let daftarNisnTarget = [];
@@ -547,6 +565,7 @@ function simpanCatatanPerwalian(event) {
 }
 
 // Registrasi fungsi ke Global Scope
+window.muatDaftarMuridBinaanLangsung = muatDaftarMuridBinaanLangsung;
 window.muatJurnalPerwalian = muatJurnalPerwalian;
 window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 window.isiTemplateInstan = isiTemplateInstan;
