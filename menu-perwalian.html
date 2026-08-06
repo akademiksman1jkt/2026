@@ -3,27 +3,30 @@
 <!-- PUSTAKA SHEETJS UNTUK EKSPOR EXCEL -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-<!-- 1. MENU UTAMA SIDEBAR (Dropdown Accordion) -->
-<div id="btnNavBimbinganPerwalian" class="menu-item" onclick="toggleSubMenuPerwalian()" style="justify-content: space-between;">
-    <div style="display: flex; align-items: center; gap: 12px;">
-        <i class="ri-user-shared-line"></i> Bimbingan Perwalian
+<!-- WRAPPER UTAMA MENU PERWALIAN (Sembunyi secara default untuk mencegah bocor di akun siswa) -->
+<div id="containerMenuPerwalianGroup" style="display: none;">
+    <!-- 1. MENU UTAMA SIDEBAR (Dropdown Accordion) -->
+    <div id="btnNavBimbinganPerwalian" class="menu-item" onclick="toggleSubMenuPerwalian()" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <i class="ri-user-shared-line"></i> Bimbingan Perwalian
+        </div>
+        <i class="ri-arrow-down-s-line" id="iconArrowPerwalian" style="transition: transform 0.3s ease;"></i>
     </div>
-    <i class="ri-arrow-down-s-line" id="iconArrowPerwalian" style="transition: transform 0.3s ease;"></i>
-</div>
 
-<!-- CONTAINER SUB-MENU PERWALIAN -->
-<div id="subMenuPerwalianContainer" style="display: none; padding-left: 18px; flex-direction: column; gap: 4px; margin-top: 2px;">
-    <div id="btnSubPerkembanganSiswa" class="menu-item" onclick="switchSidebarMenu('perkembanganSiswaTab')" style="font-size: 13px; padding: 10px 14px;">
-        <i class="ri-line-chart-line"></i> Monitoring Perkembangan
-    </div>
-    <div id="btnSubKehadiranKedisiplinan" class="menu-item" onclick="switchSidebarMenu('kehadiranKedisiplinanTab')" style="font-size: 13px; padding: 10px 14px;">
-        <i class="ri-user-follow-line"></i> Kehadiran & Kedisiplinan
-    </div>
-    <div id="btnSubCatatanWali" class="menu-item" onclick="switchSidebarMenu('catatanWaliTab')" style="font-size: 13px; padding: 10px 14px;">
-        <i class="ri-draft-line"></i> Catatan & Karakter Murid
-    </div>
-    <div id="btnSubRekomendasiKarir" class="menu-item" onclick="switchSidebarMenu('rekomendasiKarirTab')" style="font-size: 13px; padding: 10px 14px;">
-        <i class="ri-compass-3-line"></i> Rekomendasi Studi & Karir
+    <!-- CONTAINER SUB-MENU PERWALIAN -->
+    <div id="subMenuPerwalianContainer" style="display: none; padding-left: 18px; flex-direction: column; gap: 4px; margin-top: 2px;">
+        <div id="btnSubPerkembanganSiswa" class="menu-item" onclick="switchSidebarMenu('perkembanganSiswaTab')" style="font-size: 13px; padding: 10px 14px;">
+            <i class="ri-line-chart-line"></i> Monitoring Perkembangan
+        </div>
+        <div id="btnSubKehadiranKedisiplinan" class="menu-item" onclick="switchSidebarMenu('kehadiranKedisiplinanTab')" style="font-size: 13px; padding: 10px 14px;">
+            <i class="ri-user-follow-line"></i> Kehadiran & Kedisiplinan
+        </div>
+        <div id="btnSubCatatanWali" class="menu-item" onclick="switchSidebarMenu('catatanWaliTab')" style="font-size: 13px; padding: 10px 14px;">
+            <i class="ri-draft-line"></i> Catatan & Karakter Murid
+        </div>
+        <div id="btnSubRekomendasiKarir" class="menu-item" onclick="switchSidebarMenu('rekomendasiKarirTab')" style="font-size: 13px; padding: 10px 14px;">
+            <i class="ri-compass-3-line"></i> Rekomendasi Studi & Karir
+        </div>
     </div>
 </div>
 
@@ -175,17 +178,44 @@
 <script>
 var dataGlobalMuridPerwalian = [];
 var dataGlobalJurnalPerwalian = []; 
+var namaGuruTerakhir = '';
 
-// FUNGSI MENDAPATKAN USERNAME / NAMA GURU AKTIF SAAT INI (PREVENT STUCK AKUN)
+// 1. MEMBATASI AKSES MENU BERDASARKAN ROLE USER (GURU vs SISWA)
+function aturAksesMenuBerdasarkanRole() {
+    let roleUser = '';
+    
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.role) {
+        roleUser = sessionUserAktif.role.toString().toLowerCase();
+    } else {
+        try {
+            let sessionLocal = JSON.parse(localStorage.getItem("session_user_sman1") || "{}");
+            roleUser = (sessionLocal.role || '').toString().toLowerCase();
+        } catch(e) {}
+    }
+
+    const containerMenu = document.getElementById('containerMenuPerwalianGroup');
+
+    if (containerMenu) {
+        // Jika akun adalah GURU, WALI, atau ADMIN -> TAMPILKAN MENU
+        if (roleUser.includes('guru') || roleUser.includes('wali') || roleUser.includes('admin')) {
+            containerMenu.style.display = 'block';
+        } else {
+            // Jika akun SISWA -> SEMBUNYIKAN MENU PERWALIAN
+            containerMenu.style.display = 'none';
+        }
+    }
+}
+
+// 2. FUNGSI MENDAPATKAN USERNAME / NAMA GURU AKTIF SAAT INI
 function getUsernameGuruAktif() {
-    // 1. Ambil dari objek sesi login aktif yang sedang berjalan di portal
+    // Priority A: Objek Sesi Login Aktif Portal
     if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) {
-        if (sessionUserAktif.nama) return sessionUserAktif.nama;
+        if (sessionUserAktif.nama && sessionUserAktif.nama.trim() !== '') return sessionUserAktif.nama;
         if (sessionUserAktif.username_guru) return sessionUserAktif.username_guru;
         if (sessionUserAktif.username) return sessionUserAktif.username;
     }
 
-    // 2. Ambil dari teks nama di sidebar jika sudah dirender
+    // Priority B: Teks di Sidebar DOM (lblUserAktif)
     let elNama = document.getElementById('lblUserAktif');
     if (elNama) {
         let teksNama = (elNama.innerText || elNama.textContent || '').trim();
@@ -197,25 +227,22 @@ function getUsernameGuruAktif() {
     return 'Nurul Faozi';
 }
 
-// FUNGSI MENDAPATKAN IDENTITAS GURU AKTIF LENGKAP
+// 3. FUNGSI MENDAPATKAN IDENTITAS GURU AKTIF LENGKAP UNTUK EKSPOR
 function getIdentitasGuruAktif() {
-    let nama = 'Nurul Faozi';
+    let nama = getUsernameGuruAktif();
     let nip = '199312312019031012';
 
-    if (typeof userActive !== 'undefined' && userActive) {
-        if (userActive.nama) nama = userActive.nama;
-        if (userActive.nip && userActive.nip !== 'GURUSMAN1') nip = userActive.nip;
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.nip) {
+        nip = sessionUserAktif.nip;
     } else {
-        let storedNama = localStorage.getItem('loggedInNama') || sessionStorage.getItem('loggedInNama');
         let storedNip = sessionStorage.getItem('loggedInUser') || localStorage.getItem('loggedInUser');
-        if (storedNama) nama = storedNama;
         if (storedNip && storedNip !== 'GURUSMAN1') nip = storedNip;
     }
 
     return { nama: nama, nip: nip };
 }
 
-// TEMPLATE REKOMENDASI CATATAN INSTAN LENGKAP
+// TEMPLATE REKOMENDASI CATATAN INSTAN
 const TEMPLATE_CATATAN = {
     disiplin: {
         masalah: 'Monitoring ketepatan waktu dan kedisiplinan belajar di kelas.',
@@ -258,7 +285,7 @@ function isiTemplateInstan(kategori) {
     }
 }
 
-// 1. Fungsi Pemuat Murid Binaan Otomatis Dinamis
+// 4. Pemuat Murid Binaan Otomatis Dinamis
 function muatDaftarMuridBinaanLangsung() {
     let userGuru = getUsernameGuruAktif();
     
@@ -315,7 +342,7 @@ function muatDaftarMuridBinaanLangsung() {
         });
 }
 
-// 2. Fungsi Pemuat Jurnal Bimbingan Bulanan Dinamis
+// 5. Pemuat Jurnal Bimbingan Bulanan Dinamis
 function muatJurnalPerwalian() {
     let userGuru = getUsernameGuruAktif();
     
@@ -353,7 +380,7 @@ function muatJurnalPerwalian() {
         });
 }
 
-// 3. FITUR EKSPOR JURNAL PEMBINAAN KE EXCEL (.XLSX) WITH IDENTITAS GURU
+// 6. Ekspor Excel (.xlsx) dengan Identitas Guru
 function eksporJurnalKeExcel() {
     if (!dataGlobalJurnalPerwalian || dataGlobalJurnalPerwalian.length === 0) {
         alert("Belum ada data jurnal pembinaan untuk diekspor pada bulan ini.");
@@ -416,7 +443,7 @@ function eksporJurnalKeExcel() {
     XLSX.writeFile(workbook, `Laporan_Pembinaan_Siswa_${guru.nama.replace(/\s+/g, '_')}_${bulan}.xlsx`);
 }
 
-// 4. FITUR CETAK LAPORAN / PDF RESMI PERWALIAN WITH IDENTITAS GURU
+// 7. Cetak PDF / Laporan Resmi dengan Identitas Guru
 function cetakLaporanPerwalianPDF() {
     if (!dataGlobalJurnalPerwalian || dataGlobalJurnalPerwalian.length === 0) {
         alert("Belum ada data jurnal pembinaan untuk dicetak pada bulan ini.");
@@ -497,7 +524,7 @@ function cetakLaporanPerwalianPDF() {
     win.print();
 }
 
-// 5. Buka Modal Khusus Siswa
+// 8. Buka Modal Form Khusus Siswa
 function bukaModalFormKhusus(nisn) {
     if (typeof window.bukaModalFormPerwalian === 'function') {
         window.bukaModalFormPerwalian();
@@ -508,7 +535,7 @@ function bukaModalFormKhusus(nisn) {
     }, 200);
 }
 
-// 6. Simpan Form Catatan Perwalian
+// 9. Simpan Form Catatan Perwalian
 function simpanCatatanPerwalian(event) {
     event.preventDefault();
     const btnSimpan = document.getElementById('btnSimpanPerwalian');
@@ -568,6 +595,24 @@ function simpanCatatanPerwalian(event) {
     });
 }
 
+// 10. PEMANTAU OTOMATIS: DUA TUGAS (CEK ROLE AKSES & CEK PERUBAHAN AKUN GURU)
+function pantauPerubahanAkunAktif() {
+    setInterval(function() {
+        // A. Cek Pembatasan Hak Akses Menu
+        aturAksesMenuBerdasarkanRole();
+
+        // B. Cek Alih Akun Guru untuk Refetch Data
+        var namaSekarang = getUsernameGuruAktif();
+        if (namaSekarang && namaSekarang !== namaGuruTerakhir && namaSekarang !== '-') {
+            console.log("Terdeteksi alih akun guru ke:", namaSekarang);
+            namaGuruTerakhir = namaSekarang;
+            
+            muatDaftarMuridBinaanLangsung();
+            muatJurnalPerwalian();
+        }
+    }, 1000); 
+}
+
 // Registrasi fungsi ke Global Scope
 window.muatDaftarMuridBinaanLangsung = muatDaftarMuridBinaanLangsung;
 window.muatJurnalPerwalian = muatJurnalPerwalian;
@@ -575,29 +620,11 @@ window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 window.isiTemplateInstan = isiTemplateInstan;
 window.eksporJurnalKeExcel = eksporJurnalKeExcel;
 window.cetakLaporanPerwalianPDF = cetakLaporanPerwalianPDF;
+window.aturAksesMenuBerdasarkanRole = aturAksesMenuBerdasarkanRole;
 
-// Jalankan Pemuatan Otomatis
+// Inisialisasi awal
+aturAksesMenuBerdasarkanRole();
 muatDaftarMuridBinaanLangsung();
 muatJurnalPerwalian();
-// MEMANTAU PERUBAHAN TAMPILAN NAMA GURU DI SIDEBAR SECARA OTOMATIS
-var namaGuruTerakhir = '';
-
-function pantauPerubahanAkunAktif() {
-    setInterval(function() {
-        var namaSekarang = getUsernameGuruAktif();
-        
-        // Jika terdeteksi nama guru berubah (misal: dari Nurul Faozi ke Dewi Marianti Simamora)
-        if (namaSekarang && namaSekarang !== namaGuruTerakhir && namaSekarang !== '-' && namaSekarang !== 'Nurul Faozi') {
-            console.log("Terdeteksi alih akun ke:", namaSekarang);
-            namaGuruTerakhir = namaSekarang;
-            
-            // Muat ulang data murid & jurnal secara otomatis tanpa refresh halaman
-            if (typeof muatDaftarMuridBinaanLangsung === 'function') muatDaftarMuridBinaanLangsung();
-            if (typeof muatJurnalPerwalian === 'function') muatJurnalPerwalian();
-        }
-    }, 1000); // Mengecek setiap 1 detik
-}
-
-// Jalankan pemantau otomatis
 pantauPerubahanAkunAktif();
 </script>
