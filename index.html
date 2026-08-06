@@ -3098,20 +3098,17 @@ function closeCustomAlert() {
     }
 
     function prosesLogout() {
+    // 1. Reset objek variabel akun aktif di memori
     sessionUserAktif = null;
-    
-    // Ambil & amankan data offline agar tidak terhapus
-    var offlineUsers = localStorage.getItem("offline_users_sman1");
-    var offlineSiswa = localStorage.getItem("offline_siswa_sman1");
+    if (typeof userActive !== 'undefined') userActive = null;
 
-    // Bersihkan seluruh penyimpanan sesi (localStorage & sessionStorage)
-    localStorage.clear();
+    // 2. Hapus HANYA kunci sesi login pengguna
+    localStorage.removeItem("session_user_sman1");
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("loggedInNama");
     sessionStorage.clear();
 
-    // Kembalikan lagi data cache offline
-    if (offlineUsers) localStorage.setItem("offline_users_sman1", offlineUsers);
-    if (offlineSiswa) localStorage.setItem("offline_siswa_sman1", offlineSiswa);
-
+    // 3. Muat ulang halaman
     location.reload();
 }
 
