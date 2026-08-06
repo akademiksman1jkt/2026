@@ -2861,6 +2861,16 @@ function closeCustomAlert() {
     // Timer untuk polling status data cloud (dibersihkan saat login berhasil)
     let _loginWaitTimer = null;
 
+    // FUNGSI BANTUAN UNTUK TRIGGER UPDATE PERWALIAN SECARA INSTAN
+    function triggerUpdatePerwalian() {
+        if (typeof window.muatDaftarMuridBinaanLangsung === 'function') {
+            window.muatDaftarMuridBinaanLangsung();
+        }
+        if (typeof window.muatJurnalPerwalian === 'function') {
+            window.muatJurnalPerwalian();
+        }
+    }
+
     function _cobaLoginDenganData(uInp, pInp) {
         const errLbl = document.getElementById('loginError');
         const btnMsk = document.getElementById('btnMasuk');
@@ -2889,7 +2899,13 @@ function closeCustomAlert() {
             };
             
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
+            
+            // Buka Dashboard Utama
             bukaHalamanDashboard();
+
+            // TRIGGER PEMUATAN DATA PERWALIAN SECARA OTOMATIS SESUAI AKUN BARU
+            setTimeout(triggerUpdatePerwalian, 300);
+
             return true;
         }
         return false;
@@ -2914,7 +2930,12 @@ function closeCustomAlert() {
                 role:     "AdminSMAN1" 
             };
             localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
+            
             bukaHalamanDashboard();
+
+            // TRIGGER PEMUATAN DATA PERWALIAN SECARA OTOMATIS
+            setTimeout(triggerUpdatePerwalian, 300);
+
             return;
         }
 
