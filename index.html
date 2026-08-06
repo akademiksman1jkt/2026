@@ -3098,12 +3098,22 @@ function closeCustomAlert() {
     }
 
     function prosesLogout() {
-        sessionUserAktif = null;
-        localStorage.removeItem("session_user_sman1");
-        // Catatan: offline_users_sman1 & offline_siswa_sman1 sengaja TIDAK dihapus
-        // agar pengguna tetap bisa login offline setelah pernah login online sebelumnya
-        location.reload();
-    }
+    sessionUserAktif = null;
+    
+    // Ambil & amankan data offline agar tidak terhapus
+    var offlineUsers = localStorage.getItem("offline_users_sman1");
+    var offlineSiswa = localStorage.getItem("offline_siswa_sman1");
+
+    // Bersihkan seluruh penyimpanan sesi (localStorage & sessionStorage)
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Kembalikan lagi data cache offline
+    if (offlineUsers) localStorage.setItem("offline_users_sman1", offlineUsers);
+    if (offlineSiswa) localStorage.setItem("offline_siswa_sman1", offlineSiswa);
+
+    location.reload();
+}
 
     // ============================================================
     // KALKULASI STATISTIK SISWA
@@ -8975,6 +8985,7 @@ window.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpbuJlinPwRoqIiGP
 
     // Jalankan pemuatan menu dinamis saat DOM selesai dimuat
     document.addEventListener('DOMContentLoaded', muatMenuPerwalianDinamis);
+    
 </script>
 </body>
 </html>
