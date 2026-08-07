@@ -9270,7 +9270,37 @@ function muatDataPerangkat() {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat data dari server.</td></tr>';
     });
 }
-    
+    // 1. MENCEGAH KLIK KANAN (CONTEXT MENU)
+    document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+    });
+
+    // 2. MENCEGAH TOMBOL SHORTCUT INSPECT ELEMENT & DEVTOOLS
+    document.addEventListener('keydown', function (e) {
+        // Mencegah F12
+        if (e.key === 'F12' || e.keyCode === 123) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Mencegah Ctrl+Shift+I (Inspect), Ctrl+Shift+J (Console), Ctrl+Shift+C (Element Inspector)
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Mencegah Ctrl+U (View Source Code)
+        if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Mencegah Ctrl+S (Save Page)
+        if (e.ctrlKey && (e.key === 'S' || e.key === 's')) {
+            e.preventDefault();
+            return false;
+        }
+    });
 </script>
 </body>
 </html>
