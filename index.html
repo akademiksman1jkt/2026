@@ -2878,7 +2878,27 @@ function closeCustomAlert() {
     // =========================================================================
     // 🌟 KUNCI UTAMA: KEMBALIKAN SEMUA FUNGSI RENDER BAWAAN ASLI APLIKASI ANDA
     // =========================================================================
-    try { if (viewId === 'kelasTab')             kunciDropdownKelasWali(); }          catch(e){ console.error('[kelasTab]',e); }
+    
+    // 🔹 PERBAIKAN DI SINI: Otomatis isi dropdown #selectKelas sebelum kunciDropdownKelasWali dipanggil
+    if (viewId === 'kelasTab') {
+        try {
+            let selectK = document.getElementById('selectKelas');
+            if (selectK && selectK.options.length <= 1 && typeof dataSiswaGlobal !== "undefined" && dataSiswaGlobal.length > 0) {
+                let listK = [...new Set(dataSiswaGlobal.map(row => (row[3] || "").toString().trim()))]
+                    .filter(k => k && k.toLowerCase() !== "kelas")
+                    .sort();
+                
+                selectK.innerHTML = '<option value="">-- Tentukan Kelas --</option>';
+                listK.forEach(k => {
+                    selectK.innerHTML += `<option value="${k}">${k}</option>`;
+                });
+            }
+            if (typeof kunciDropdownKelasWali === 'function') kunciDropdownKelasWali();
+        } catch(e) { 
+            console.error('[kelasTab]', e); 
+        }
+    }
+
     try { if (viewId === 'eraporTab')            { renderDropdownEraporKunci(); updateTabVisibilityErapor(); } } catch(e){ console.error('[eraporTab]',e); }
     try { if (viewId === 'koreksiTab')           renderRiwayatKoreksiSistem(); }    catch(e){ console.error('[koreksiTab]',e); }
     try { if (viewId === 'adminPanelSection')    renderTabelUserAdmin(); }            catch(e){ console.error('[adminPanel]',e); }
