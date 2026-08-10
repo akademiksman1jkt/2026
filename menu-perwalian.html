@@ -391,7 +391,7 @@ function eksporJurnalKeExcel() {
     const bulan = document.getElementById('filterBulanJurnal') ? document.getElementById('filterBulanJurnal').value : 'Bulanan';
 
     const excelRows = [
-        { "A": "LAPORAN REKAPITULASI PEMBINAAN SISWA BINAAN" },
+        { "A": "LAPORAN REKAPITULASI PEMBINAAN MURID" },
         { "A": `Guru Pembimbing / Wali: ${guru.nama}` },
         { "A": `NIP: ${guru.nip}` },
         { "A": `Periode Bulan: ${bulan}` },
@@ -483,7 +483,7 @@ function cetakLaporanPerwalianPDF() {
             </head>
             <body>
                 <div class="header">
-                    <h2>LAPORAN REKAPITULASI PEMBINAAN SISWA BINAAN</h2>
+                    <h2>LAPORAN REKAPITULASI PEMBINAAN MURID</h2>
                     <h3>SMAN 1 JAKARTA</h3>
                 </div>
 
