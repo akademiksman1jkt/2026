@@ -107,10 +107,11 @@
                         <th style="padding:10px 12px; width:180px;">Nama Murid</th>
                         <th style="padding:10px 12px;">Masalah</th>
                         <th style="padding:10px 12px;">Saran / Tindak Lanjut</th>
+                        <th style="padding:10px 12px; width:120px; text-align:center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyJurnalPerwalianModern">
-                    <tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Memuat data jurnal...</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding:16px; color:#94a3b8;">Memuat data jurnal...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -342,7 +343,7 @@ function muatDaftarMuridBinaanLangsung() {
         });
 }
 
-// 5. Pemuat Jurnal Bimbingan Bulanan Dinamis
+// 5. Pemuat Jurnal Bimbingan Bulanan Dinamis (Lengkap dengan Tombol Edit & Hapus)
 function muatJurnalPerwalian() {
     let userGuru = getUsernameGuruAktif();
     
@@ -352,7 +353,7 @@ function muatJurnalPerwalian() {
 
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Memuat riwayat jurnal...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:#94a3b8;">Memuat riwayat jurnal...</td></tr>';
 
     fetch(`${WEB_APP_URL}?action=getJurnalPerwalian&username_guru=${encodeURIComponent(userGuru)}&bulan=${encodeURIComponent(bulan)}`)
         .then(res => res.json())
@@ -360,10 +361,14 @@ function muatJurnalPerwalian() {
             dataGlobalJurnalPerwalian = data || [];
             tbody.innerHTML = '';
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:#94a3b8;">Belum ada catatan bimbingan untuk bulan ini.</td></tr>';
                 return;
             }
             data.forEach((item, index) => {
+                const masalahEscaped = (item.masalah || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const saranEscaped = (item.saran || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const namaEscaped = (item.nama || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
                 tbody.innerHTML += `
                     <tr style="border-bottom:1px solid #f1f5f9;">
                         <td style="padding:10px 12px; text-align:center; color:#64748b;">${index + 1}</td>
@@ -371,13 +376,87 @@ function muatJurnalPerwalian() {
                         <td style="padding:10px 12px; font-weight:600; color:#0f172a;">${item.nama}</td>
                         <td style="padding:10px 12px; color:#334155;">${item.masalah}</td>
                         <td style="padding:10px 12px; color:#334155;">${item.saran}</td>
+                        <td style="padding:10px 12px; text-align:center; white-space:nowrap;">
+                            <button onclick="editCatatanPerwalian('${item.id_jurnal}', '${masalahEscaped}', '${saranEscaped}')" style="background:#f59e0b; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; margin-right:4px;">
+                                ✏️ Edit
+                            </button>
+                            <button onclick="hapusCatatanPerwalian('${item.id_jurnal}', '${namaEscaped}')" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
+                                🗑️ Hapus
+                            </button>
+                        </td>
                     </tr>`;
             });
         })
         .catch(err => {
             console.error('Gagal mengambil jurnal:', err);
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:#ef4444;">Gagal memuat jurnal perwalian.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:#ef4444;">Gagal memuat jurnal perwalian.</td></tr>';
         });
+}
+
+// 5A. FUNGSI EDIT CATATAN PERWALIAN
+function editCatatanPerwalian(idJurnal, masalahLama, saranLama) {
+    const masalahBaru = prompt("Ubah Permasalahan / Topik Bimbingan:", masalahLama);
+    if (masalahBaru === null) return;
+
+    const saranBaru = prompt("Ubah Saran / Tindak Lanjut:", saranLama);
+    if (saranBaru === null) return;
+
+    const payload = {
+        action: 'editJurnalPerwalian',
+        id_jurnal: idJurnal,
+        masalah: masalahBaru,
+        saran: saranBaru
+    };
+
+    fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            alert('✅ Catatan bimbingan berhasil diperbarui!');
+            muatJurnalPerwalian();
+        } else {
+            alert('❌ Gagal mengedit: ' + (res.message || 'Terjadi kesalahan'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Gagal terhubung ke server saat mengedit.');
+    });
+}
+
+// 5B. FUNGSI HAPUS CATATAN PERWALIAN
+function hapusCatatanPerwalian(idJurnal, namaSiswa) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus catatan bimbingan untuk ${namaSiswa}?`)) {
+        return;
+    }
+
+    const payload = {
+        action: 'hapusJurnalPerwalian',
+        id_jurnal: idJurnal
+    };
+
+    fetch(WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.status === 'success') {
+            alert('🗑️ Catatan bimbingan berhasil dihapus!');
+            muatJurnalPerwalian();
+        } else {
+            alert('❌ Gagal menghapus: ' + (res.message || 'Terjadi kesalahan'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Gagal terhubung ke server saat menghapus.');
+    });
 }
 
 // 6. Ekspor Excel (.xlsx) dengan Identitas Guru
@@ -616,6 +695,8 @@ function pantauPerubahanAkunAktif() {
 // Registrasi fungsi ke Global Scope
 window.muatDaftarMuridBinaanLangsung = muatDaftarMuridBinaanLangsung;
 window.muatJurnalPerwalian = muatJurnalPerwalian;
+window.editCatatanPerwalian = editCatatanPerwalian;
+window.hapusCatatanPerwalian = hapusCatatanPerwalian;
 window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 window.isiTemplateInstan = isiTemplateInstan;
 window.eksporJurnalKeExcel = eksporJurnalKeExcel;
