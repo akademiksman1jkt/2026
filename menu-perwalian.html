@@ -207,6 +207,29 @@
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- MODAL KONFIRMASI HAPUS CATATAN PERWALIAN -->
+<!-- ========================================== -->
+<div id="modalHapusPerwalian" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; padding: 16px;">
+    <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center;">
+        <div style="background: #fee2e2; color: #dc2626; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 24px;">
+            ⚠️
+        </div>
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Konfirmasi Hapus</h3>
+        <p id="teksKonfirmasiHapus" style="font-size: 13px; color: #475569; margin: 0 0 20px 0; line-height: 1.5;">
+            Apakah Anda yakin ingin menghapus catatan bimbingan ini?
+        </p>
+
+        <!-- Hidden ID -->
+        <input type="hidden" id="hapusIdJurnalTarget">
+
+        <div style="display: flex; justify-content: center; gap: 10px;">
+            <button type="button" onclick="tutupModalHapusPerwalian()" style="padding: 8px 18px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">Batal</button>
+            <button type="button" id="btnKonfirmasiHapusAksi" onclick="prosesEksekusiHapus()" style="padding: 8px 18px; background: #dc2626; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">Ya, Hapus</button>
+        </div>
+    </div>
+</div>
+
 <!-- SCRIPT LOGIKA JAVASCRIPT -->
 <script>
 var dataGlobalMuridPerwalian = [];
@@ -466,7 +489,6 @@ function prosesSimpanEditPerwalian(event) {
     .then(res => res.json())
     .then(res => {
         if (res.status === 'success') {
-            alert('✅ Catatan bimbingan berhasil diperbarui!');
             tutupModalEditPerwalian();
             muatJurnalPerwalian();
         } else {
@@ -485,10 +507,35 @@ function prosesSimpanEditPerwalian(event) {
     });
 }
 
-// 5D. FUNGSI HAPUS CATATAN
+// 5D. FUNGSI MEMBUKA MODAL KONFIRMASI HAPUS
 function hapusCatatanPerwalian(idJurnal, namaSiswa) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus catatan bimbingan untuk ${namaSiswa}?`)) {
-        return;
+    const modal = document.getElementById('modalHapusPerwalian');
+    if (modal) {
+        document.getElementById('hapusIdJurnalTarget').value = idJurnal;
+        document.getElementById('teksKonfirmasiHapus').innerHTML = `Apakah Anda yakin ingin menghapus catatan bimbingan untuk <strong>${namaSiswa}</strong>?`;
+        modal.style.display = 'flex';
+    }
+}
+
+// 5E. FUNGSI MENUTUP MODAL HAPUS
+function tutupModalHapusPerwalian() {
+    const modal = document.getElementById('modalHapusPerwalian');
+    if (modal) {
+        modal.style.display = 'none';
+        document.getElementById('hapusIdJurnalTarget').value = '';
+    }
+}
+
+// 5F. PROSES EKSEKUSI HAPUS KE GOOGLE APPS SCRIPT
+function prosesEksekusiHapus() {
+    const idJurnal = document.getElementById('hapusIdJurnalTarget').value;
+    const btnSubmit = document.getElementById('btnKonfirmasiHapusAksi');
+
+    if (!idJurnal) return;
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerText = 'Menghapus...';
     }
 
     const payload = {
@@ -504,7 +551,7 @@ function hapusCatatanPerwalian(idJurnal, namaSiswa) {
     .then(res => res.json())
     .then(res => {
         if (res.status === 'success') {
-            alert('🗑️ Catatan bimbingan berhasil dihapus!');
+            tutupModalHapusPerwalian();
             muatJurnalPerwalian();
         } else {
             alert('❌ Gagal menghapus: ' + (res.message || 'Terjadi kesalahan'));
@@ -512,7 +559,13 @@ function hapusCatatanPerwalian(idJurnal, namaSiswa) {
     })
     .catch(err => {
         console.error(err);
-        alert('Gagal terhubung ke server saat menghapus.');
+        alert('❌ Gagal terhubung ke server saat menghapus.');
+    })
+    .finally(() => {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = 'Ya, Hapus';
+        }
     });
 }
 
@@ -712,7 +765,6 @@ function simpanCatatanPerwalian(event) {
     })
     .then(res => res.json())
     .then(res => {
-        alert(sasaranSiswa === 'SEMUA_SISWA' ? 'Catatan berhasil dikirim ke seluruh murid binaan!' : 'Catatan bimbingan berhasil disimpan!');
         if (typeof window.tutupModalFormPerwalian === 'function') {
             window.tutupModalFormPerwalian();
         }
@@ -754,6 +806,8 @@ window.editCatatanPerwalian = editCatatanPerwalian;
 window.tutupModalEditPerwalian = tutupModalEditPerwalian;
 window.prosesSimpanEditPerwalian = prosesSimpanEditPerwalian;
 window.hapusCatatanPerwalian = hapusCatatanPerwalian;
+window.tutupModalHapusPerwalian = tutupModalHapusPerwalian;
+window.prosesEksekusiHapus = prosesEksekusiHapus;
 window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 window.isiTemplateInstan = isiTemplateInstan;
 window.eksporJurnalKeExcel = eksporJurnalKeExcel;
