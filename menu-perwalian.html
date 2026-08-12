@@ -119,7 +119,7 @@
 </div>
 
 <!-- ========================================== -->
-<!-- MODAL FORM CATATAN PERWALIAN FITUR INSTAN -->
+<!-- MODAL FORM TAMBAH CATATAN PERWALIAN -->
 <!-- ========================================== -->
 <div id="modalFormPerwalian" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; padding: 16px;">
     <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); max-height: 90vh; overflow-y: auto;">
@@ -175,6 +175,38 @@
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- MODAL EDIT CATATAN PERWALIAN (2 KOLOM INPUT) -->
+<!-- ========================================== -->
+<div id="modalEditPerwalian" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); z-index: 9999; justify-content: center; align-items: center; padding: 16px;">
+    <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;">✏️ Edit Catatan Bimbingan</h3>
+            <button onclick="tutupModalEditPerwalian()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+
+        <form id="formEditPerwalian" onsubmit="prosesSimpanEditPerwalian(event)">
+            <!-- Hidden ID Jurnal -->
+            <input type="hidden" id="editIdJurnal">
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">1. Permasalahan / Topik Bimbingan</label>
+                <textarea id="editMasalahPerwalian" rows="3" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;"></textarea>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">2. Saran / Tindak Lanjut</label>
+                <textarea id="editSaranPerwalian" rows="3" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" onclick="tutupModalEditPerwalian()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; font-size: 13px; cursor: pointer;">Batal</button>
+                <button type="submit" id="btnSimpanEditPerwalian" style="padding: 8px 16px; background: #f59e0b; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">Perbarui Catatan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- SCRIPT LOGIKA JAVASCRIPT -->
 <script>
 var dataGlobalMuridPerwalian = [];
@@ -197,11 +229,9 @@ function aturAksesMenuBerdasarkanRole() {
     const containerMenu = document.getElementById('containerMenuPerwalianGroup');
 
     if (containerMenu) {
-        // Jika akun adalah GURU, WALI, atau ADMIN -> TAMPILKAN MENU
         if (roleUser.includes('guru') || roleUser.includes('wali') || roleUser.includes('admin')) {
             containerMenu.style.display = 'block';
         } else {
-            // Jika akun SISWA -> SEMBUNYIKAN MENU PERWALIAN
             containerMenu.style.display = 'none';
         }
     }
@@ -209,14 +239,12 @@ function aturAksesMenuBerdasarkanRole() {
 
 // 2. FUNGSI MENDAPATKAN USERNAME / NAMA GURU AKTIF SAAT INI
 function getUsernameGuruAktif() {
-    // Priority A: Objek Sesi Login Aktif Portal
     if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) {
         if (sessionUserAktif.nama && sessionUserAktif.nama.trim() !== '') return sessionUserAktif.nama;
         if (sessionUserAktif.username_guru) return sessionUserAktif.username_guru;
         if (sessionUserAktif.username) return sessionUserAktif.username;
     }
 
-    // Priority B: Teks di Sidebar DOM (lblUserAktif)
     let elNama = document.getElementById('lblUserAktif');
     if (elNama) {
         let teksNama = (elNama.innerText || elNama.textContent || '').trim();
@@ -343,7 +371,7 @@ function muatDaftarMuridBinaanLangsung() {
         });
 }
 
-// 5. Pemuat Jurnal Bimbingan Bulanan Dinamis (Lengkap dengan Tombol Edit & Hapus)
+// 5. Pemuat Jurnal Bimbingan Bulanan Dinamis
 function muatJurnalPerwalian() {
     let userGuru = getUsernameGuruAktif();
     
@@ -393,19 +421,41 @@ function muatJurnalPerwalian() {
         });
 }
 
-// 5A. FUNGSI EDIT CATATAN PERWALIAN
+// 5A. FUNGSI EDIT CATATAN (MEMBUKA MODAL 2 KOLOM)
 function editCatatanPerwalian(idJurnal, masalahLama, saranLama) {
-    const masalahBaru = prompt("Ubah Permasalahan / Topik Bimbingan:", masalahLama);
-    if (masalahBaru === null) return;
+    const modal = document.getElementById('modalEditPerwalian');
+    if (modal) {
+        document.getElementById('editIdJurnal').value = idJurnal;
+        document.getElementById('editMasalahPerwalian').value = masalahLama;
+        document.getElementById('editSaranPerwalian').value = saranLama;
+        modal.style.display = 'flex';
+    }
+}
 
-    const saranBaru = prompt("Ubah Saran / Tindak Lanjut:", saranLama);
-    if (saranBaru === null) return;
+// 5B. FUNGSI TUTUP MODAL EDIT
+function tutupModalEditPerwalian() {
+    const modal = document.getElementById('modalEditPerwalian');
+    if (modal) {
+        modal.style.display = 'none';
+        document.getElementById('formEditPerwalian').reset();
+    }
+}
+
+// 5C. PROSES SIMPAN EDIT KE SERVER
+function prosesSimpanEditPerwalian(event) {
+    if (event) event.preventDefault();
+
+    const btnSubmit = document.getElementById('btnSimpanEditPerwalian');
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerText = 'Perbarui Catatan...';
+    }
 
     const payload = {
         action: 'editJurnalPerwalian',
-        id_jurnal: idJurnal,
-        masalah: masalahBaru,
-        saran: saranBaru
+        id_jurnal: document.getElementById('editIdJurnal').value,
+        masalah: document.getElementById('editMasalahPerwalian').value,
+        saran: document.getElementById('editSaranPerwalian').value
     };
 
     fetch(WEB_APP_URL, {
@@ -417,6 +467,7 @@ function editCatatanPerwalian(idJurnal, masalahLama, saranLama) {
     .then(res => {
         if (res.status === 'success') {
             alert('✅ Catatan bimbingan berhasil diperbarui!');
+            tutupModalEditPerwalian();
             muatJurnalPerwalian();
         } else {
             alert('❌ Gagal mengedit: ' + (res.message || 'Terjadi kesalahan'));
@@ -424,11 +475,17 @@ function editCatatanPerwalian(idJurnal, masalahLama, saranLama) {
     })
     .catch(err => {
         console.error(err);
-        alert('Gagal terhubung ke server saat mengedit.');
+        alert('❌ Gagal terhubung ke server saat mengedit.');
+    })
+    .finally(() => {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = 'Perbarui Catatan';
+        }
     });
 }
 
-// 5B. FUNGSI HAPUS CATATAN PERWALIAN
+// 5D. FUNGSI HAPUS CATATAN
 function hapusCatatanPerwalian(idJurnal, namaSiswa) {
     if (!confirm(`Apakah Anda yakin ingin menghapus catatan bimbingan untuk ${namaSiswa}?`)) {
         return;
@@ -677,10 +734,8 @@ function simpanCatatanPerwalian(event) {
 // 10. PEMANTAU OTOMATIS: DUA TUGAS (CEK ROLE AKSES & CEK PERUBAHAN AKUN GURU)
 function pantauPerubahanAkunAktif() {
     setInterval(function() {
-        // A. Cek Pembatasan Hak Akses Menu
         aturAksesMenuBerdasarkanRole();
 
-        // B. Cek Alih Akun Guru untuk Refetch Data
         var namaSekarang = getUsernameGuruAktif();
         if (namaSekarang && namaSekarang !== namaGuruTerakhir && namaSekarang !== '-') {
             console.log("Terdeteksi alih akun guru ke:", namaSekarang);
@@ -696,6 +751,8 @@ function pantauPerubahanAkunAktif() {
 window.muatDaftarMuridBinaanLangsung = muatDaftarMuridBinaanLangsung;
 window.muatJurnalPerwalian = muatJurnalPerwalian;
 window.editCatatanPerwalian = editCatatanPerwalian;
+window.tutupModalEditPerwalian = tutupModalEditPerwalian;
+window.prosesSimpanEditPerwalian = prosesSimpanEditPerwalian;
 window.hapusCatatanPerwalian = hapusCatatanPerwalian;
 window.simpanCatatanPerwalian = simpanCatatanPerwalian;
 window.isiTemplateInstan = isiTemplateInstan;
