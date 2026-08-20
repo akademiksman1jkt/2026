@@ -753,23 +753,32 @@ function populateDropdownInputNilai() {
     const smEl = document.getElementById('epSelectMapel');
     if (!skEl || !smEl) return;
 
+    // 1. Identifikasi User Aktif
     let userAktif = (typeof sessionUserAktif !== 'undefined') ? sessionUserAktif : null;
     let userRole  = userAktif ? userAktif.role : '';
-    let username  = userAktif ? (userAktif.username || userAktif.user || '') : '';
+    let username  = userAktif ? (userAktif.username || userAktif.nama || '') : '';
     let isAdmin   = (userRole === 'AdminSMAN1');
 
-    // Pencarian user yang lebih fleksibel (Mencakup Objek maupun Array)
+    const cleanUsername = String(username).trim().toLowerCase();
+
+    // 2. Cari detail user secara fleksibel di dataUserGlobal
     let userDetail = null;
     if (typeof dataUserGlobal !== 'undefined' && Array.isArray(dataUserGlobal)) {
         userDetail = dataUserGlobal.find(u => {
             if (!u) return false;
-            let uName = typeof u === 'object' ? (u.username || u.user || u[0] || '') : u[0];
-            return String(uName).trim().toLowerCase() === String(username).trim().toLowerCase();
+            // Cek jika u berbentuk Objek
+            let uNameObj = u.username || u.Username || u.user || u.Nama || u.nama || '';
+            if (String(uNameObj).trim().toLowerCase() === cleanUsername) return true;
+            
+            // Cek jika u berbentuk Array dari Spreadsheet (indeks 0 atau 1)
+            if (Array.isArray(u) && (String(u[0]).trim().toLowerCase() === cleanUsername || String(u[1]).trim().toLowerCase() === cleanUsername)) return true;
+            
+            return false;
         });
     }
 
     // -------------------------------------------------------------
-    // 1. POPULASI DROPDOWN KELAS (Dibatasi Plotting Guru)
+    // 3. POPULASI KELAS (Pengecekan Kunci Plotting Fleksibel)
     // -------------------------------------------------------------
     skEl.innerHTML = '<option value="">-- Pilih Kelas --</option>';
     let listKelas = [];
@@ -779,38 +788,39 @@ function populateDropdownInputNilai() {
             listKelas = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
         }
     } else {
-        // Ambil data plotting dari berbagai kemungkinan nama variabel Apps Script
+        // Ekstrak data plotting dari semua kemungkinan properti/indeks
         let rawPlotting = '';
         if (userDetail) {
-            rawPlotting = userDetail.plotting || userDetail.Plotting || userDetail.kelas || userDetail[4] || userDetail[3] || '';
+            if (Array.isArray(userDetail)) {
+                // Jika baris user berbentuk array dari Sheets
+                rawPlotting = userDetail[4] || userDetail[3] || userDetail[5] || '';
+            } else if (typeof userDetail === 'object') {
+                // Jika berbentuk objek JSON
+                rawPlotting = userDetail.plotting || userDetail.Plotting || userDetail.kelas || userDetail.Kelas || userDetail.mapel || '';
+            }
         }
 
         if (Array.isArray(rawPlotting)) {
             listKelas = rawPlotting;
         } else if (typeof rawPlotting === 'string' && rawPlotting.trim() !== '') {
-            // Memisahkan koma, titik koma, atau spasi
-            listKelas = rawPlotting.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-        }
-
-        // FALLBACK: Jika plotting di database user kosong/belum tersetting,
-        // buka semua kelas agar guru tidak terkunci (opsional)
-        if (listKelas.length === 0 && typeof dataSiswaGlobal !== 'undefined') {
-            listKelas = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
+            listKelas = rawPlotting.split(',').map(s => s.trim());
         }
     }
 
+    // Tampilkan Pilihan Kelas jika ditemukan
     if (listKelas.length > 0) {
         listKelas.forEach(k => {
-            skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
+            if (k) skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
         });
     } else {
         skEl.innerHTML = '<option value="">-- Tidak ada plotting kelas --</option>';
     }
 
     // -------------------------------------------------------------
-    // 2. POPULASI DROPDOWN MAPEL
+    // 4. POPULASI MATA PELAJARAN
     // -------------------------------------------------------------
     smEl.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
+
     if (typeof daftarMapel !== 'undefined') {
         daftarMapel.forEach(m => {
             smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
