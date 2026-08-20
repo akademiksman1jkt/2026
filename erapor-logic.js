@@ -105,147 +105,154 @@
     // ERAPOR — LEMBAR KERJA FLEKSIBEL
     // ============================================================
     function muatLembarKerjaErapor() {
-        const kelas    = document.getElementById('epSelectKelas')?.value;
-        const mapel    = document.getElementById('epSelectMapel')?.value;
-        const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
-        if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
+    const kelas    = document.getElementById('epSelectKelas')?.value;
+    const mapel    = document.getElementById('epSelectMapel')?.value;
+    const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
+    if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
 
-        const kolom     = getKolomErapor();
-        const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
-        const mapelIdx  = daftarMapel.indexOf(mapelInfo);
-        if (!mapelInfo) { alert('Mata pelajaran tidak ditemukan!'); return; }
+    const kolom     = getKolomErapor();
+    const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
+    const mapelIdx  = daftarMapel.indexOf(mapelInfo);
+    if (!mapelInfo) { alert('Mata pelajaran tidak ditemukan!'); return; }
 
-        // Rebuild header
-        const headerRow = document.getElementById('headerEraporKolom');
-        if (headerRow) {
-            let hHtml = '<th style="width:60px;text-align:center;">No</th><th>Identitas</th><th>Nama Lengkap</th>';
-            kolom.forEach(k => { hHtml += '<th>'+k.nama+' <small style="color:#94a3b8;font-weight:400;">('+k.bobot+'%)</small></th>'; });
-            hHtml += '<th style="background-color:var(--primary-light);color:var(--primary);">Akhir Rapor</th>';
-            headerRow.innerHTML = hHtml;
-        }
-
-        const label = document.getElementById('labelMetodeHitung');
-        if (label) {
-            let bobotTxt = kolom.map(k=>k.nama+' '+k.bobot+'%').join(' + ');
-            label.innerHTML = '<strong>Metode:</strong> Rata-rata berbobot | '+bobotTxt+' = <strong>Nilai Akhir Rapor</strong>.';
-        }
-
-        const tBody = document.getElementById('tableBodyErapor');
-        if (!tBody) return;
-        tBody.innerHTML = '';
-
-        const fSiswa = dataSiswaGlobal.filter(r=>r[3]===kelas);
-        if (fSiswa.length===0) { alert('Tidak ada siswa di kelas ini.'); return; }
-
-        fSiswa.forEach((siswa, i) => {
-            let savedNilai = {};
-            try { savedNilai = JSON.parse(localStorage.getItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0])||'{}'); } catch(e) {}
-            let cloudVal = parseFloat(siswa[6+(mapelIdx*6)+(smt-1)])||0;
-
-            let kolomInputs = '';
-            kolom.forEach(k => {
-                let savedVal = savedNilai[k.id]!==undefined ? savedNilai[k.id] : '';
-                kolomInputs += '<td><input type="number" id="ep_'+k.id+'_'+siswa[0]+'" value="'+savedVal
-                    +'" min="0" max="100" step="0.5" style="width:80px;padding:5px;border:1px solid var(--slate-200);border-radius:4px;text-align:center;"'
-                    +' oninput="hitungNilaiAkhirErapor(\''+siswa[0]+'\')"></td>';
-            });
-
-            let nilaiAkhirDisplay = cloudVal>0 ? cloudVal.toFixed(1) : '-';
-            tBody.innerHTML += '<tr>'
-                + '<td style="text-align:center;font-weight:700;">'+(i+1)+'</td>'
-                + '<td><code>'+siswa[0]+'</code></td>'
-                + '<td><strong>'+siswa[2]+'</strong></td>'
-                + kolomInputs
-                + '<td style="text-align:center;font-weight:800;color:var(--primary);" id="ep_akhir_'+siswa[0]+'">'+nilaiAkhirDisplay+'</td>'
-                + '</tr>';
-        });
-
-        const sectionEl = document.getElementById('sectionLembarKerjaErapor');
-        if (sectionEl) { sectionEl.style.display='block'; sectionEl.scrollIntoView({behavior:'smooth',block:'start'}); }
+    // Rebuild header
+    const headerRow = document.getElementById('headerEraporKolom');
+    if (headerRow) {
+        let hHtml = '<th style="width:60px;text-align:center;">No</th><th>Identitas</th><th>Nama Lengkap</th>';
+        kolom.forEach(k => { hHtml += '<th>'+k.nama+' <small style="color:#94a3b8;font-weight:400;">('+k.bobot+'%)</small></th>'; });
+        hHtml += '<th style="background-color:var(--primary-light);color:var(--primary);">Akhir Rapor</th>';
+        headerRow.innerHTML = hHtml;
     }
 
-    function hitungNilaiAkhirErapor(nisn) {
-        const kolom = getKolomErapor();
+    const label = document.getElementById('labelMetodeHitung');
+    if (label) {
+        let bobotTxt = kolom.map(k=>k.nama+' '+k.bobot+'%').join(' + ');
+        label.innerHTML = '<strong>Metode:</strong> Rata-rata berbobot | '+bobotTxt+' = <strong>Nilai Akhir Rapor</strong>.';
+    }
+
+    const tBody = document.getElementById('tableBodyErapor');
+    if (!tBody) return;
+    tBody.innerHTML = '';
+
+    // FIX PERBANDINGAN SENSITIF SPASI & HURUF KAPITAL
+    const cleanKelasTarget = String(kelas).trim().toLowerCase();
+    const fSiswa = dataSiswaGlobal.filter(r => r && r[3] && String(r[3]).trim().toLowerCase() === cleanKelasTarget);
+    
+    if (fSiswa.length===0) { alert('Tidak ada siswa di kelas ini.'); return; }
+
+    fSiswa.forEach((siswa, i) => {
+        let savedNilai = {};
+        try { savedNilai = JSON.parse(localStorage.getItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0])||'{}'); } catch(e) {}
+        let cloudVal = parseFloat(siswa[6+(mapelIdx*6)+(smt-1)])||0;
+
+        let kolomInputs = '';
+        kolom.forEach(k => {
+            let savedVal = savedNilai[k.id]!==undefined ? savedNilai[k.id] : '';
+            kolomInputs += '<td><input type="number" id="ep_'+k.id+'_'+siswa[0]+'" value="'+savedVal
+                +'" min="0" max="100" step="0.5" style="width:80px;padding:5px;border:1px solid var(--slate-200);border-radius:4px;text-align:center;"'
+                +' oninput="hitungNilaiAkhirErapor(\''+siswa[0]+'\')"></td>';
+        });
+
+        let nilaiAkhirDisplay = cloudVal>0 ? cloudVal.toFixed(1) : '-';
+        tBody.innerHTML += '<tr>'
+            + '<td style="text-align:center;font-weight:700;">'+(i+1)+'</td>'
+            + '<td><code>'+siswa[0]+'</code></td>'
+            + '<td><strong>'+siswa[2]+'</strong></td>'
+            + kolomInputs
+            + '<td style="text-align:center;font-weight:800;color:var(--primary);" id="ep_akhir_'+siswa[0]+'">'+nilaiAkhirDisplay+'</td>'
+            + '</tr>';
+    });
+
+    const sectionEl = document.getElementById('sectionLembarKerjaErapor');
+    if (sectionEl) { sectionEl.style.display='block'; sectionEl.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+
+function hitungNilaiAkhirErapor(nisn) {
+    const kolom = getKolomErapor();
+    let total=0, totalBobot=0;
+    kolom.forEach(k => {
+        const val = parseFloat(document.getElementById('ep_'+k.id+'_'+nisn)?.value||'');
+        if (!isNaN(val)) { total+=val*(k.bobot/100); totalBobot+=k.bobot; }
+    });
+    const akhirEl = document.getElementById('ep_akhir_'+nisn);
+    if (akhirEl) {
+        if (totalBobot>0) {
+            let akhir = totalBobot<100?(total/totalBobot)*100:total;
+            akhirEl.textContent = akhir.toFixed(2);
+            akhirEl.style.color = akhir<75?'var(--danger)':'var(--primary)';
+        } else { akhirEl.textContent='-'; }
+    }
+}
+
+function simpanKomponenNilaiCloud() {
+    const kelas    = document.getElementById('epSelectKelas')?.value;
+    const mapel    = document.getElementById('epSelectMapel')?.value;
+    const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
+    if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
+
+    const kolom     = getKolomErapor();
+    
+    // FIX PERBANDINGAN DI SIMPAN CLOUD
+    const cleanKelasTarget = String(kelas).trim().toLowerCase();
+    const fSiswa    = dataSiswaGlobal.filter(r => r && r[3] && String(r[3]).trim().toLowerCase() === cleanKelasTarget);
+    
+    const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
+    const mapelIdx  = daftarMapel.indexOf(mapelInfo);
+    let saved=0;
+
+    fSiswa.forEach(siswa => {
+        let draftObj={};
+        kolom.forEach(k => {
+            const val=(document.getElementById('ep_'+k.id+'_'+siswa[0])?.value||'').trim();
+            if (val!=='') draftObj[k.id]=parseFloat(val)||0;
+        });
+        if (Object.keys(draftObj).length>0) {
+            localStorage.setItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0], JSON.stringify(draftObj));
+            saved++;
+        }
         let total=0, totalBobot=0;
         kolom.forEach(k => {
-            const val = parseFloat(document.getElementById('ep_'+k.id+'_'+nisn)?.value||'');
-            if (!isNaN(val)) { total+=val*(k.bobot/100); totalBobot+=k.bobot; }
+            const v=draftObj[k.id];
+            if (v!==undefined&&!isNaN(v)) { total+=v*(k.bobot/100); totalBobot+=k.bobot; }
         });
-        const akhirEl = document.getElementById('ep_akhir_'+nisn);
-        if (akhirEl) {
-            if (totalBobot>0) {
-                let akhir = totalBobot<100?(total/totalBobot)*100:total;
-                akhirEl.textContent = akhir.toFixed(2);
-                akhirEl.style.color = akhir<75?'var(--danger)':'var(--primary)';
-            } else { akhirEl.textContent='-'; }
+        if (totalBobot>0&&mapelIdx>=0) {
+            let finalVal = totalBobot<100?(total/totalBobot)*100:total;
+            const targetIdx = 6+(mapelIdx*6)+(smt-1);
+            while(siswa.length<=targetIdx) siswa.push('-');
+            siswa[targetIdx]=finalVal.toFixed(2);
         }
-    }
+    });
 
-    function simpanKomponenNilaiCloud() {
-        const kelas    = document.getElementById('epSelectKelas')?.value;
-        const mapel    = document.getElementById('epSelectMapel')?.value;
-        const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
-        if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
-
-        const kolom     = getKolomErapor();
-        const fSiswa    = dataSiswaGlobal.filter(r=>r[3]===kelas);
-        const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
-        const mapelIdx  = daftarMapel.indexOf(mapelInfo);
-        let saved=0;
-
-        fSiswa.forEach(siswa => {
-            let draftObj={};
+    if (typeof URL_GOOGLE_APPS_SCRIPT!=='undefined') {
+        document.getElementById('loading').style.display='block';
+        const guruUsername = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.username : 'Unknown';
+        const mapelNama    = mapelInfo ? (mapelInfo.namaLengkap || mapelInfo.kode) : mapel;
+        const legerData    = fSiswa.map(s => {
+            let rowData = { nisn: s[0], nama: s[2] };
             kolom.forEach(k => {
-                const val=(document.getElementById('ep_'+k.id+'_'+siswa[0])?.value||'').trim();
-                if (val!=='') draftObj[k.id]=parseFloat(val)||0;
+                rowData[k.nama] = (document.getElementById('ep_'+k.id+'_'+s[0])?.value || '').trim();
             });
-            if (Object.keys(draftObj).length>0) {
-                localStorage.setItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0], JSON.stringify(draftObj));
-                saved++;
-            }
-            let total=0, totalBobot=0;
-            kolom.forEach(k => {
-                const v=draftObj[k.id];
-                if (v!==undefined&&!isNaN(v)) { total+=v*(k.bobot/100); totalBobot+=k.bobot; }
-            });
-            if (totalBobot>0&&mapelIdx>=0) {
-                let finalVal = totalBobot<100?(total/totalBobot)*100:total;
-                const targetIdx = 6+(mapelIdx*6)+(smt-1);
-                while(siswa.length<=targetIdx) siswa.push('-');
-                siswa[targetIdx]=finalVal.toFixed(2);
-            }
+            rowData['Nilai Akhir Rapor'] = document.getElementById('ep_akhir_'+s[0])?.textContent || '-';
+            return rowData;
         });
-
-        if (typeof URL_GOOGLE_APPS_SCRIPT!=='undefined') {
-            document.getElementById('loading').style.display='block';
-            const guruUsername = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.username : 'Unknown';
-            const mapelNama    = mapelInfo ? (mapelInfo.namaLengkap || mapelInfo.kode) : mapel;
-            const legerData    = fSiswa.map(s => {
-                let rowData = { nisn: s[0], nama: s[2] };
-                kolom.forEach(k => {
-                    rowData[k.nama] = (document.getElementById('ep_'+k.id+'_'+s[0])?.value || '').trim();
-                });
-                rowData['Nilai Akhir Rapor'] = document.getElementById('ep_akhir_'+s[0])?.textContent || '-';
-                return rowData;
-            });
-            fetch(URL_GOOGLE_APPS_SCRIPT, {
-                method: 'POST',
-                body: JSON.stringify({
-                    aksi:      'simpanLegerNilai',
-                    guru:      guruUsername,
-                    kelas,
-                    mapel,
-                    mapelNama,
-                    semester:  smt,
-                    kolom:     kolom.map(k => k.nama),
-                    data:      legerData
-                })
+        fetch(URL_GOOGLE_APPS_SCRIPT, {
+            method: 'POST',
+            body: JSON.stringify({
+                aksi:      'simpanLegerNilai',
+                guru:      guruUsername,
+                kelas,
+                mapel,
+                mapelNama,
+                semester:  smt,
+                kolom:     kolom.map(k => k.nama),
+                data:      legerData
             })
-            .catch(e => console.error(e))
-            .finally(() => { document.getElementById('loading').style.display='none'; });
-        }
-        alert('Berhasil menyimpan nilai '+saved+' siswa ke draft lokal & cloud. Data ter-update di sistem!');
+        })
+        .catch(e => console.error(e))
+        .finally(() => { document.getElementById('loading').style.display='none'; });
     }
+    alert('Berhasil menyimpan nilai '+saved+' siswa ke draft lokal & cloud. Data ter-update di sistem!');
+}
 
     // ============================================================
     // ERAPOR — TEMPLATE EXPORT
