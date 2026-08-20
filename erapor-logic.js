@@ -753,37 +753,49 @@ function populateDropdownInputNilai() {
     const smEl = document.getElementById('epSelectMapel');
     if (!skEl || !smEl) return;
 
-    // 1. Ambil Identitas & Role User Aktif
     let userAktif = (typeof sessionUserAktif !== 'undefined') ? sessionUserAktif : null;
     let userRole  = userAktif ? userAktif.role : '';
-    let username  = userAktif ? userAktif.username : '';
+    let username  = userAktif ? (userAktif.username || userAktif.user || '') : '';
     let isAdmin   = (userRole === 'AdminSMAN1');
 
-    // Cari detail user di database global
-    let userDetail = (typeof dataUserGlobal !== 'undefined') 
-        ? dataUserGlobal.find(u => String(u.username || u[0] || '').trim() === String(username).trim()) 
-        : null;
+    // Pencarian user yang lebih fleksibel (Mencakup Objek maupun Array)
+    let userDetail = null;
+    if (typeof dataUserGlobal !== 'undefined' && Array.isArray(dataUserGlobal)) {
+        userDetail = dataUserGlobal.find(u => {
+            if (!u) return false;
+            let uName = typeof u === 'object' ? (u.username || u.user || u[0] || '') : u[0];
+            return String(uName).trim().toLowerCase() === String(username).trim().toLowerCase();
+        });
+    }
 
     // -------------------------------------------------------------
-    // 2. POPULASI DROPDOWN KELAS (Dibatasi Plotting Guru)
+    // 1. POPULASI DROPDOWN KELAS (Dibatasi Plotting Guru)
     // -------------------------------------------------------------
     skEl.innerHTML = '<option value="">-- Pilih Kelas --</option>';
     let listKelas = [];
 
     if (isAdmin) {
-        // Jika Admin, tampilkan seluruh kelas dari data siswa
         if (typeof dataSiswaGlobal !== 'undefined') {
             listKelas = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
         }
     } else {
-        // Jika Guru, baca kolom/properti plotting
-        let rawPlotting = userDetail ? (userDetail.plotting || userDetail[4] || '') : '';
-        
+        // Ambil data plotting dari berbagai kemungkinan nama variabel Apps Script
+        let rawPlotting = '';
+        if (userDetail) {
+            rawPlotting = userDetail.plotting || userDetail.Plotting || userDetail.kelas || userDetail[4] || userDetail[3] || '';
+        }
+
         if (Array.isArray(rawPlotting)) {
             listKelas = rawPlotting;
         } else if (typeof rawPlotting === 'string' && rawPlotting.trim() !== '') {
-            // Pisahkan jika formatnya string koma, misal "XII-1, XII-2"
-            listKelas = rawPlotting.split(',').map(s => s.trim());
+            // Memisahkan koma, titik koma, atau spasi
+            listKelas = rawPlotting.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+        }
+
+        // FALLBACK: Jika plotting di database user kosong/belum tersetting,
+        // buka semua kelas agar guru tidak terkunci (opsional)
+        if (listKelas.length === 0 && typeof dataSiswaGlobal !== 'undefined') {
+            listKelas = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
         }
     }
 
@@ -796,38 +808,12 @@ function populateDropdownInputNilai() {
     }
 
     // -------------------------------------------------------------
-    // 3. POPULASI DROPDOWN MAPEL (Dibatasi Plotting Guru)
+    // 2. POPULASI DROPDOWN MAPEL
     // -------------------------------------------------------------
     smEl.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
-
     if (typeof daftarMapel !== 'undefined') {
-        if (isAdmin) {
-            // Jika Admin, tampilkan semua mapel
-            daftarMapel.forEach(m => {
-                smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
-            });
-        } else {
-            // Jika Guru, filter mapel berdasarkan plotting/pengampuan guru
-            let rawMapel = userDetail ? (userDetail.mapel || userDetail[3] || '') : '';
-            let listMapelGuru = Array.isArray(rawMapel) 
-                ? rawMapel 
-                : String(rawMapel).split(',').map(s => s.trim().toLowerCase());
-
-            let mapelFiltered = daftarMapel.filter(m => 
-                listMapelGuru.includes(String(m.kode).toLowerCase()) || 
-                listMapelGuru.includes(String(m.namaLengkap).toLowerCase())
-            );
-
-            if (mapelFiltered.length > 0) {
-                mapelFiltered.forEach(m => {
-                    smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
-                });
-            } else {
-                // Fallback jika mapel tidak dispesifikasikan secara kaku di plotting
-                daftarMapel.forEach(m => {
-                    smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
-                });
-            }
-        }
+        daftarMapel.forEach(m => {
+            smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
+        });
     }
 }
