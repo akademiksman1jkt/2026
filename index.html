@@ -8368,6 +8368,13 @@ function bukaMenuErapor() {
                     eraporTab.style.display = 'block';
                 }
                 
+                // POPULASI DROPDOWN KELAS & MAPEL
+                if (typeof populateDropdownInputNilai === 'function') {
+                    populateDropdownInputNilai();
+                } else if (typeof renderDropdownEraporKunci === 'function') {
+                    renderDropdownEraporKunci();
+                }
+
                 // SINKRONISASI VISIBILITAS ROLE ADMIN/GURU
                 if (typeof updateTabVisibilityErapor === 'function') {
                     updateTabVisibilityErapor();
@@ -8375,12 +8382,16 @@ function bukaMenuErapor() {
             })
             .catch(err => {
                 console.error('Gagal memuat template e-Rapor:', err);
-                wrapper.innerHTML = '<div style="padding:30px; color:red;">Gagal memuat modul e-Rapor. Cek Console F12.</div>';
+                wrapper.innerHTML = '<div style="padding:30px; color:red;">Gagal memuat modul e-Rapor.</div>';
             });
     } else {
-        // Jika sudah pernah dimuat, langsung tampilkan
+        // Jika sudah pernah dimuat, langsung tampilkan dan isi ulang dropdown
         const eraporTab = document.getElementById('eraporTab');
         if (eraporTab) eraporTab.style.display = 'block';
+
+        if (typeof populateDropdownInputNilai === 'function') {
+            populateDropdownInputNilai();
+        }
     }
 }
 </script>
