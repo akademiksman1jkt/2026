@@ -8342,19 +8342,41 @@ function muatDataPerangkat() {
     });
 
 function bukaMenuErapor() {
-    const wrapper = document.getElementById('eraporTabWrapper');
+    // Sembunyikan modul/tab lain
+    document.querySelectorAll('.tab-content-view').forEach(tab => {
+        tab.style.display = 'none';
+    });
 
-    // Jika HTML e-Rapor belum pernah diunduh dari server GitHub
+    const wrapper = document.getElementById('eraporTabWrapper');
+    if (!wrapper) return;
+
+    // Jika belum dimuat, ambil file erapor-template.html
     if (!wrapper.innerHTML.trim()) {
         fetch('erapor-template.html')
-            .then(response => response.text())
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP error ' + response.status);
+                return response.text();
+            })
             .then(html => {
                 wrapper.innerHTML = html;
-                document.getElementById('eraporTab').style.display = 'block';
+                
+                // TAMPILKAN TAB SETELAH HTML DITEMPEL
+                const eraporTab = document.getElementById('eraporTab');
+                if (eraporTab) {
+                    eraporTab.style.display = 'block';
+                }
+                
+                // SINKRONISASI VISIBILITAS ROLE ADMIN/GURU
+                if (typeof updateTabVisibilityErapor === 'function') {
+                    updateTabVisibilityErapor();
+                }
             })
-            .catch(err => console.error('Gagal memuat template e-Rapor:', err));
+            .catch(err => {
+                console.error('Gagal memuat template e-Rapor:', err);
+                wrapper.innerHTML = '<div style="padding:30px; color:red;">Gagal memuat modul e-Rapor. Cek Console F12.</div>';
+            });
     } else {
-        // Jika sudah ada di memori halaman, cukup tampilkan
+        // Jika sudah pernah dimuat, langsung tampilkan
         const eraporTab = document.getElementById('eraporTab');
         if (eraporTab) eraporTab.style.display = 'block';
     }
