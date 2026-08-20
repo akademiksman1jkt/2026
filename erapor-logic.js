@@ -739,3 +739,24 @@
             });
         });
     })();
+
+// Fungsi khusus untuk merefresh isi Dropdown Kelas & Mapel e-Rapor
+function populateDropdownInputNilai() {
+    const skEl = document.getElementById('epSelectKelas');
+    const smEl = document.getElementById('epSelectMapel');
+
+    if (skEl && typeof dataSiswaGlobal !== 'undefined') {
+        skEl.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+        const listKelas = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
+        listKelas.forEach(k => {
+            skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
+        });
+    }
+
+    if (smEl && typeof daftarMapel !== 'undefined') {
+        smEl.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
+        daftarMapel.forEach(m => {
+            smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
+        });
+    }
+}
