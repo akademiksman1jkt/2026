@@ -8003,10 +8003,10 @@ window.addEventListener('DOMContentLoaded', function() {
             if (resData && Array.isArray(resData.users)) window.dataUserGlobal = resData.users;
             if (resData && Array.isArray(resData.plotting)) window.dataPlottingGlobal = resData.plotting;
 
-            dataBiodataGlobal  = window.dataBiodataGlobal;
-            dataSiswaGlobal    = window.dataSiswaGlobal;
-            dataUserGlobal     = window.dataUserGlobal;
-            dataPlottingGlobal = window.dataPlottingGlobal;
+            dataBiodataGlobal   = window.dataBiodataGlobal;
+            dataSiswaGlobal     = window.dataSiswaGlobal;
+            dataUserGlobal      = window.dataUserGlobal;
+            dataPlottingGlobal  = window.dataPlottingGlobal;
 
             if (typeof renderDropdownEraporKunci === 'function') {
                 renderDropdownEraporKunci();
@@ -8014,16 +8014,19 @@ window.addEventListener('DOMContentLoaded', function() {
                 populateDropdownInputNilai();
             }
         })
-        .catch(function(err) { console.error("Gagal muat cloud:", err); });
+        .catch(function(err) { 
+            console.error("Gagal muat cloud:", err); 
+        });
 });
 </script>
-    <div id="customAlertModal" class="custom-alert-overlay">
-  <div class="custom-alert-box">
-    <div class="custom-alert-icon" id="customAlertIcon">⚠️</div>
-    <h3 class="custom-alert-title" id="customAlertTitle">Pemberitahuan</h3>
-    <p class="custom-alert-message" id="customAlertMessage">Pesan tidak ada</p>
-    <button class="custom-alert-btn" id="customAlertBtn" onclick="closeCustomAlert()">OK, Mengerti</button>
-  </div>
+
+<div id="customAlertModal" class="custom-alert-overlay">
+    <div class="custom-alert-box">
+        <div class="custom-alert-icon" id="customAlertIcon">⚠️</div>
+        <h3 class="custom-alert-title" id="customAlertTitle">Pemberitahuan</h3>
+        <p class="custom-alert-message" id="customAlertMessage">Pesan tidak ada</p>
+        <button class="custom-alert-btn" id="customAlertBtn" onclick="closeCustomAlert()">OK</button>
+    </div>
 </div>
 <script>
     // 1. Memuat file menu-perwalian.html secara otomatis
