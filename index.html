@@ -7969,9 +7969,9 @@ function simpanAksesMenuDinamis() {
     
     if (menuDipilih.length === 0) {
         if (cloudUserMenuMapping && cloudUserMenuMapping[username]) {
-            delete cloudUserMenuMapping[username]; 
+            delete cloudUserMenuMapping[username];
         }
-        alert(`Sukses! Hak akses khusus untuk user '${username}' telah DIHAPUS.\nAkun ini otomatis kembali ke pengaturan menu standar.`);
+        alert(`Sukses! Hak akses khusus untuk user '${username}' telah DIHAPUS.`);
     } else {
         cloudUserMenuMapping[username] = menuDipilih;
         alert(`Sukses! Hak akses menu samping untuk user '${username}' berhasil disimpan.`);
@@ -7983,7 +7983,39 @@ function simpanAksesMenuDinamis() {
         }
     }
 }
-}
+
+// ============================================================
+// PEMUATAN DATA CLOUD (VERSI STABIL PENUH)
+// ============================================================
+window.dataBiodataGlobal = [];
+window.dataSiswaGlobal   = [];
+window.dataUserGlobal    = [];
+window.dataPlottingGlobal = [];
+
+window.addEventListener('DOMContentLoaded', function() {
+    if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) return;
+
+    fetch(URL_SCRIPT_BIODATA)
+        .then(function(response) { return response.json(); })
+        .then(function(resData) {
+            if (resData && Array.isArray(resData.biodata)) window.dataBiodataGlobal = resData.biodata;
+            if (resData && Array.isArray(resData.nilai)) window.dataSiswaGlobal = resData.nilai;
+            if (resData && Array.isArray(resData.users)) window.dataUserGlobal = resData.users;
+            if (resData && Array.isArray(resData.plotting)) window.dataPlottingGlobal = resData.plotting;
+
+            dataBiodataGlobal  = window.dataBiodataGlobal;
+            dataSiswaGlobal    = window.dataSiswaGlobal;
+            dataUserGlobal     = window.dataUserGlobal;
+            dataPlottingGlobal = window.dataPlottingGlobal;
+
+            if (typeof renderDropdownEraporKunci === 'function') {
+                renderDropdownEraporKunci();
+            } else if (typeof populateDropdownInputNilai === 'function') {
+                populateDropdownInputNilai();
+            }
+        })
+        .catch(function(err) { console.error("Gagal muat cloud:", err); });
+});
 </script>
     <div id="customAlertModal" class="custom-alert-overlay">
   <div class="custom-alert-box">
