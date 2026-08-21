@@ -8047,11 +8047,12 @@ function simpanAksesMenuDinamis() {
     }
     
     // Sinkronisasi live update visual jika admin sedang mensimulasikan akun tersebut
-    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && sessionUserAktif.username === username) {
-        if (typeof tegakkanHakAksesSistem === 'function') tegakkanHakAksesSistem();
+    if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) {
+        if (typeof tegakkanHakAksesSistem === 'function') {
+            tegakkanHakAksesSistem();
+        }
     }
 }
-    }
 </script>
     <div id="customAlertModal" class="custom-alert-overlay">
   <div class="custom-alert-box">
