@@ -760,9 +760,6 @@ function populateDropdownInputNilai() {
 
     const cleanUsername = String(username).trim().toLowerCase();
 
-    // -------------------------------------------------------------
-    // 2. AMBIL DRAFT PLOTTING BERDARSARKAN KELAS & MAPEL MULTI-BARIS
-    // -------------------------------------------------------------
     skEl.innerHTML = '<option value="">-- Pilih Kelas --</option>';
     smEl.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
 
@@ -770,7 +767,7 @@ function populateDropdownInputNilai() {
     let listMapelAllowed = [];
 
     if (isAdmin) {
-        // Jika Admin, tampilkan semua kelas dari data siswa & semua mapel
+        // Jika Admin, buka semua kelas & mapel
         if (typeof dataSiswaGlobal !== 'undefined') {
             listKelasAllowed = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
         }
@@ -780,31 +777,30 @@ function populateDropdownInputNilai() {
             });
         }
     } else {
-        // Jika Guru, cari SELURUH baris di dataUserGlobal yang NIP/Username-nya cocok
-        if (typeof dataUserGlobal !== 'undefined' && Array.isArray(dataUserGlobal)) {
-            dataUserGlobal.forEach(u => {
-                if (!u) return;
+        // Jika Guru, baca dari dataPlottingGlobal (Sheet Sistem_Plotting)
+        let sumberPlotting = (typeof dataPlottingGlobal !== 'undefined' && Array.isArray(dataPlottingGlobal)) 
+            ? dataPlottingGlobal 
+            : [];
 
-                // Ambil Username (Kolom A / Indeks 0 atau properti username)
-                let uName = u.username || u.Username || (Array.isArray(u) ? u[0] : '');
-                
-                if (String(uName).trim().toLowerCase() === cleanUsername) {
-                    // Ambil Kelas (Kolom B / Indeks 1 atau properti Kelas)
-                    let kVal = u.kelas || u.Kelas || (Array.isArray(u) ? u[1] : '');
-                    if (kVal && !listKelasAllowed.includes(String(kVal).trim())) {
-                        listKelasAllowed.push(String(kVal).trim());
-                    }
+        sumberPlotting.forEach(row => {
+            if (!row) return;
+            
+            // Kolom A = Username/NIP, Kolom B = Kelas, Kolom C = Mapel
+            let uName = row[0] || row.username || row.Username || '';
+            let kVal  = row[1] || row.kelas || row.Kelas || '';
+            let mVal  = row[2] || row.mapel || row.Mapel || '';
 
-                    // Ambil Mapel (Kolom C / Indeks 2 atau properti Mapel)
-                    let mVal = u.mapel || u.Mapel || (Array.isArray(u) ? u[2] : '');
-                    if (mVal && !listMapelAllowed.includes(String(mVal).trim())) {
-                        listMapelAllowed.push(String(mVal).trim());
-                    }
+            if (String(uName).trim().toLowerCase() === cleanUsername) {
+                if (kVal && !listKelasAllowed.includes(String(kVal).trim())) {
+                    listKelasAllowed.push(String(kVal).trim());
                 }
-            });
-        }
+                if (mVal && !listMapelAllowed.includes(String(mVal).trim())) {
+                    listMapelAllowed.push(String(mVal).trim());
+                }
+            }
+        });
 
-        // Tampilkan Mata Pelajaran hasil plotting guru
+        // Tampilkan Mata Pelajaran hasil plotting
         if (typeof daftarMapel !== 'undefined') {
             let mapelFiltered = daftarMapel.filter(m => 
                 listMapelAllowed.some(mPlot => 
@@ -818,7 +814,6 @@ function populateDropdownInputNilai() {
                     smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
                 });
             } else {
-                // Fallback jika kode mapel belum terdaftar spesifik, tampilkan seluruh daftar mapel
                 daftarMapel.forEach(m => {
                     smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
                 });
@@ -826,9 +821,7 @@ function populateDropdownInputNilai() {
         }
     }
 
-    // -------------------------------------------------------------
-    // 3. TAMPILKAN DROPDOWN KELAS
-    // -------------------------------------------------------------
+    // Tampilkan Pilihan Kelas di Dropdown
     if (listKelasAllowed.length > 0) {
         listKelasAllowed.sort().forEach(k => {
             skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
