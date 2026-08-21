@@ -747,29 +747,25 @@ function simpanKomponenNilaiCloud() {
         });
     })();
 
-function populateDropdownInputNilai() {
+// Fungsi pengisi dropdown asli dari sistem Anda
+function renderDropdownEraporKunci() {
     const skEl = document.getElementById('epSelectKelas');
     const smEl = document.getElementById('epSelectMapel');
     if (!skEl || !smEl) return;
 
-    // 1. Identifikasi User Aktif
-    let userAktif = (typeof sessionUserAktif !== 'undefined') ? sessionUserAktif : null;
-    let userRole  = userAktif ? userAktif.role : '';
-    let username  = userAktif ? (userAktif.username || userAktif.nama || '') : '';
-    let isAdmin   = (userRole === 'AdminSMAN1');
-
-    const cleanUsername = String(username).trim().toLowerCase();
+    let username = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.username : '';
+    let userRole = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.role : '';
+    let isAdmin  = (userRole === 'AdminSMAN1');
 
     skEl.innerHTML = '<option value="">-- Pilih Kelas --</option>';
     smEl.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
 
-    let listKelasAllowed = [];
-    let listMapelAllowed = [];
-
     if (isAdmin) {
-        // Jika Admin, buka semua kelas & mapel
+        // Admin: Tampilkan semua kelas & mapel
         if (typeof dataSiswaGlobal !== 'undefined') {
-            listKelasAllowed = [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort();
+            [...new Set(dataSiswaGlobal.map(r => r[3]))].filter(Boolean).sort().forEach(k => {
+                skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
+            });
         }
         if (typeof daftarMapel !== 'undefined') {
             daftarMapel.forEach(m => {
@@ -777,56 +773,42 @@ function populateDropdownInputNilai() {
             });
         }
     } else {
-        // Jika Guru, baca dari dataPlottingGlobal (Sheet Sistem_Plotting)
-        let sumberPlotting = (typeof dataPlottingGlobal !== 'undefined' && Array.isArray(dataPlottingGlobal)) 
-            ? dataPlottingGlobal 
-            : [];
+        // Guru: Filter berdasarkan dataUserGlobal (Plotting)
+        let listKelas = [];
+        let listMapel = [];
 
-        sumberPlotting.forEach(row => {
-            if (!row) return;
-            
-            // Kolom A = Username/NIP, Kolom B = Kelas, Kolom C = Mapel
-            let uName = row[0] || row.username || row.Username || '';
-            let kVal  = row[1] || row.kelas || row.Kelas || '';
-            let mVal  = row[2] || row.mapel || row.Mapel || '';
-
-            if (String(uName).trim().toLowerCase() === cleanUsername) {
-                if (kVal && !listKelasAllowed.includes(String(kVal).trim())) {
-                    listKelasAllowed.push(String(kVal).trim());
+        if (typeof dataUserGlobal !== 'undefined') {
+            dataUserGlobal.forEach(u => {
+                if (!u) return;
+                let uName = u.username || u[0] || '';
+                if (String(uName).trim().toLowerCase() === String(username).trim().toLowerCase()) {
+                    let kVal = u.kelas || u[1] || '';
+                    let mVal = u.mapel || u[2] || '';
+                    if (kVal && !listKelas.includes(kVal)) listKelas.push(kVal);
+                    if (mVal && !listMapel.includes(mVal)) listMapel.push(mVal);
                 }
-                if (mVal && !listMapelAllowed.includes(String(mVal).trim())) {
-                    listMapelAllowed.push(String(mVal).trim());
-                }
-            }
-        });
+            });
+        }
 
-        // Tampilkan Mata Pelajaran hasil plotting
+        if (listKelas.length > 0) {
+            listKelas.sort().forEach(k => {
+                skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
+            });
+        } else {
+            skEl.innerHTML = '<option value="">-- Tidak ada plotting kelas --</option>';
+        }
+
         if (typeof daftarMapel !== 'undefined') {
-            let mapelFiltered = daftarMapel.filter(m => 
-                listMapelAllowed.some(mPlot => 
-                    mPlot.toLowerCase() === String(m.kode).toLowerCase() || 
-                    mPlot.toLowerCase() === String(m.namaLengkap).toLowerCase()
-                )
-            );
-
-            if (mapelFiltered.length > 0) {
-                mapelFiltered.forEach(m => {
-                    smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
-                });
-            } else {
-                daftarMapel.forEach(m => {
-                    smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
-                });
-            }
+            let mapelFiltered = daftarMapel.filter(m => listMapel.includes(m.kode) || listMapel.includes(m.namaLengkap));
+            let targetMapel = mapelFiltered.length > 0 ? mapelFiltered : daftarMapel;
+            targetMapel.forEach(m => {
+                smEl.innerHTML += '<option value="' + m.kode + '">' + (m.namaLengkap || m.kode) + '</option>';
+            });
         }
     }
+}
 
-    // Tampilkan Pilihan Kelas di Dropdown
-    if (listKelasAllowed.length > 0) {
-        listKelasAllowed.sort().forEach(k => {
-            skEl.innerHTML += '<option value="' + k + '">' + k + '</option>';
-        });
-    } else {
-        skEl.innerHTML = '<option value="">-- Tidak ada plotting kelas --</option>';
-    }
+// Buat alias agar pemanggilan versi baru tetap jalan
+function populateDropdownInputNilai() {
+    renderDropdownEraporKunci();
 }
