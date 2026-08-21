@@ -2495,31 +2495,7 @@
     (function InisialisasiDataCloud() {
     if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) return;
 
-    fetch(URL_SCRIPT_BIODATA)
-        .then(response => response.json())
-        .then(resData => {
-            console.log("Respon Cloud Diterima:", resData);
-
-            // 1. Simpan Data Biodata
-            if (resData && Array.isArray(resData.biodata)) {
-                window.dataBiodataGlobal = resData.biodata;
-                dataBiodataGlobal = resData.biodata;
-            }
-
-            // 2. Simpan Data Nilai (Database_Web)
-            if (resData && Array.isArray(resData.nilai)) {
-                window.dataSiswaGlobal = resData.nilai;
-                dataSiswaGlobal = resData.nilai;
-            } else if (Array.isArray(resData)) {
-                window.dataSiswaGlobal = resData;
-                dataSiswaGlobal = resData;
-            }
-
-            console.log("✅ Biodata terunduh:", dataBiodataGlobal.length);
-            console.log("✅ Nilai terunduh:", dataSiswaGlobal.length);
-        })
-        .catch(err => console.error("Gagal muat data:", err));
-})();
+    
     // Simpan fungsi alert bawaan jika sewaktu-waktu dibutuhkan
 window.nativeAlert = window.alert;
 
@@ -7481,26 +7457,76 @@ function eksporAbsenGuruExcel() {
 // ====================================================================
 
 // Pemuatan data otomatis saat halaman selesai di-render
-window.addEventListener('DOMContentLoaded', (event) => {
+// Variabel penampung database global
+window.dataBiodataGlobal = [];
+window.dataSiswaGlobal   = [];
+window.dataUserGlobal    = [];
+window.dataPlottingGlobal = [];
+
+window.addEventListener('DOMContentLoaded', () => {
     fetch(URL_SCRIPT_BIODATA)
         .then(response => {
             if (!response.ok) throw new Error("Gagal mengambil data dari server");
-            return response.json();
+            return response.text();
         })
-        .then(data => {
-            // Menampung array biodata dari Apps Script
-            if (data && Array.isArray(data.biodata)) {
-                dataBiodataGlobal = data.biodata;
-            } else if (Array.isArray(data)) {
-                dataBiodataGlobal = data;
-            } else {
-                dataBiodataGlobal = [];
+        .then(textData => {
+            let resData;
+            try {
+                resData = typeof textData === 'string' ? JSON.parse(textData) : textData;
+            } catch(e) {
+                console.error("Gagal parse JSON Apps Script:", e);
+                return;
             }
-            console.log("🚀 Database Biodata Baru Berhasil Sinkron! Total Record:", dataBiodataGlobal.length);
+
+            console.log("Respon Cloud Diterima:", resData);
+
+            // 1. Simpan Biodata
+            if (resData && Array.isArray(resData.biodata)) {
+                window.dataBiodataGlobal = resData.biodata;
+            }
+
+            // 2. Simpan Nilai (Database_Web)
+            if (resData && Array.isArray(resData.nilai)) {
+                window.dataSiswaGlobal = resData.nilai;
+            } else if (resData && Array.isArray(resData.dataSiswa)) {
+                window.dataSiswaGlobal = resData.dataSiswa;
+            } else if (Array.isArray(resData)) {
+                window.dataSiswaGlobal = resData;
+            }
+
+            // 3. Simpan Users (Sistem_Users)
+            if (resData && Array.isArray(resData.users)) {
+                window.dataUserGlobal = resData.users;
+            } else if (resData && Array.isArray(resData.dataUsers)) {
+                window.dataUserGlobal = resData.dataUsers;
+            }
+
+            // 4. Simpan Plotting (Sistem_Plotting)
+            if (resData && Array.isArray(resData.plotting)) {
+                window.dataPlottingGlobal = resData.plotting;
+            } else if (resData && Array.isArray(resData.dataPlotting)) {
+                window.dataPlottingGlobal = resData.dataPlotting;
+            }
+
+            // Sync ke variabel global
+            dataBiodataGlobal  = window.dataBiodataGlobal;
+            dataSiswaGlobal    = window.dataSiswaGlobal;
+            dataUserGlobal     = window.dataUserGlobal;
+            dataPlottingGlobal = window.dataPlottingGlobal;
+
+            console.log("✅ Biodata terunduh:", dataBiodataGlobal.length);
+            console.log("✅ Nilai terunduh:", dataSiswaGlobal.length);
+            console.log("✅ Users terunduh:", dataUserGlobal.length);
+            console.log("✅ Plotting terunduh:", dataPlottingGlobal.length);
+
+            // Panggil refresh dropdown e-Rapor
+            if (typeof renderDropdownEraporKunci === 'function') {
+                renderDropdownEraporKunci();
+            } else if (typeof populateDropdownInputNilai === 'function') {
+                populateDropdownInputNilai();
+            }
         })
-        .catch(error => {
-            console.error("❌ Kritis: Gagal memuat database biodata baru dari Google Apps Script.", error);
-        });
+        .catch(err => console.error("❌ Kritis: Gagal memuat database cloud:", err));
 });
 
 // ====================================================================
@@ -8344,7 +8370,7 @@ function muatDataPerangkat() {
     });
 
 function bukaMenuErapor() {
-    // Sembunyikan modul/tab lain
+    // 1. Sembunyikan modul/tab lain
     document.querySelectorAll('.tab-content-view').forEach(tab => {
         tab.style.display = 'none';
     });
@@ -8352,7 +8378,19 @@ function bukaMenuErapor() {
     const wrapper = document.getElementById('eraporTabWrapper');
     if (!wrapper) return;
 
-    // Jika belum dimuat, ambil file erapor-template.html
+    // Helper untuk menjalankan pemanggilan pengisi dropdown
+    function jalankanPopulasiDropdown() {
+        if (typeof renderDropdownEraporKunci === 'function') {
+            renderDropdownEraporKunci();
+        } else if (typeof populateDropdownInputNilai === 'function') {
+            populateDropdownInputNilai();
+        }
+        if (typeof updateTabVisibilityErapor === 'function') {
+            updateTabVisibilityErapor();
+        }
+    }
+
+    // 2. Jika belum dimuat, ambil file erapor-template.html
     if (!wrapper.innerHTML.trim()) {
         fetch('erapor-template.html')
             .then(response => {
@@ -8362,36 +8400,25 @@ function bukaMenuErapor() {
             .then(html => {
                 wrapper.innerHTML = html;
                 
-                // TAMPILKAN TAB SETELAH HTML DITEMPEL
+                // Tampilkan tab e-Rapor
                 const eraporTab = document.getElementById('eraporTab');
                 if (eraporTab) {
                     eraporTab.style.display = 'block';
                 }
                 
-                // POPULASI DROPDOWN KELAS & MAPEL
-                if (typeof populateDropdownInputNilai === 'function') {
-                    populateDropdownInputNilai();
-                } else if (typeof renderDropdownEraporKunci === 'function') {
-                    renderDropdownEraporKunci();
-                }
-
-                // SINKRONISASI VISIBILITAS ROLE ADMIN/GURU
-                if (typeof updateTabVisibilityErapor === 'function') {
-                    updateTabVisibilityErapor();
-                }
+                // Isi dropdown
+                jalankanPopulasiDropdown();
             })
             .catch(err => {
                 console.error('Gagal memuat template e-Rapor:', err);
                 wrapper.innerHTML = '<div style="padding:30px; color:red;">Gagal memuat modul e-Rapor.</div>';
             });
     } else {
-        // Jika sudah pernah dimuat, langsung tampilkan dan isi ulang dropdown
+        // 3. Jika sudah pernah dimuat, langsung tampilkan dan refresh dropdown
         const eraporTab = document.getElementById('eraporTab');
         if (eraporTab) eraporTab.style.display = 'block';
 
-        if (typeof populateDropdownInputNilai === 'function') {
-            populateDropdownInputNilai();
-        }
+        jalankanPopulasiDropdown();
     }
 }
 </script>
