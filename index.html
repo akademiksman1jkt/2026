@@ -6325,12 +6325,33 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         try { savedNilai = JSON.parse(localStorage.getItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0])||'{}'); } catch(e) {}
         let cloudVal = parseFloat(siswa[6+(mapelIdx*6)+(smt-1)])||0;
 
-        // Ambil Nilai Semester Lalu
+        // ============================================================
+        // POTONG & GANTI BAGIAN DENGAN LOGIKA PEMETAAN KELAS INI
+        // ============================================================
+        const infoSmt = dapatkanInfoSemesterSiswa(kelas, smt);
+        let smtLaluTarget = infoSmt.smtLalu;
         let nilaiSmtLalu = '-';
-        if (smt > 1 && mapelIdx >= 0) {
-            let valLalu = siswa[6 + (mapelIdx * 6) + (smt - 2)];
-            if (valLalu && valLalu !== '-') nilaiSmtLalu = parseFloat(valLalu) || '-';
+
+        if (smtLaluTarget > 0 && mapelIdx >= 0) {
+            // Cek Draft Lokal
+            let draftSmtLalu = localStorage.getItem('ep_draft_' + mapel + '_' + kelas + '_' + smtLaluTarget + '_' + siswa[0]);
+            if (draftSmtLalu) {
+                try {
+                    let objLalu = JSON.parse(draftSmtLalu);
+                    if (objLalu['akhir']) nilaiSmtLalu = parseFloat(objLalu['akhir']).toFixed(1);
+                } catch(e){}
+            }
+
+            // Jika lokal kosong, cek Master Array dataSiswaGlobal
+            if (nilaiSmtLalu === '-') {
+                let idxTarget = 6 + (mapelIdx * 6) + (smtLaluTarget - 1);
+                let valMaster = siswa[idxTarget];
+                if (valMaster && valMaster !== '-' && valMaster !== '') {
+                    nilaiSmtLalu = parseFloat(valMaster).toFixed(1);
+                }
+            }
         }
+        // ============================================================
 
         let kolomInputs = '';
         kolom.forEach(k => {
@@ -9611,6 +9632,31 @@ function hitungRataRataBaris(inputEl) {
     let rataRata = count > 0 ? (total / count).toFixed(1) : 0;
     let tdAkhir = row.querySelector('.td-akhir-rapor');
     if (tdAkhir) tdAkhir.textContent = rataRata;
+}
+// Taruh di bagian atas <script>
+function dapatkanInfoSemesterSiswa(namaKelas, smtGlobalSekolah) {
+    let tingkat = 10;
+    
+    if (namaKelas.includes('XII') || namaKelas.includes('12')) {
+        tingkat = 12;
+    } else if (namaKelas.includes('XI') || namaKelas.includes('11')) {
+        tingkat = 11;
+    }
+
+    let smtGlobal = parseInt(smtGlobalSekolah) || 1;
+    let isGenap = (smtGlobal % 2 === 0);
+
+    let smtAktifSiswa = 1;
+    if (tingkat === 10) smtAktifSiswa = isGenap ? 2 : 1;
+    if (tingkat === 11) smtAktifSiswa = isGenap ? 4 : 3;
+    if (tingkat === 12) smtAktifSiswa = isGenap ? 6 : 5;
+
+    let smtLaluSiswa = smtAktifSiswa - 1;
+
+    return {
+        smtAktif: smtAktifSiswa,
+        smtLalu: smtLaluSiswa
+    };
 }
 </script>
 </body>
