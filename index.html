@@ -7565,7 +7565,32 @@ function bukaDialogCetakRapor() {
     </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
+// ============================================================
+// 3. LANGKAH 2: FUNGSI PENYIMPAN KONFIGURASI MODAL
+// ============================================================
+function eksekusiCetakRaporIndividu(kelas, smt) {
+    _raporCfgSet('namaSekolah',    document.getElementById('rcNamaSekolah')?.value    || 'SMA NEGERI 1 JAKARTA');
+    _raporCfgSet('subjudul',       document.getElementById('rcSubjudul')?.value       || '');
+    _raporCfgSet('alamat',         document.getElementById('rcAlamat')?.value         || '');
+    _raporCfgSet('kota',           document.getElementById('rcKota')?.value           || 'Jakarta');
+    _raporCfgSet('namaKepsek',     document.getElementById('rcNamaKepsek')?.value     || '');
+    _raporCfgSet('nipKepsek',      document.getElementById('rcNipKepsek')?.value      || '');
+    _raporCfgSet('namaWali',       document.getElementById('rcNamaWali')?.value       || '');
+    _raporCfgSet('nipWali',        document.getElementById('rcNipWali')?.value        || '');
+    _raporCfgSet('showRank',       document.getElementById('rcShowRank')?.checked      ?? true);
+    _raporCfgSet('showAvg',        document.getElementById('rcShowAvg')?.checked       ?? true);
+    _raporCfgSet('showKode',       document.getElementById('rcShowKode')?.checked      ?? true);
+    _raporCfgSet('showKetuntasan', document.getElementById('rcShowKetuntasan')?.checked ?? true);
+    _raporCfgSet('showKKMNote',    document.getElementById('rcShowKKMNote')?.checked   ?? true);
+    _raporCfgSet('hideEmptyMapel', document.getElementById('rcHideEmptyMapel')?.checked ?? true);
+    _raporCfgSet('showNisn',       document.getElementById('rcShowNisn')?.checked      ?? true);
+    _raporCfgSet('showNis',        document.getElementById('rcShowNis')?.checked       ?? false);
+    _raporCfgSet('ttdWali',        document.getElementById('rcTtdWali')?.checked       ?? true);
+    _raporCfgSet('ttdKepsek',      document.getElementById('rcTtdKepsek')?.checked     ?? true);
 
+    document.getElementById('modalCetakRapor')?.remove();
+    cetakRaporIndividu(kelas, parseInt(smt));
+}
 // ============================================================
 // 3. LANGKAH 2: FUNGSI PENYIMPAN KONFIGURASI MODAL
 // ============================================================
