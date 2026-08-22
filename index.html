@@ -6962,15 +6962,15 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return;
     }
 
-    // Helper khusus untuk escape karakter XML (mencegah eror & / < / >)
-    function escapeXml(str) {
+    // Helper pembersih karakter HTML/XML
+    function escapeHtml(str) {
         if (str === null || str === undefined) return '';
         return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
-            .replace(/'/g, '&apos;');
+            .replace(/'/g, '&#039;');
     }
 
     // 1. FILTER SISWA BERDASARKAN KELAS & URUTKAN NAMA
@@ -7048,42 +7048,41 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let sortedRankData = [...rankData].sort((a, b) => b.avg - a.avg);
     let getRank = nisn => sortedRankData.findIndex(r => r.nisn === nisn) + 1;
 
-    // 4. SUSUN BARIS XML HEADER BERTINGKAT 2 LEVEL
+    // 4. SUSUN HEADER MATA PELAJARAN DAN KOMPONEN NILAI (2 TINGKAT)
     let subColCount = kolomConfig.length + 1;
-    let xmlHeaderRow1 = `<Row ss:AutoFitHeight="0" ss:Height="24">
-        <Cell ss:MergeDown="1" ss:StyleID="sHeaderNavy"><Data ss:Type="String">Rank</Data></Cell>
-        <Cell ss:MergeDown="1" ss:StyleID="sHeaderNavy"><Data ss:Type="String">NISN</Data></Cell>
-        <Cell ss:MergeDown="1" ss:StyleID="sHeaderNavy"><Data ss:Type="String">Nama Siswa</Data></Cell>`;
+    let headerRow1 = `
+        <tr>
+            <th rowspan="2" class="th-main">Rank</th>
+            <th rowspan="2" class="th-main">NISN</th>
+            <th rowspan="2" class="th-main">Nama Siswa</th>`;
 
-    let xmlHeaderRow2 = `<Row ss:AutoFitHeight="0" ss:Height="20">`;
+    let headerRow2 = `<tr>`;
 
     mapelAktif.forEach(m => {
-        xmlHeaderRow1 += `<Cell ss:MergeAcross="${subColCount - 1}" ss:StyleID="sHeaderNavy"><Data ss:Type="String">${escapeXml(m.namaLengkap)}</Data></Cell>`;
+        headerRow1 += `<th colspan="${subColCount}" class="th-main">${escapeHtml(m.namaLengkap)}</th>`;
         kolomConfig.forEach(k => {
-            xmlHeaderRow2 += `<Cell ss:StyleID="sHeaderDark"><Data ss:Type="String">${escapeXml(k.nama)}</Data></Cell>`;
+            headerRow2 += `<th class="th-sub">${escapeHtml(k.nama)}</th>`;
         });
-        xmlHeaderRow2 += `<Cell ss:StyleID="sHeaderDark"><Data ss:Type="String">Akhir</Data></Cell>`;
+        headerRow2 += `<th class="th-sub">Akhir</th>`;
     });
 
-    xmlHeaderRow1 += `</Row>`;
-    xmlHeaderRow2 += `</Row>`;
+    headerRow1 += `</tr>`;
+    headerRow2 += `</tr>`;
 
-    // 5. SUSUN BARIS DATA SISWA XML DENGAN SELINGAN WARNA ANTAR KOLOM MAPEL
-    let xmlRows = fSiswa.map(siswa => {
-        let nisnSiswa = escapeXml(siswa[0] || '');
-        let namaSiswa = escapeXml((siswa[2] || '').toUpperCase());
+    // 5. SUSUN BARIS DATA SISWA DENGAN SELINGAN WARNA MAPEL
+    let rowsData = fSiswa.map(siswa => {
+        let nisnSiswa = escapeHtml(siswa[0] || '');
+        let namaSiswa = escapeHtml((siswa[2] || '').toUpperCase());
         let rankSiswa = getRank(siswa[0]);
 
-        let rowXml = `<Row ss:AutoFitHeight="0" ss:Height="18">
-            <Cell ss:StyleID="sCellRank"><Data ss:Type="Number">${rankSiswa}</Data></Cell>
-            <Cell ss:StyleID="sCellText"><Data ss:Type="String">${nisnSiswa}</Data></Cell>
-            <Cell ss:StyleID="sCellTextBold"><Data ss:Type="String">${namaSiswa}</Data></Cell>`;
+        let rowCells = `
+            <tr>
+                <td class="td-rank">${rankSiswa}</td>
+                <td class="td-nisn">${nisnSiswa}</td>
+                <td class="td-nama">${namaSiswa}</td>`;
 
         mapelAktif.forEach((m, mapelIdx) => {
-            let isAlt = (mapelIdx % 2 === 1);
-            let stCenter = isAlt ? 'sCellAltCenter' : 'sCellCenter';
-            let stCenterBold = isAlt ? 'sCellAltCenterBold' : 'sCellCenterBold';
-            let stCenterGray = isAlt ? 'sCellAltCenterGray' : 'sCellCenterGray';
+            let bgClass = (mapelIdx % 2 === 1) ? 'bg-alt' : 'bg-norm';
 
             let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
             let dataMentah = {};
@@ -7100,12 +7099,12 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                     totalBobot += k.bobot;
 
                     if (valNum === 0) {
-                        rowXml += `<Cell ss:StyleID="sCellRed"><Data ss:Type="Number">0</Data></Cell>`;
+                        rowCells += `<td class="td-center td-red">0</td>`;
                     } else {
-                        rowXml += `<Cell ss:StyleID="${stCenter}"><Data ss:Type="Number">${valNum}</Data></Cell>`;
+                        rowCells += `<td class="td-center ${bgClass}">${valNum}</td>`;
                     }
                 } else {
-                    rowXml += `<Cell ss:StyleID="${stCenterGray}"><Data ss:Type="String">-</Data></Cell>`;
+                    rowCells += `<td class="td-center td-gray ${bgClass}">-</td>`;
                 }
             });
 
@@ -7114,123 +7113,73 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
             if (nilaiAkhirMurni > 0) {
                 let formatNilai = parseInt(nilaiAkhirMurni.toFixed(0));
                 if (nilaiAkhirMurni < 75) {
-                    rowXml += `<Cell ss:StyleID="sCellRedBold"><Data ss:Type="Number">${formatNilai}</Data></Cell>`;
+                    rowCells += `<td class="td-center td-red-bold">${formatNilai}</td>`;
                 } else {
-                    rowXml += `<Cell ss:StyleID="${stCenterBold}"><Data ss:Type="Number">${formatNilai}</Data></Cell>`;
+                    rowCells += `<td class="td-center td-bold ${bgClass}">${formatNilai}</td>`;
                 }
             } else {
-                rowXml += `<Cell ss:StyleID="${stCenterGray}"><Data ss:Type="String">-</Data></Cell>`;
+                rowCells += `<td class="td-center td-gray ${bgClass}">-</td>`;
             }
         });
 
-        rowXml += `</Row>`;
-        return rowXml;
+        rowCells += `</tr>`;
+        return rowCells;
     }).join('');
 
-    // 6. KONSTRUKSI TEMPLATE XML SPREADSHEET
-    let xmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Alignment ss:Vertical="Center"/>
-   <Font ss:FontName="Arial" ss:Size="10"/>
-  </Style>
-  <Style ss:ID="sTitle">
-   <Font ss:FontName="Arial" ss:Size="13" ss:Bold="1" ss:Color="#0F172A"/>
-  </Style>
-  <Style ss:ID="sHeaderNavy">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
-   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sHeaderDark">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="9" ss:Bold="1" ss:Color="#FFFFFF"/>
-   <Interior ss:Color="#0F172A" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sCellRank">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#DC2626"/>
-  </Style>
-  <Style ss:ID="sCellText">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <NumberFormat ss:Format="@"/>
-  </Style>
-  <Style ss:ID="sCellTextBold">
-   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
-  </Style>
-  <Style ss:ID="sCellCenter">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-  </Style>
-  <Style ss:ID="sCellCenterBold">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
-  </Style>
-  <Style ss:ID="sCellCenterGray">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Color="#64748B"/>
-  </Style>
-  <Style ss:ID="sCellAltCenter">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sCellAltCenterBold">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
-   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sCellAltCenterGray">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Color="#64748B"/>
-   <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sCellRed">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#DC2626"/>
-   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sCellRedBold">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
-   <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#DC2626"/>
-   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Leger Nilai Rincian">
-  <Table>
-   <Column ss:Width="45"/>
-   <Column ss:Width="95"/>
-   <Column ss:Width="200"/>
-   <Row ss:Height="22">
-    <Cell ss:StyleID="sTitle"><Data ss:Type="String">LEGER NILAI RINCIAN KELAS ${escapeXml(kelas)} SEMESTER ${escapeXml(smt)}</Data></Cell>
-   </Row>
-   <Row ss:Height="10"/>
-   ${xmlHeaderRow1}
-   ${xmlHeaderRow2}
-   ${xmlRows}
-  </Table>
- </Worksheet>
-</Workbook>`;
+    // 6. TEMPLATE HTML MURNI UNTUK BROWSER & EXCEL
+    let htmlTemplate = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Leger Nilai Rincian</x:Name>
+                    <x:WorksheetOptions>
+                        <x:DisplayGridlines/>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style>
+        table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: middle; white-space: nowrap; }
+        .th-main { background-color: #1e293b; color: #ffffff; text-align: center; font-weight: bold; }
+        .th-sub { background-color: #0f172a; color: #ffffff; text-align: center; font-weight: bold; }
+        .td-rank { text-align: center; font-weight: bold; color: #dc2626; }
+        .td-nisn { text-align: center; mso-number-format: "\\@"; }
+        .td-nama { text-align: left; font-weight: bold; }
+        .td-center { text-align: center; }
+        .td-bold { font-weight: bold; }
+        .td-gray { color: #64748b; }
+        .td-red { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
+        .td-red-bold { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
+        .bg-norm { background-color: #ffffff; }
+        .bg-alt { background-color: #f1f5f9; }
+    </style>
+</head>
+<body>
+    <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px; font-family: Arial, sans-serif;">
+        LEGER NILAI RINCIAN KELAS ${escapeHtml(kelas)} SEMESTER ${escapeHtml(smt)}
+    </div>
+    <table>
+        <thead>
+            ${headerRow1}
+            ${headerRow2}
+        </thead>
+        <tbody>
+            ${rowsData}
+        </tbody>
+    </table>
+</body>
+</html>`;
 
-    // 7. PROSES UNDUH FILE .XLS
-    let blob = new Blob([xmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    // 7. PROSES UNDUH STREAM BLOB HTML AMAN
+    let blob = new Blob([htmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
     let url = URL.createObjectURL(blob);
     let a = document.createElement('a');
     a.href = url;
