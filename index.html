@@ -7377,37 +7377,199 @@ function tarikSiswaAktifDariCloud() {
     }, 4000); // 4 detik sekali
 })();
 
-    // ============================================================
-// HELPER LOCALSTORAGE (CONFIG RAPOR)
+// ============================================================
+// 1. HELPER CONFIG LOCALSTORAGE
 // ============================================================
 function _raporCfgGet(key, def) {
-    try { 
-        let v = localStorage.getItem('rapor_cfg_' + key); 
-        return v !== null ? JSON.parse(v) : def; 
-    } catch(e) { 
-        return def; 
-    }
+    try { let v = localStorage.getItem('rapor_cfg_'+key); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; }
 }
+function _raporCfgSet(key, val) { localStorage.setItem('rapor_cfg_'+key, JSON.stringify(val)); }
 
-function _raporCfgSet(key, val) { 
-    localStorage.setItem('rapor_cfg_' + key, JSON.stringify(val)); 
-}
-
-// Helper Penukar Tab Modal
 function rcSwitchTab(n) {
     for (let i = 1; i <= 4; i++) {
-        let tabEl = document.getElementById('rcTab' + i);
-        let secEl = document.getElementById('rcSection' + i);
-        if (tabEl) tabEl.classList.toggle('active', i === n);
-        if (secEl) secEl.classList.toggle('active', i === n);
+        document.getElementById('rcTab'+i)?.classList.toggle('active', i===n);
+        document.getElementById('rcSection'+i)?.classList.toggle('active', i===n);
     }
 }
 
 // ============================================================
-// FUNGSI EKSEKUSI CETAK (DISINKRONKAN DENGAN INPUT DINAMIS GURU)
+// 2. LANGKAH 1: FUNGSI PEMBUKA DIALOG MODAL
+// ============================================================
+function bukaDialogCetakRapor() {
+    let kelas = document.getElementById('rlSelectKelas')?.value || '';
+    let smt   = document.getElementById('rlSelectSemester')?.value || '1';
+    if (!kelas) { alert('Pilih kelas terlebih dahulu!'); return; }
+
+    // Load saved config
+    let cfgNamaSekolah   = _raporCfgGet('namaSekolah',   'SMA NEGERI 1 JAKARTA');
+    let cfgSubjudul      = _raporCfgGet('subjudul',      'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi');
+    let cfgAlamat        = _raporCfgGet('alamat',        'Jl. Budi Utomo No.7, Ps. Baru, Jakarta Pusat 10710');
+    let cfgKota          = _raporCfgGet('kota',          'Jakarta');
+    let cfgNamaKepsek    = _raporCfgGet('namaKepsek',    '');
+    let cfgNipKepsek     = _raporCfgGet('nipKepsek',     '');
+    let cfgNamaWali      = _raporCfgGet('namaWali',      '');
+    let cfgNipWali       = _raporCfgGet('nipWali',       '');
+    let cfgShowRank      = _raporCfgGet('showRank',      true);
+    let cfgShowAvg       = _raporCfgGet('showAvg',       true);
+    let cfgShowKode      = _raporCfgGet('showKode',      true);
+    let cfgShowKetuntasan= _raporCfgGet('showKetuntasan', true);
+    let cfgShowKKMNote   = _raporCfgGet('showKKMNote',   true);
+    let cfgHideEmptyMapel = _raporCfgGet('hideEmptyMapel', true);
+    let cfgShowNisn      = _raporCfgGet('showNisn',      true);
+    let cfgShowNis       = _raporCfgGet('showNis',       false);
+    let cfgTtdWali       = _raporCfgGet('ttdWali',       true);
+    let cfgTtdKepsek     = _raporCfgGet('ttdKepsek',     true);
+
+    document.getElementById('modalCetakRapor')?.remove();
+
+    let modalHtml = `
+    <div id="modalCetakRapor" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:white;border-radius:16px;max-width:680px;width:100%;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.35);display:flex;flex-direction:column;">
+
+            <!-- Header -->
+            <div style="background:#0f172a;color:white;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+                <div>
+                    <div style="font-size:16px;font-weight:800;"><i class="ri-file-user-line" style="color:#9d7e56;margin-right:6px;"></i> Cetak Rapor Individu</div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Kelas <strong style="color:white;">${kelas}</strong> &mdash; Semester <strong style="color:white;">${smt}</strong></div>
+                </div>
+                <button onclick="document.getElementById('modalCetakRapor').remove()" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:22px;line-height:1;">✕</button>
+            </div>
+
+            <!-- Tabs -->
+            <div style="display:flex;border-bottom:2px solid #e2e8f0;flex-shrink:0;padding:0 20px;background:#f8fafc;">
+                <button class="rapor-cfg-tab active" id="rcTab1" onclick="rcSwitchTab(1)">🏫 Kop Instansi</button>
+                <button class="rapor-cfg-tab" id="rcTab2" onclick="rcSwitchTab(2)">📊 Kolom & Tampilan</button>
+                <button class="rapor-cfg-tab" id="rcTab3" onclick="rcSwitchTab(3)">📚 Mata Pelajaran</button>
+                <button class="rapor-cfg-tab" id="rcTab4" onclick="rcSwitchTab(4)">✍️ Tanda Tangan</button>
+            </div>
+
+            <!-- Content -->
+            <div style="overflow-y:auto;flex:1;padding:20px 24px;">
+
+                <!-- TAB 1: Kop Instansi -->
+                <div id="rcSection1" class="rapor-cfg-section active">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Informasi sekolah yang akan tampil di bagian atas (kop) setiap halaman rapor.</div>
+                    <div style="display:grid;gap:12px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Nama Instansi / Sekolah</label>
+                            <input id="rcNamaSekolah" value="${cfgNamaSekolah}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;font-family:inherit;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Sub-judul / Naungan</label>
+                            <input id="rcSubjudul" value="${cfgSubjudul}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Alamat Sekolah</label>
+                            <input id="rcAlamat" value="${cfgAlamat}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Kota / Kabupaten (untuk tanda tangan)</label>
+                            <input id="rcKota" value="${cfgKota}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Kolom & Tampilan -->
+                <div id="rcSection2" class="rapor-cfg-section">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Pilih kolom dan elemen yang ingin ditampilkan di rapor cetak.</div>
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                        <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">KOLOM TABEL NILAI</div>
+                        <div style="padding:4px 16px;">
+                            <div class="rapor-toggle-row"><span>Kolom Kode Mapel</span><label class="toggle-switch"><input type="checkbox" id="rcShowKode" ${cfgShowKode?'checked':''}><span class="toggle-slider"></span></label></div>
+                            <div class="rapor-toggle-row"><span>Kolom Ketuntasan (Tuntas/Belum)</span><label class="toggle-switch"><input type="checkbox" id="rcShowKetuntasan" ${cfgShowKetuntasan?'checked':''}><span class="toggle-slider"></span></label></div>
+                            <div class="rapor-toggle-row"><span>Kolom Rata-Rata di footer tabel</span><label class="toggle-switch"><input type="checkbox" id="rcShowAvg" ${cfgShowAvg?'checked':''}><span class="toggle-slider"></span></label></div>
+                            <div class="rapor-toggle-row"><span>Kolom Peringkat Kelas di footer tabel</span><label class="toggle-switch"><input type="checkbox" id="rcShowRank" ${cfgShowRank?'checked':''}><span class="toggle-slider"></span></label></div>
+                        </div>
+                    </div>
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:14px;">
+                        <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">IDENTITAS SISWA</div>
+                        <div style="padding:4px 16px;">
+                            <div class="rapor-toggle-row"><span>Tampilkan NISN</span><label class="toggle-switch"><input type="checkbox" id="rcShowNisn" ${cfgShowNisn?'checked':''}><span class="toggle-slider"></span></label></div>
+                            <div class="rapor-toggle-row"><span>Tampilkan NIS / Nomor Induk Sekolah</span><label class="toggle-switch"><input type="checkbox" id="rcShowNis" ${cfgShowNis?'checked':''}><span class="toggle-slider"></span></label></div>
+                        </div>
+                    </div>
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:14px;">
+                        <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">CATATAN BAWAH</div>
+                        <div style="padding:4px 16px;">
+                            <div class="rapor-toggle-row"><span>Tampilkan catatan KKM (*) di bawah tabel</span><label class="toggle-switch"><input type="checkbox" id="rcShowKKMNote" ${cfgShowKKMNote?'checked':''}><span class="toggle-slider"></span></label></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Mata Pelajaran -->
+                <div id="rcSection3" class="rapor-cfg-section">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Atur mata pelajaran yang muncul di rapor cetak.</div>
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+                        <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">FILTER OTOMATIS</div>
+                        <div style="padding:4px 16px;">
+                            <div class="rapor-toggle-row">
+                                <div>
+                                    <div style="font-weight:600;">Sembunyikan mapel yang tidak ada nilainya</div>
+                                    <div style="font-size:11px;color:#64748b;margin-top:2px;">Mapel dengan nilai "-" atau kosong tidak akan ditampilkan di rapor</div>
+                                </div>
+                                <label class="toggle-switch"><input type="checkbox" id="rcHideEmptyMapel" ${cfgHideEmptyMapel?'checked':''}><span class="toggle-slider"></span></label>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:12px;color:#92400e;">
+                        <strong>ℹ️ Catatan:</strong> Opsi di atas akan otomatis menyembunyikan mata pelajaran yang nilai semester-nya kosong atau belum diinput untuk siswa bersangkutan, sehingga rapor lebih ringkas dan relevan.
+                    </div>
+                </div>
+
+                <!-- TAB 4: Tanda Tangan -->
+                <div id="rcSection4" class="rapor-cfg-section">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Konfigurasi penanda tangan yang muncul di bagian bawah rapor.</div>
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:16px;">
+                        <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">WALI KELAS</div>
+                        <div style="padding:12px 16px;">
+                            <div class="rapor-toggle-row" style="margin-bottom:12px;"><span style="font-weight:600;">Tampilkan kolom tanda tangan Wali Kelas</span><label class="toggle-switch"><input type="checkbox" id="rcTtdWali" ${cfgTtdWali?'checked':''}><span class="toggle-slider"></span></label></div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Nama Wali Kelas</label>
+                                    <input id="rcNamaWali" value="${cfgNamaWali}" placeholder="Nama lengkap + gelar..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">NIP Wali Kelas</label>
+                                    <input id="rcNipWali" value="${cfgNipWali}" placeholder="NIP (opsional)" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                        <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">KEPALA SEKOLAH</div>
+                        <div style="padding:12px 16px;">
+                            <div class="rapor-toggle-row" style="margin-bottom:12px;"><span style="font-weight:600;">Tampilkan kolom tanda tangan Kepala Sekolah</span><label class="toggle-switch"><input type="checkbox" id="rcTtdKepsek" ${cfgTtdKepsek?'checked':''}><span class="toggle-slider"></span></label></div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Nama Kepala Sekolah</label>
+                                    <input id="rcNamaKepsek" value="${cfgNamaKepsek}" placeholder="Nama lengkap + gelar..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">NIP Kepala Sekolah</label>
+                                    <input id="rcNipKepsek" value="${cfgNipKepsek}" placeholder="NIP..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;">
+                <button onclick="document.getElementById('modalCetakRapor').remove()" style="padding:10px 20px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:white;color:#334155;">Batal</button>
+                <button onclick="eksekusiCetakRaporIndividu('${kelas}',${smt})" style="padding:10px 24px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:#0f766e;color:white;display:flex;align-items:center;gap:6px;">
+                    <i class="ri-printer-line"></i> Cetak Rapor Sekarang
+                </button>
+            </div>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ============================================================
+// 3. LANGKAH 2: FUNGSI PENYIMPAN KONFIGURASI MODAL
 // ============================================================
 function eksekusiCetakRaporIndividu(kelas, smt) {
-    // 1. Simpan Seluruh Pengaturan Modal ke LocalStorage
     _raporCfgSet('namaSekolah',    document.getElementById('rcNamaSekolah')?.value    || 'SMA NEGERI 1 JAKARTA');
     _raporCfgSet('subjudul',       document.getElementById('rcSubjudul')?.value       || '');
     _raporCfgSet('alamat',         document.getElementById('rcAlamat')?.value         || '');
@@ -7427,166 +7589,225 @@ function eksekusiCetakRaporIndividu(kelas, smt) {
     _raporCfgSet('ttdWali',        document.getElementById('rcTtdWali')?.checked       ?? true);
     _raporCfgSet('ttdKepsek',      document.getElementById('rcTtdKepsek')?.checked     ?? true);
 
-    // Tutup Modal
     document.getElementById('modalCetakRapor')?.remove();
-
-    // 2. Jalankan Pencetakan
     cetakRaporIndividu(kelas, parseInt(smt));
 }
 
+// ============================================================
+// 4. LANGKAH 3: FUNGSI PEMPROSES LEMBAR RAPOR / PRINT
+// ============================================================
 function cetakRaporIndividu(kelas, smt) {
     let cfg = {
         namaSekolah:    _raporCfgGet('namaSekolah',    'SMA NEGERI 1 JAKARTA'),
         subjudul:       _raporCfgGet('subjudul',       'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi'),
         alamat:         _raporCfgGet('alamat',         'Jl. Budi Utomo No.7, Ps. Baru, Jakarta Pusat 10710'),
         kota:           _raporCfgGet('kota',           'Jakarta'),
-        namaKepsek:     _raporCfgGet('namaKepsek',     ''),
+        namaKepsek:     _raporCfgGet('namaKepsek',     '___________________________'),
         nipKepsek:      _raporCfgGet('nipKepsek',      ''),
-        namaWali:       _raporCfgGet('namaWali',       ''),
+        namaWali:       _raporCfgGet('namaWali',       '___________________________'),
         nipWali:        _raporCfgGet('nipWali',        ''),
         showRank:       _raporCfgGet('showRank',       true),
         showAvg:        _raporCfgGet('showAvg',        true),
         showKode:       _raporCfgGet('showKode',       true),
         showKetuntasan: _raporCfgGet('showKetuntasan', true),
+        showKKMNote:    _raporCfgGet('showKKMNote',    true),
         hideEmptyMapel: _raporCfgGet('hideEmptyMapel', true),
         showNisn:       _raporCfgGet('showNisn',       true),
+        showNis:        _raporCfgGet('showNis',        false),
         ttdWali:        _raporCfgGet('ttdWali',        true),
-        ttdKepsek:      _raporCfgGet('ttdKepsek',      true)
+        ttdKepsek:      _raporCfgGet('ttdKepsek',      true),
     };
+    if (!cfg.namaKepsek.trim()) cfg.namaKepsek = '___________________________';
+    if (!cfg.namaWali.trim())   cfg.namaWali   = '___________________________';
 
-    const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas).sort((a, b) => (a[2] || '').localeCompare(b[2] || ''));
-    if (!fSiswa || fSiswa.length === 0) { 
-        alert('Tidak ada siswa di kelas ' + kelas); 
-        return; 
+    const fSiswa = dataSiswaGlobal
+        .filter(r => r[3] === kelas)
+        .sort((a, b) => (a[2] || '').localeCompare(b[2] || ''));
+    if (fSiswa.length === 0) { alert('Tidak ada siswa di rombel kelas ini.'); return; }
+
+    let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : daftarMapel.map(m => m.kode); 
+
+    let rankData = fSiswa.map(siswa => {
+        let totalNilaiRerataMapel = 0;
+        let totalMapelTerhitung = 0;
+        
+        daftarMapel.forEach((m) => {
+            if (!mapelPilihanAdmin.includes(m.kode)) return;
+
+            let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
+            let dataMentah = {};
+            try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
+            
+            let subVals = Object.values(dataMentah).map(v => parseFloat(v) || 0).filter(v => v > 0);
+            let rataMapel = subVals.length > 0 ? subVals.reduce((a,b)=>a+b, 0) / subVals.length : 0;
+            
+            if (rataMapel > 0) {
+                totalNilaiRerataMapel += rataMapel;
+                totalMapelTerhitung++;
+            }
+        });
+        
+        let rataRataSiswa = totalMapelTerhitung > 0 ? (totalNilaiRerataMapel / totalMapelTerhitung) : 0;
+        return { nisn: siswa[0], avg: rataRataSiswa };
+    });
+    
+    rankData.sort((a, b) => b.avg - a.avg);
+
+    let getRank = nisn => rankData.findIndex(r => r.nisn === nisn) + 1;
+    let getAvg  = nisn => { let r = rankData.find(x => x.nisn === nisn); return r ? r.avg.toFixed(2) : '-'; };
+
+    let tglCetak  = new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+    let y = new Date().getFullYear();
+    let tahunAjar = smt % 2 === 1 ? `${y}/${y+1}` : `${y-1}/${y}`;
+
+    let colHeaders = '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:32px;">No</th>';
+    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:left;">Mata Pelajaran</th>';
+    if (cfg.showKode) colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:50px;">Kode</th>';
+    
+    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">Harian</th>';
+    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">Tugas</th>';
+    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">UTS</th>';
+    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">UAS</th>';
+    
+    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:65px;background:#e2e8f0;color:#0f172a;">Rata-Rata</th>';
+    if (cfg.showKetuntasan) colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:90px;">Ketuntasan</th>';
+    
+    let colSpanFoot = 2 + (cfg.showKode ? 1 : 0) + 4; 
+
+    function buildIdentityHtml(siswa) {
+        let nisnSiswa = siswa[0] || '';
+        let namaLengkap = (siswa[2] || '').toUpperCase();
+        let kelasSiswa  = siswa[3] || kelas;
+
+        return `
+        <div style="padding:10px 14px;background:#f8fafc;border-right:1px solid #e2e8f0;grid-column:span 1;">
+            <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Nama Siswa</div>
+            <div style="font-size:14px;font-weight:800;color:#0f172a;margin-top:2px;">${namaLengkap}</div>
+        </div>
+        <div style="padding:10px 14px;background:#f8fafc;grid-column:span 1;">
+            <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">NISN</div>
+            <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:2px;font-family:monospace;">${nisnSiswa}</div>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
+            <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Kelas / Rombel</div>
+            <div style="font-size:13px;font-weight:700;color:#0f172a;margin-top:2px;">${kelasSiswa}</div>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid #e2e8f0;">
+            <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Periode Laporan</div>
+            <div style="font-size:13px;font-weight:700;color:#0f172a;margin-top:2px;">Tengah Semester Berkala</div>
+        </div>`;
     }
 
-    const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [];
-
-    // 3. Render Lembar Cetak Rapor Per Siswa
     let raporPages = fSiswa.map((siswa, siswaIdx) => {
-        let barisNilai = '';
-        let mapelCount = 0;
-        let totalNilaiSiswa = 0;
+        let nisnSiswa = siswa[0] || '';
+        let avgSiswa  = getAvg(nisnSiswa);
+        let rank      = getRank(nisnSiswa);
+        let rowCount  = 1;
 
-        daftarMapel.forEach((m, mIdx) => {
+        let barisNilai = '';
+
+        daftarMapel.forEach((m) => {
+            if (!mapelPilihanAdmin.includes(m.kode)) return;
+
             let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
             let dataMentah = {};
             try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
 
-            let rincianKomponen = [];
-            let total = 0, totalBobot = 0;
+            let harian = dataMentah.harian && dataMentah.harian > 0 ? dataMentah.harian : '-';
+            let tugas  = dataMentah.tugas  && dataMentah.tugas > 0  ? dataMentah.tugas  : '-';
+            let uts    = dataMentah.uts    && dataMentah.uts > 0    ? dataMentah.uts    : '-';
+            let uas    = dataMentah.uas    && dataMentah.uas > 0    ? dataMentah.uas    : '-';
 
-            kolomConfig.forEach(k => {
-                let v = dataMentah[k.id];
-                if (v !== undefined && v !== '' && !isNaN(v)) {
-                    rincianKomponen.push(`${k.nama}: <b>${v}</b>`);
-                    total += parseFloat(v) * (k.bobot / 100);
-                    totalBobot += k.bobot;
-                }
-            });
+            let subVals = Object.values(dataMentah).map(v => parseFloat(v) || 0).filter(v => v > 0);
+            let nilaiAkhirMurni = subVals.length > 0 ? subVals.reduce((a,b)=>a+b, 0) / subVals.length : 0;
 
-            let nilaiAkhir = 0;
-            if (totalBobot > 0) {
-                nilaiAkhir = totalBobot < 100 ? (total / totalBobot) * 100 : total;
-            } else {
-                nilaiAkhir = parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0;
-            }
+            if (cfg.hideEmptyMapel && nilaiAkhirMurni === 0) return;
 
-            if (cfg.hideEmptyMapel && nilaiAkhir === 0 && rincianKomponen.length === 0) return;
+            let subCellsHtml = `
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${harian}</td>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${tugas}</td>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${uts}</td>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${uas}</td>
+            `;
 
-            mapelCount++;
-            if (nilaiAkhir > 0) totalNilaiSiswa += nilaiAkhir;
-
-            let txtAkhir = nilaiAkhir > 0 ? nilaiAkhir.toFixed(1) : '-';
-            let ketTeks = nilaiAkhir >= 75 ? '<span style="color:#166534;font-weight:700;">Tuntas</span>' : (nilaiAkhir > 0 ? '<span style="color:#dc2626;font-weight:700;">Belum Tuntas</span>' : '-');
+            let warnaVal   = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#dc2626' : '#0f172a';
+            let bgVal      = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#fef2f2' : 'transparent';
+            let ketTeks    = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '<span style="color:#dc2626;font-weight:700;">Belum Tuntas</span>' : (nilaiAkhirMurni > 0 ? 'Tuntas' : '-');
 
             barisNilai += `<tr>
-                <td style="text-align:center;">${mapelCount}</td>
-                ${cfg.showKode ? `<td style="text-align:center;"><code>${m.kode}</code></td>` : ''}
-                <td><strong>${m.namaLengkap || m.kode}</strong></td>
-                <td style="font-size:11px;color:#475569;">${rincianKomponen.length > 0 ? rincianKomponen.join(' | ') : '<em>-</em>'}</td>
-                <td style="text-align:center;font-weight:700;font-size:13px;color:var(--primary);">${txtAkhir}</td>
-                ${cfg.showKetuntasan ? `<td style="text-align:center;">${ketTeks}</td>` : ''}
-            </tr>`;
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;">${rowCount++}</td>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.namaLengkap}</td>`;
+            if (cfg.showKode) barisNilai += `<td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-family:monospace;">${m.kode}</td>`;
+            
+            barisNilai += subCellsHtml;
+            barisNilai += `<td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:13px;text-align:center;font-weight:700;color:${warnaVal};background:${bgVal};">${nilaiAkhirMurni > 0 ? nilaiAkhirMurni.toFixed(1) : '-'}</td>`;
+            if (cfg.showKetuntasan) barisNilai += `<td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;color:#64748b;">${ketTeks}</td>`;
+            barisNilai += `</tr>`;
         });
 
-        let avgSiswa = mapelCount > 0 ? (totalNilaiSiswa / mapelCount).toFixed(2) : '-';
+        let footerRow = `<tr style="background:#f1f5f9;">
+            <td colspan="${colSpanFoot}" style="padding:8px 10px;border:1px solid #e2e8f0;font-size:12px;font-weight:700;text-align:right;color:#334155;">Rata-rata Progress Nilai</td>
+            <td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:14px;font-weight:900;text-align:center;color:#9d7e56;">${avgSiswa}</td>`;
+        if (cfg.showKetuntasan) {
+            footerRow += `<td style="padding:8px 10px;border:1px solid #e2e8f0;font-size:11px;text-align:center;color:#166534;font-weight:700;background:#dcfce7;">Peringkat #${rank}</td>`;
+        }
+        footerRow += `</tr>`;
 
+        let ttdHtml = '';
+        if (cfg.ttdWali || cfg.ttdKepsek) {
+            let tglTanda = `${cfg.kota}, ${tglCetak}`;
+            let colWali = cfg.ttdWali ? `<td style="width:45%;padding:0 12px;text-align:center;vertical-align:top;border:1px solid #cbd5e1;border-radius:4px;">
+                <div style="font-size:11px;font-weight:700;color:#334155;padding-top:8px;">Wali Kelas,</div>
+                <div style="height:64px;"></div>
+                <div style="border-top:1.5px solid #334155;margin:0 20px;"></div>
+                <div style="font-size:12px;font-weight:800;color:#0f172a;margin-top:4px;">${cfg.namaWali}</div>
+                <div style="font-size:10px;color:#64748b;margin-bottom:6px;">NIP. ${cfg.nipWali || '________________________'}</div>
+            </td>` : '';
+            let colKepsek = cfg.ttdKepsek ? `<td style="width:45%;padding:0 12px;text-align:center;vertical-align:top;border:1px solid #cbd5e1;border-radius:4px;">
+                <div style="font-size:11px;font-weight:700;color:#334155;padding-top:8px;">Kepala Sekolah,</div>
+                <div style="height:64px;"></div>
+                <div style="border-top:1.5px solid #334155;margin:0 20px;"></div>
+                <div style="font-size:12px;font-weight:800;color:#0f172a;margin-top:4px;">${cfg.namaKepsek}</div>
+                <div style="font-size:10px;color:#64748b;margin-bottom:6px;">NIP. ${cfg.nipKepsek || '________________________'}</div>
+            </td>` : '';
+            let spacer = (cfg.ttdWali && cfg.ttdKepsek) ? '<td style="width:10%;"></td>' : '';
+            ttdHtml = `<div style="margin-top:24px;">
+                <div style="font-size:11px;color:#64748b;margin-bottom:10px;text-align:right;">${tglTanda}</div>
+                <table style="width:100%;border-collapse:separate;border-spacing:8px;"><tr>${colWali}${spacer}${colKepsek}</tr></table>
+            </div>`;
+        }
+
+        let isLast = siswaIdx === fSiswa.length - 1;
         return `
-        <div style="page-break-after:always;padding:25px;background:white;font-family:'Plus Jakarta Sans',sans-serif;">
-            <div style="text-align:center;border-bottom:2px solid #0f172a;padding-bottom:8px;margin-bottom:15px;">
-                <h2 style="margin:0;font-size:18px;text-transform:uppercase;">${cfg.namaSekolah}</h2>
-                <div style="font-size:12px;color:#475569;">${cfg.subjudul}</div>
-                <div style="font-size:11px;color:#64748b;">${cfg.alamat}</div>
-            </div>
-
-            <p style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:12px;">LEMBAR CAPAIAN HASIL BELAJAR SISWA</p>
-            <table style="width:100%;font-size:12px;margin-bottom:12px;border:none;">
-                <tr>
-                    <td style="border:none;padding:2px;"><strong>Nama Siswa</strong>: ${siswa[2].toUpperCase()}</td>
-                    <td style="border:none;padding:2px;"><strong>Kelas</strong>: ${kelas}</td>
-                </tr>
-                <tr>
-                    <td style="border:none;padding:2px;">${cfg.showNisn ? `<strong>NISN</strong>: ${siswa[0]}` : ''}</td>
-                    <td style="border:none;padding:2px;"><strong>Semester</strong>: ${smt}</td>
-                </tr>
-            </table>
-
-            <table style="width:100%;border-collapse:collapse;font-size:11px;" border="1">
-                <thead>
-                    <tr style="background:#f1f5f9;">
-                        <th style="width:30px;">No</th>
-                        ${cfg.showKode ? `<th style="width:50px;">Kode</th>` : ''}
-                        <th>Mata Pelajaran</th>
-                        <th>Rincian Komponen Nilai (Guru)</th>
-                        <th style="width:80px;">Nilai Akhir</th>
-                        ${cfg.showKetuntasan ? `<th style="width:90px;">Status</th>` : ''}
-                    </tr>
-                </thead>
-                <tbody>${barisNilai || '<tr><td colspan="6" style="text-align:center;padding:12px;">Belum ada nilai yang di-input</td></tr>'}</tbody>
-                ${cfg.showAvg ? `
-                <tfoot>
-                    <tr style="background:#f8fafc;font-weight:bold;">
-                        <td colspan="${cfg.showKode ? 4 : 3}" style="text-align:right;padding:6px;">Rata-Rata Rapor:</td>
-                        <td style="text-align:center;font-size:13px;color:var(--primary);">${avgSiswa}</td>
-                        ${cfg.showKetuntasan ? '<td></td>' : ''}
-                    </tr>
-                </tfoot>` : ''}
-            </table>
-
-            <div style="margin-top:35px;display:flex;justify-content:space-between;font-size:12px;text-align:center;">
-                <div>
-                    <p>Orang Tua / Wali Siswa</p>
-                    <br><br><br>
-                    <p>( ..................................... )</p>
+        <div style="${isLast ? '' : 'page-break-after:always;'}padding:28px 32px;max-width:820px;margin:0 auto;background:white;">
+            <div style="display:flex;align-items:center;border-bottom:3px solid #0f172a;padding-bottom:12px;margin-bottom:16px;">
+                <div style="flex:1;">
+                    <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;">${cfg.subjudul}</div>
+                    <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.1;">${cfg.namaSekolah}</div>
+                    <div style="font-size:11px;color:#475569;margin-top:2px;">${cfg.alamat}</div>
                 </div>
-                ${cfg.ttdWali ? `
-                <div>
-                    <p>${cfg.kota}, ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}<br>Wali Kelas</p>
-                    <br><br>
-                    <p><u><b>${cfg.namaWali || '.....................'}</b></u><br>NIP. ${cfg.nipWali || '-'}</p>
-                </div>` : ''}
+                <div style="text-align:right;">
+                    <div style="background:#0f172a;color:white;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;">TRANSPARANSI NILAI</div>
+                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Tahun Pelajaran ${tahunAjar}</div>
+                </div>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:16px;">
+                ${buildIdentityHtml(siswa)}
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-family:inherit;">
+                <thead><tr style="background:#1e293b;color:white;">${colHeaders}</tr></thead>
+                <tbody>${barisNilai || '<tr><td colspan="9" style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;border:1px solid #e2e8f0;">Belum ada riwayat komponen masuk</td></tr>'}</tbody>
+                <tfoot>${footerRow}</tfoot>
+            </table>
+            <div style="margin-top:8px;font-size:10px;color:#a3a3a3;font-style:italic;">* Nilai murni rata-rata berlatar merah menandakan subkompetensi mapel berada di bawah standar ketuntasan (75)</div>
+            ${ttdHtml}
         </div>`;
     }).join('');
 
-    // 4. Buka Window Printer
-    let winPrint = window.open('', '_blank');
-    winPrint.document.write(`<!DOCTYPE html>
-    <html><head>
-        <title>Rapor Kelas ${kelas}</title>
-        <style>
-            body { font-family:'Segoe UI',Arial,sans-serif; margin:0; padding:0; background:white; }
-            table { border-collapse:collapse; width:100%; }
-            th, td { border:1px solid #cbd5e1; padding:6px; }
-            @media print {
-                @page { size: portrait; margin: 10mm; }
-            }
-        </style>
-    </head>
-    <body>${raporPages}</body></html>`);
-    winPrint.document.close();
-    setTimeout(() => { winPrint.print(); }, 500);
+    let printWin = window.open('', '_blank');
+    printWin.document.write(`<!DOCTYPE html><html><head><title>Rapor ${kelas}</title><style>body{margin:0;padding:0;}@media print{@page{size:portrait;margin:10mm;}}</style></head><body>${raporPages}</body></html>`);
+    printWin.document.close();
+    setTimeout(() => { printWin.print(); }, 500);
 }
 
 // Variabel global penampung klik sementara user guru
