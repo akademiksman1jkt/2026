@@ -2677,15 +2677,13 @@
     const timestampUnik = new Date().getTime();
     const urlAntiCache = URL_SCRIPT_BIODATA + (URL_SCRIPT_BIODATA.includes('?') ? '&' : '?') + '_t=' + timestampUnik;
 
-    console.log("Memuat data segar dari Cloud (Bypass Total Cache):", urlAntiCache);
-
     fetch(urlAntiCache, {
         method: 'GET',
-        cache: 'no-store', // Mencegah browser menyimpan atau membaca dari disk cache
+        cache: 'no-store',
         headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate', // Paksa browser minta data baru ke server
-            'Pragma': 'no-cache',                                  // Dukungan untuk HTTP 1.0 / browser lama
-            'Expires': '0'                                         // Menandakan konten langsung kadaluarsa
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
         }
     })
         .then(response => {
@@ -2693,8 +2691,6 @@
             return response.json();
         })
         .then(resData => {
-            console.log("Respon Cloud Diterima:", resData);
-
             // 1. Simpan Data Biodata
             if (resData && Array.isArray(resData.biodata)) {
                 window.dataBiodataGlobal = resData.biodata;
@@ -2710,9 +2706,36 @@
                 dataSiswaGlobal = resData;
             }
 
+            // 3. UBAH BADGE MENJADI HIJAU (SUKSES)
             if (typeof setStatusSinkron === 'function') {
                 setStatusSinkron('sukses');
             }
+
+            // =========================================================================
+            // 🌟 KUNCI UTAMA: ISI ULANG DROPDOWN KELAS SETELAH DATA TERUNDUH
+            // =========================================================================
+            try {
+                let selectK = document.getElementById('selectKelas');
+                if (selectK && typeof dataSiswaGlobal !== "undefined" && dataSiswaGlobal.length > 0) {
+                    let listK = [...new Set(dataSiswaGlobal.map(row => (row[3] || "").toString().trim()))]
+                        .filter(k => k && k.toLowerCase() !== "kelas")
+                        .sort();
+
+                    let valLama = selectK.value;
+                    selectK.innerHTML = '<option value="">-- Tentukan Kelas --</option>';
+                    listK.forEach(k => {
+                        selectK.innerHTML += `<option value="${k}">${k}</option>`;
+                    });
+                    if (valLama) selectK.value = valLama;
+                }
+
+                // Jika ada fungsi pengisi dropdown khusus di aplikasi Anda, panggil di sini
+                if (typeof kunciDropdownKelasWali === 'function') kunciDropdownKelasWali();
+                if (typeof renderDropdownEraporKunci === 'function') renderDropdownEraporKunci();
+            } catch (e) {
+                console.error("Gagal memperbarui dropdown kelas:", e);
+            }
+
         })
         .catch(err => {
             console.error("Gagal muat data:", err);
