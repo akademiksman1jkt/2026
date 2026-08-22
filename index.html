@@ -2670,8 +2670,27 @@
     (function InisialisasiDataCloud() {
     if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) return;
 
-    fetch(URL_SCRIPT_BIODATA)
-        .then(response => response.json())
+    // 1. Tampilkan indikator status PROSES (Kuning)
+    if (typeof setStatusSinkron === 'function') {
+        setStatusSinkron('proses');
+    }
+
+    // 2. Tambahkan parameter Anti-Cache (timestamp unik)
+    const timestampUnik = new Date().getTime();
+    const urlAntiCache = URL_SCRIPT_BIODATA + (URL_SCRIPT_BIODATA.includes('?') ? '&' : '?') + '_t=' + timestampUnik;
+
+    console.log("Memuat data segar dari Cloud (Anti-Cache):", urlAntiCache);
+
+    fetch(urlAntiCache, {
+        method: 'GET',
+        cache: 'no-store' // Mencegah browser membaca memori cache lama
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Respon jaringan tidak OK");
+            }
+            return response.json();
+        })
         .then(resData => {
             console.log("Respon Cloud Diterima:", resData);
 
@@ -2692,8 +2711,19 @@
 
             console.log("✅ Biodata terunduh:", dataBiodataGlobal.length);
             console.log("✅ Nilai terunduh:", dataSiswaGlobal.length);
+
+            // 3. Ubah indikator status menjadi SUKSES (Hijau)
+            if (typeof setStatusSinkron === 'function') {
+                setStatusSinkron('sukses');
+            }
         })
-        .catch(err => console.error("Gagal muat data:", err));
+        .catch(err => {
+            console.error("Gagal muat data:", err);
+            // 4. Ubah indikator status menjadi GAGAL (Merah) & munculkan tombol 'Coba Lagi'
+            if (typeof setStatusSinkron === 'function') {
+                setStatusSinkron('gagal', 'Gagal memuat data dari Cloud!');
+            }
+        });
 })();
     // Simpan fungsi alert bawaan jika sewaktu-waktu dibutuhkan
 window.nativeAlert = window.alert;
@@ -9865,6 +9895,37 @@ function cetakLegerTampilanWeb() {
     win.document.close();
     setTimeout(() => { win.print(); }, 500);
 }
+function setStatusSinkron(status, pesan = '') {
+    const badge = document.getElementById('syncStatusBadge');
+    const dot   = document.getElementById('syncDot');
+    const text  = document.getElementById('syncText');
+    const btn   = document.getElementById('btnRetrySync');
+
+    if (!badge) return;
+
+    if (status === 'proses') {
+        badge.style.background = '#f59e0b'; // Warna Kuning saat memuat
+        dot.style.background = '#ffffff';
+        text.innerText = 'Menyinkronkan data...';
+        btn.style.display = 'none';
+    } else if (status === 'sukses') {
+        badge.style.background = '#0f172a'; // Warna Navy saat berhasil
+        dot.style.background = '#22c55e';   // Hijau
+        text.innerText = 'Data Tersinkronisasi';
+        btn.style.display = 'none';
+    } else if (status === 'gagal') {
+        badge.style.background = '#dc2626'; // Warna Merah saat gagal
+        dot.style.background = '#ffffff';
+        text.innerText = pesan || 'Peringatan: Data Tidak Sinkron!';
+        btn.style.display = 'inline-block'; // Tampilkan tombol Coba Lagi
+    }
+}
 </script>
+<!-- BADGE INDIKATOR STATUS SINKRONISASI -->
+<div id="syncStatusBadge" style="position: fixed; bottom: 20px; right: 20px; padding: 8px 16px; border-radius: 30px; font-size: 12px; font-weight: bold; background: #0f172a; color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; z-index: 9999; transition: all 0.3s ease;">
+    <span id="syncDot" style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e;"></span>
+    <span id="syncText">Data Tersinkronisasi</span>
+    <button id="btnRetrySync" onclick="InisialisasiDataCloud()" style="display: none; background: white; color: #dc2626; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 800; margin-left: 6px;">Coba Lagi</button>
+</div>
 </body>
 </html>
