@@ -6274,147 +6274,237 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     // ERAPOR — LEMBAR KERJA FLEKSIBEL
     // ============================================================
     function muatLembarKerjaErapor() {
-        const kelas    = document.getElementById('epSelectKelas')?.value;
-        const mapel    = document.getElementById('epSelectMapel')?.value;
-        const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
-        if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
+    const kelas    = document.getElementById('epSelectKelas')?.value;
+    const mapel    = document.getElementById('epSelectMapel')?.value;
+    const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
+    if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
 
-        const kolom     = getKolomErapor();
-        const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
-        const mapelIdx  = daftarMapel.indexOf(mapelInfo);
-        if (!mapelInfo) { alert('Mata pelajaran tidak ditemukan!'); return; }
+    const kolom     = getKolomErapor();
+    const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
+    const mapelIdx  = daftarMapel.indexOf(mapelInfo);
+    if (!mapelInfo) { alert('Mata pelajaran tidak ditemukan!'); return; }
 
-        // Rebuild header
-        const headerRow = document.getElementById('headerEraporKolom');
-        if (headerRow) {
-            let hHtml = '<th style="width:60px;text-align:center;">No</th><th>Identitas</th><th>Nama Lengkap</th>';
-            kolom.forEach(k => { hHtml += '<th>'+k.nama+' <small style="color:#94a3b8;font-weight:400;">('+k.bobot+'%)</small></th>'; });
-            hHtml += '<th style="background-color:var(--primary-light);color:var(--primary);">Akhir Rapor</th>';
-            headerRow.innerHTML = hHtml;
-        }
+    // ============================================================
+    // LANGKAH 1: REBUILD HEADER (TAMBAH SMT LALU & KETERANGAN)
+    // ============================================================
+    const headerRow = document.getElementById('headerEraporKolom');
+    if (headerRow) {
+        let hHtml = '<th style="width:60px;text-align:center;">No</th>'
+                  + '<th>Identitas</th>'
+                  + '<th>Nama Lengkap</th>'
+                  + '<th style="background-color:#f8fafc; text-align:center; min-width:90px;">Smt Lalu</th>'; // KOLOM BARU SMT LALU
 
-        const label = document.getElementById('labelMetodeHitung');
-        if (label) {
-            let bobotTxt = kolom.map(k=>k.nama+' '+k.bobot+'%').join(' + ');
-            label.innerHTML = '<strong>Metode:</strong> Rata-rata berbobot | '+bobotTxt+' = <strong>Nilai Akhir Rapor</strong>.';
-        }
-
-        const tBody = document.getElementById('tableBodyErapor');
-        if (!tBody) return;
-        tBody.innerHTML = '';
-
-        const fSiswa = dataSiswaGlobal.filter(r=>r[3]===kelas);
-        if (fSiswa.length===0) { alert('Tidak ada siswa di kelas ini.'); return; }
-
-        fSiswa.forEach((siswa, i) => {
-            let savedNilai = {};
-            try { savedNilai = JSON.parse(localStorage.getItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0])||'{}'); } catch(e) {}
-            let cloudVal = parseFloat(siswa[6+(mapelIdx*6)+(smt-1)])||0;
-
-            let kolomInputs = '';
-            kolom.forEach(k => {
-                let savedVal = savedNilai[k.id]!==undefined ? savedNilai[k.id] : '';
-                kolomInputs += '<td><input type="number" id="ep_'+k.id+'_'+siswa[0]+'" value="'+savedVal
-                    +'" min="0" max="100" step="0.5" style="width:80px;padding:5px;border:1px solid var(--slate-200);border-radius:4px;text-align:center;"'
-                    +' oninput="hitungNilaiAkhirErapor(\''+siswa[0]+'\')"></td>';
-            });
-
-            let nilaiAkhirDisplay = cloudVal>0 ? cloudVal.toFixed(1) : '-';
-            tBody.innerHTML += '<tr>'
-                + '<td style="text-align:center;font-weight:700;">'+(i+1)+'</td>'
-                + '<td><code>'+siswa[0]+'</code></td>'
-                + '<td><strong>'+siswa[2]+'</strong></td>'
-                + kolomInputs
-                + '<td style="text-align:center;font-weight:800;color:var(--primary);" id="ep_akhir_'+siswa[0]+'">'+nilaiAkhirDisplay+'</td>'
-                + '</tr>';
+        kolom.forEach(k => { 
+            hHtml += '<th>'+k.nama+' <small style="color:#94a3b8;font-weight:400;">('+k.bobot+'%)</small></th>'; 
         });
 
-        const sectionEl = document.getElementById('sectionLembarKerjaErapor');
-        if (sectionEl) { sectionEl.style.display='block'; sectionEl.scrollIntoView({behavior:'smooth',block:'start'}); }
+        hHtml += '<th style="background-color:var(--primary-light);color:var(--primary);text-align:center;">Akhir Rapor</th>'
+               + '<th style="text-align:center; min-width:100px;">Keterangan</th>'; // KOLOM BARU KETERANGAN
+
+        headerRow.innerHTML = hHtml;
     }
 
-    function hitungNilaiAkhirErapor(nisn) {
-        const kolom = getKolomErapor();
-        let total=0, totalBobot=0;
+    const label = document.getElementById('labelMetodeHitung');
+    if (label) {
+        let bobotTxt = kolom.map(k=>k.nama+' '+k.bobot+'%').join(' + ');
+        label.innerHTML = '<strong>Metode:</strong> Rata-rata berbobot | '+bobotTxt+' = <strong>Nilai Akhir Rapor</strong>.';
+    }
+
+    const tBody = document.getElementById('tableBodyErapor');
+    if (!tBody) return;
+    tBody.innerHTML = '';
+
+    const fSiswa = dataSiswaGlobal.filter(r=>r[3]===kelas);
+    if (fSiswa.length===0) { alert('Tidak ada siswa di kelas ini.'); return; }
+
+    // ============================================================
+    // RENDERING BARIS TABEL SISWA
+    // ============================================================
+    fSiswa.forEach((siswa, i) => {
+        let savedNilai = {};
+        try { savedNilai = JSON.parse(localStorage.getItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0])||'{}'); } catch(e) {}
+        let cloudVal = parseFloat(siswa[6+(mapelIdx*6)+(smt-1)])||0;
+
+        // Ambil Nilai Semester Lalu
+        let nilaiSmtLalu = '-';
+        if (smt > 1 && mapelIdx >= 0) {
+            let valLalu = siswa[6 + (mapelIdx * 6) + (smt - 2)];
+            if (valLalu && valLalu !== '-') nilaiSmtLalu = parseFloat(valLalu) || '-';
+        }
+
+        let kolomInputs = '';
         kolom.forEach(k => {
-            const val = parseFloat(document.getElementById('ep_'+k.id+'_'+nisn)?.value||'');
-            if (!isNaN(val)) { total+=val*(k.bobot/100); totalBobot+=k.bobot; }
+            let savedVal = savedNilai[k.id]!==undefined ? savedNilai[k.id] : '';
+            kolomInputs += '<td><input type="number" id="ep_'+k.id+'_'+siswa[0]+'" value="'+savedVal
+                +'" min="0" max="100" step="0.5" style="width:80px;padding:5px;border:1px solid var(--slate-200);border-radius:4px;text-align:center;"'
+                +' oninput="hitungNilaiAkhirErapor(\''+siswa[0]+'\')"></td>';
         });
-        const akhirEl = document.getElementById('ep_akhir_'+nisn);
-        if (akhirEl) {
-            if (totalBobot>0) {
-                let akhir = totalBobot<100?(total/totalBobot)*100:total;
-                akhirEl.textContent = akhir.toFixed(2);
-                akhirEl.style.color = akhir<75?'var(--danger)':'var(--primary)';
-            } else { akhirEl.textContent='-'; }
+
+        let nilaiAkhirDisplay = cloudVal>0 ? cloudVal.toFixed(1) : '-';
+        let labelTrend = hitungLabelTrend(nilaiAkhirDisplay, nilaiSmtLalu);
+
+        tBody.innerHTML += '<tr>'
+            + '<td style="text-align:center;font-weight:700;">'+(i+1)+'</td>'
+            + '<td><code>'+siswa[0]+'</code></td>'
+            + '<td><strong>'+siswa[2]+'</strong></td>'
+            + '<td id="ep_smt_lalu_'+siswa[0]+'" style="text-align:center; background-color:#f8fafc; font-weight:600; color:#475569;">'+nilaiSmtLalu+'</td>'
+            + kolomInputs
+            + '<td style="text-align:center;font-weight:800;color:var(--primary);" id="ep_akhir_'+siswa[0]+'">'+nilaiAkhirDisplay+'</td>'
+            + '<td id="ep_ket_'+siswa[0]+'" style="text-align:center;font-weight:700;">'+labelTrend+'</td>'
+            + '</tr>';
+    });
+
+    const sectionEl = document.getElementById('sectionLembarKerjaErapor');
+    if (sectionEl) { sectionEl.style.display='block'; sectionEl.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+
+// ============================================================
+// FUNGSI HITUNG OTOMATIS TREN REAL-TIME
+// ============================================================
+function hitungNilaiAkhirErapor(nisn) {
+    const kolom = getKolomErapor();
+    let total=0, totalBobot=0;
+    kolom.forEach(k => {
+        const val = parseFloat(document.getElementById('ep_'+k.id+'_'+nisn)?.value||'');
+        if (!isNaN(val)) { total+=val*(k.bobot/100); totalBobot+=k.bobot; }
+    });
+
+    const akhirEl = document.getElementById('ep_akhir_'+nisn);
+    let akhirTxt = '-';
+
+    if (akhirEl) {
+        if (totalBobot>0) {
+            let akhir = totalBobot<100?(total/totalBobot)*100:total;
+            akhirTxt = akhir.toFixed(2);
+            akhirEl.textContent = akhirTxt;
+            akhirEl.style.color = akhir<75?'var(--danger)':'var(--primary)';
+        } else { 
+            akhirEl.textContent='-'; 
         }
     }
+
+    // Update Status Keterangan
+    let tdSmtLalu = document.getElementById('ep_smt_lalu_' + nisn);
+    let tdKet = document.getElementById('ep_ket_' + nisn);
+    if (tdSmtLalu && tdKet) {
+        let valLalu = tdSmtLalu.textContent.trim();
+        tdKet.innerHTML = hitungLabelTrend(akhirTxt, valLalu);
+    }
+}
+
+// Fungsi Pembuat Badge Warna Tren (Naik / Turun / Tetap)
+function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
+    let skrg = parseFloat(nilaiSekarang);
+    let lalu = parseFloat(nilaiLalu);
+
+    if (isNaN(skrg) || isNaN(lalu) || nilaiLalu === '-' || nilaiSekarang === '-') {
+        return `<span style="color:#94a3b8; font-weight:500;">-</span>`;
+    }
+    if (skrg > lalu) {
+        return `<span style="color:#16a34a; background:#dcfce7; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px;"><i class="ri-arrow-up-line"></i> Naik</span>`;
+    } else if (skrg < lalu) {
+        return `<span style="color:#dc2626; background:#fee2e2; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px;"><i class="ri-arrow-down-line"></i> Turun</span>`;
+    } else {
+        return `<span style="color:#d97706; background:#fef3c7; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px;"><i class="ri-subtract-line"></i> Tetap</span>`;
+    }
+}
 
     function simpanKomponenNilaiCloud() {
-        const kelas    = document.getElementById('epSelectKelas')?.value;
-        const mapel    = document.getElementById('epSelectMapel')?.value;
-        const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
-        if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
+    const kelas = document.getElementById('epSelectKelas')?.value;
+    const mapel = document.getElementById('epSelectMapel')?.value;
+    const smt   = parseInt(document.getElementById('epSelectSemester')?.value || '1');
+    if (!kelas || !mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
 
-        const kolom     = getKolomErapor();
-        const fSiswa    = dataSiswaGlobal.filter(r=>r[3]===kelas);
-        const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
-        const mapelIdx  = daftarMapel.indexOf(mapelInfo);
-        let saved=0;
+    const kolom     = getKolomErapor();
+    const fSiswa    = dataSiswaGlobal.filter(r => r[3] === kelas);
+    const mapelInfo = (typeof daftarMapel !== 'undefined') ? daftarMapel.find(m => m.kode === mapel) : null;
+    const mapelIdx  = (typeof daftarMapel !== 'undefined') ? daftarMapel.indexOf(mapelInfo) : -1;
+    let saved = 0;
 
-        fSiswa.forEach(siswa => {
-            let draftObj={};
-            kolom.forEach(k => {
-                const val=(document.getElementById('ep_'+k.id+'_'+siswa[0])?.value||'').trim();
-                if (val!=='') draftObj[k.id]=parseFloat(val)||0;
-            });
-            if (Object.keys(draftObj).length>0) {
-                localStorage.setItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0], JSON.stringify(draftObj));
-                saved++;
-            }
-            let total=0, totalBobot=0;
-            kolom.forEach(k => {
-                const v=draftObj[k.id];
-                if (v!==undefined&&!isNaN(v)) { total+=v*(k.bobot/100); totalBobot+=k.bobot; }
-            });
-            if (totalBobot>0&&mapelIdx>=0) {
-                let finalVal = totalBobot<100?(total/totalBobot)*100:total;
-                const targetIdx = 6+(mapelIdx*6)+(smt-1);
-                while(siswa.length<=targetIdx) siswa.push('-');
-                siswa[targetIdx]=finalVal.toFixed(2);
-            }
+    fSiswa.forEach(siswa => {
+        let draftObj = {};
+        
+        // Cari baris tabel HTML berdasarkan NISN/Identitas siswa
+        let trSiswa = Array.from(document.querySelectorAll('#tableBodyErapor tr')).find(tr => {
+            let cells = tr.querySelectorAll('td');
+            return cells.length > 1 && cells[1].textContent.trim() === String(siswa[0]).trim();
         });
 
-        if (typeof URL_GOOGLE_APPS_SCRIPT!=='undefined') {
-            document.getElementById('loading').style.display='block';
-            const guruUsername = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.username : 'Unknown';
-            const mapelNama    = mapelInfo ? (mapelInfo.namaLengkap || mapelInfo.kode) : mapel;
-            const legerData    = fSiswa.map(s => {
-                let rowData = { nisn: s[0], nama: s[2] };
-                kolom.forEach(k => {
-                    rowData[k.nama] = (document.getElementById('ep_'+k.id+'_'+s[0])?.value || '').trim();
-                });
-                rowData['Nilai Akhir Rapor'] = document.getElementById('ep_akhir_'+s[0])?.textContent || '-';
-                return rowData;
-            });
-            fetch(URL_GOOGLE_APPS_SCRIPT, {
-                method: 'POST',
-                body: JSON.stringify({
-                    aksi:      'simpanLegerNilai',
-                    guru:      guruUsername,
-                    kelas,
-                    mapel,
-                    mapelNama,
-                    semester:  smt,
-                    kolom:     kolom.map(k => k.nama),
-                    data:      legerData
-                })
-            })
-            .catch(e => console.error(e))
-            .finally(() => { document.getElementById('loading').style.display='none'; });
+        let inputsInRow = trSiswa ? trSiswa.querySelectorAll('input.input-nilai') : [];
+
+        kolom.forEach((k, idx) => {
+            // Ambil dari ID jika ada, atau jatuh ke urutan input di baris tabel
+            let elInput = document.getElementById('ep_' + k.id + '_' + siswa[0]) || inputsInRow[idx];
+            const val = (elInput ? elInput.value : '').trim();
+            if (val !== '') draftObj[k.id] = parseFloat(val) || 0;
+        });
+
+        if (Object.keys(draftObj).length > 0) {
+            localStorage.setItem('ep_draft_' + mapel + '_' + kelas + '_' + smt + '_' + siswa[0], JSON.stringify(draftObj));
+            saved++;
         }
-        alert('Berhasil menyimpan nilai '+saved+' siswa ke draft lokal & cloud. Data ter-update di sistem!');
+
+        let total = 0, totalBobot = 0;
+        kolom.forEach(k => {
+            const v = draftObj[k.id];
+            if (v !== undefined && !isNaN(v)) { total += v * (k.bobot / 100); totalBobot += k.bobot; }
+        });
+
+        if (totalBobot > 0 && mapelIdx >= 0) {
+            let finalVal = totalBobot < 100 ? (total / totalBobot) * 100 : total;
+            const targetIdx = 6 + (mapelIdx * 6) + (smt - 1);
+            while (siswa.length <= targetIdx) siswa.push('-');
+            siswa[targetIdx] = finalVal.toFixed(2);
+        }
+    });
+
+    if (typeof URL_GOOGLE_APPS_SCRIPT !== 'undefined' && URL_GOOGLE_APPS_SCRIPT) {
+        let elLoading = document.getElementById('loading');
+        if (elLoading) elLoading.style.display = 'block';
+
+        const guruUsername = (typeof sessionUserAktif !== 'undefined' && sessionUserAktif) ? sessionUserAktif.username : 'Unknown';
+        const mapelNama    = mapelInfo ? (mapelInfo.namaLengkap || mapelInfo.kode) : mapel;
+
+        const legerData = fSiswa.map(s => {
+            let rowData = { nisn: s[0], nama: s[2] };
+            
+            let trSiswa = Array.from(document.querySelectorAll('#tableBodyErapor tr')).find(tr => {
+                let cells = tr.querySelectorAll('td');
+                return cells.length > 1 && cells[1].textContent.trim() === String(s[0]).trim();
+            });
+            let inputsInRow = trSiswa ? trSiswa.querySelectorAll('input.input-nilai') : [];
+
+            kolom.forEach((k, idx) => {
+                let elInput = document.getElementById('ep_' + k.id + '_' + s[0]) || inputsInRow[idx];
+                rowData[k.nama] = (elInput ? elInput.value : '').trim();
+            });
+
+            let tdAkhir = document.getElementById('ep_akhir_' + s[0]) || (trSiswa ? trSiswa.querySelector('.td-akhir-rapor') : null);
+            rowData['Nilai Akhir Rapor'] = tdAkhir ? tdAkhir.textContent.trim() : '-';
+            return rowData;
+        });
+
+        fetch(URL_GOOGLE_APPS_SCRIPT, {
+            method: 'POST',
+            body: JSON.stringify({
+                aksi:      'simpanLegerNilai',
+                guru:      guruUsername,
+                kelas,
+                mapel,
+                mapelNama,
+                semester:  smt,
+                kolom:     kolom.map(k => k.nama),
+                data:      legerData
+            })
+        })
+        .catch(e => console.error(e))
+        .finally(() => { 
+            if (elLoading) elLoading.style.display = 'none'; 
+        });
     }
+
+    alert('Berhasil menyimpan nilai ' + saved + ' siswa ke draft lokal & cloud. Data ter-update di sistem!');
+}
 
     // ============================================================
     // ERAPOR — TEMPLATE EXPORT
@@ -9379,6 +9469,101 @@ function terapkanSemesterKeInput() {
 window.addEventListener('DOMContentLoaded', function() {
     terapkanSemesterKeInput();
 });
+
+// ============================================================
+// FUNGSI IMPORT EXCEL LANGSUNG
+// ============================================================
+function prosesImportNilaiExcelLangsung(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Pengecekan pustaka XLSX (xlsx-js-style)
+    if (typeof XLSX === 'undefined') {
+        alert("Library Excel belum siap. Silakan refresh halaman.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Ambil sheet pertama
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Konversi isi sheet menjadi Data JSON
+            const jsonResult = XLSX.utils.sheet_to_json(worksheet);
+
+            if (!jsonResult || jsonResult.length === 0) {
+                alert("File Excel kosong atau format kolom tidak sesuai!");
+                return;
+            }
+
+            // Rendertabel dengan data hasil import
+            terapkanDataImportKeTabel(jsonResult);
+            alert(`Berhasil mengimpor ${jsonResult.length} baris data nilai!`);
+
+        } catch (err) {
+            console.error("Gagal membaca file Excel:", err);
+            alert("Terjadi kesalahan saat membaca file Excel. Pastikan format file .xlsx / .xls");
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; // Reset input file
+}
+
+// Fungsi untuk memasukkan hasil bacaan ke tabel e-Rapor & hitung otomatis
+function terapkanDataImportKeTabel(dataExcel) {
+    const tbody = document.getElementById('tableBodyErapor');
+    if (!tbody) return;
+
+    tbody.innerHTML = ''; // Bersihkan tabel lama
+
+    dataExcel.forEach((row, index) => {
+        // Ambil nilai masing-masing komponen
+        let harian = parseFloat(row['Nilai Harian'] || row['Tugas 1'] || 0);
+        let tugas = parseFloat(row['Nilai Tugas'] || row['Tugas 2'] || 0);
+        let uts = parseFloat(row['Nilai UTS'] || row['UTS'] || 0);
+        let uas = parseFloat(row['Nilai UAS'] || row['UAS'] || 0);
+
+        // Hitung nilai akhir (Rata-rata)
+        let akhirRapor = row['Akhir Rapor'] || ((harian + tugas + uts + uas) / 4).toFixed(1);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center;">${index + 1}</td>
+            <td>${row['NISN'] || row['Identitas'] || '-'}</td>
+            <td>${row['Nama Lengkap'] || row['Nama'] || '-'}</td>
+            <td><input type="number" class="input-nilai" value="${harian}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
+            <td><input type="number" class="input-nilai" value="${tugas}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
+            <td><input type="number" class="input-nilai" value="${uts}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
+            <td><input type="number" class="input-nilai" value="${uas}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
+            <td class="td-akhir-rapor" style="text-align:center; font-weight:bold; background-color:var(--primary-light); color:var(--primary);">${akhirRapor}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Fungsi tambahan: Otomatis perbarui Akhir Rapor jika guru mengedit angka di tabel
+function hitungRataRataBaris(inputEl) {
+    let row = inputEl.closest('tr');
+    let inputs = row.querySelectorAll('input.input-nilai');
+    let total = 0;
+    let count = 0;
+
+    inputs.forEach(inp => {
+        let val = parseFloat(inp.value) || 0;
+        total += val;
+        count++;
+    });
+
+    let rataRata = count > 0 ? (total / count).toFixed(1) : 0;
+    let tdAkhir = row.querySelector('.td-akhir-rapor');
+    if (tdAkhir) tdAkhir.textContent = rataRata;
+}
 </script>
 </body>
 </html>
