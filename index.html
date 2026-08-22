@@ -6954,118 +6954,195 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 
     // ============================================================
     function eksporLegerExcel() {
-    const kelas = document.getElementById('rlSelectKelas')?.value || 'KELAS';
-    const smt   = parseInt(document.getElementById('rlSelectSemester')?.value || '1');
-    const kolomConfig = getKolomErapor();
+    let kelas = document.getElementById('rlSelectKelas')?.value || '';
+    let smt   = document.getElementById('rlSelectSemester')?.value || '1';
 
-    // Pastikan pustaka XLSX pendukung styling siap
-    const XLSX_LIB = (typeof XLSXStyle !== 'undefined') ? XLSXStyle : XLSX;
+    if (!kelas) {
+        alert('Pilih kelas terlebih dahulu!');
+        return;
+    }
 
-    const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas);
-    if (!fSiswa || fSiswa.length === 0) { alert('Data siswa kosong!'); return; }
+    // 1. FILTER SISWA BERDASARKAN KELAS & URUTKAN NAMA
+    const fSiswa = dataSiswaGlobal
+        .filter(r => r[3] === kelas)
+        .sort((a, b) => (a[2] || '').localeCompare(b[2] || ''));
 
-    // Prepare data & calculation
-    let listDataSiswa = fSiswa.map(siswa => {
-        let sumAvg = 0, cntMapel = 0;
-        let mapelDetail = {};
+    if (fSiswa.length === 0) {
+        alert('Tidak ada data siswa untuk kelas ini.');
+        return;
+    }
 
-        daftarMapel.forEach((m) => {
-            let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
-            let draftObj = {};
-            try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
+    // 2. AMBIL KOMPONEN KOLOM DARI ADMIN & MAPEL AKTIF
+    const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [
+        { id: 'harian', nama: 'Tugas 1', bobot: 25 },
+        { id: 'tugas', nama: 'Tugas 2', bobot: 25 },
+        { id: 'uts', nama: 'ASH', bobot: 25 },
+        { id: 'uas', nama: 'ASTS', bobot: 25 }
+    ];
+
+    let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : daftarMapel.map(m => m.kode);
+    let mapelAktif = daftarMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
+
+    // 3. HITUNG PERINGKAT (RANKING) KESELURUHAN SISWA
+    let rankData = fSiswa.map(siswa => {
+        let totalNilaiRerataMapel = 0;
+        let totalMapelTerhitung = 0;
+
+        mapelAktif.forEach((m) => {
+            let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
+            let dataMentah = {};
+            try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
 
             let total = 0, totalBobot = 0;
-            let compVals = {};
-
             kolomConfig.forEach(k => {
-                let v = draftObj[k.id];
-                let valNum = (v !== undefined && !isNaN(v) && v !== '') ? parseFloat(v) : null;
-                compVals[k.id] = valNum;
-                if (valNum !== null) {
-                    total += valNum * (k.bobot / 100);
+                let v = parseFloat(dataMentah[k.id]);
+                if (!isNaN(v) && v > 0) {
+                    total += v * (k.bobot / 100);
                     totalBobot += k.bobot;
                 }
             });
+            let rataMapel = totalBobot > 0 ? (total / totalBobot) * 100 : 0;
 
-            let akhir = totalBobot > 0 ? (totalBobot < 100 ? (total / totalBobot) * 100 : total) : null;
-            if (akhir !== null) { sumAvg += akhir; cntMapel++; }
-
-            mapelDetail[m.kode] = { compVals, akhir };
+            if (rataMapel > 0) {
+                totalNilaiRerataMapel += rataMapel;
+                totalMapelTerhitung++;
+            }
         });
 
-        return { siswa, mapelDetail, avg: cntMapel > 0 ? sumAvg / cntMapel : 0 };
-    }).sort((a,b) => b.avg - a.avg);
-
-    // Build Rows AOA
-    let rowJudul = [`LEGER NILAI RINCIAN KELAS ${kelas} SEMESTER ${smt}`];
-    let rowHeader1 = ['Rank', 'NISN', 'Nama Siswa'];
-    let rowHeader2 = ['', '', ''];
-
-    daftarMapel.forEach(m => {
-        rowHeader1.push(m.namaLengkap || m.kode);
-        kolomConfig.forEach(() => rowHeader1.push('')); // span
-        kolomConfig.forEach(k => rowHeader2.push(k.nama));
-        rowHeader2.push('Akhir');
+        let rataRataSiswa = totalMapelTerhitung > 0 ? (totalNilaiRerataMapel / totalMapelTerhitung) : 0;
+        return { nisn: siswa[0], avg: rataRataSiswa };
     });
 
-    rowHeader1.push('Rata-rata', 'Peringkat');
-    rowHeader2.push('', '');
+    // Urutkan peringkat berdasarkan rata-rata tertinggi
+    let sortedRankData = [...rankData].sort((a, b) => b.avg - a.avg);
+    let getRank = nisn => sortedRankData.findIndex(r => r.nisn === nisn) + 1;
 
-    let aoaData = [rowJudul, [], rowHeader1, rowHeader2];
+    // 4. SUSUN HEADER MATA PELAJARAN DAN KOMPONEN NILAI (2 TINGKAT)
+    let headerRow1 = `
+        <tr>
+            <th rowspan="2" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">Rank</th>
+            <th rowspan="2" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">NISN</th>
+            <th rowspan="2" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">Nama Siswa</th>`;
 
-    listDataSiswa.forEach((item, rankIdx) => {
-        let r = [rankIdx + 1, item.siswa[0], item.siswa[2].toUpperCase()];
+    let headerRow2 = `<tr>`;
+    let subColCount = kolomConfig.length + 1; // Komponen dinamis + Kolom 'Akhir'
+
+    mapelAktif.forEach(m => {
+        headerRow1 += `<th colspan="${subColCount}" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">${m.namaLengkap}</th>`;
         
-        daftarMapel.forEach(m => {
-            let mData = item.mapelDetail[m.kode];
-            kolomConfig.forEach(k => {
-                let v = mData.compVals[k.id];
-                r.push(v !== null ? v : '-');
-            });
-            r.push(mData.akhir !== null ? parseFloat(mData.akhir.toFixed(1)) : '-');
+        kolomConfig.forEach(k => {
+            headerRow2 += `<th style="background:#0f172a;color:#ffffff;border:1px solid #000000;text-align:center;font-weight:bold;">${k.nama}</th>`;
         });
-
-        r.push(item.avg > 0 ? parseFloat(item.avg.toFixed(2)) : '-', '#' + (rankIdx + 1));
-        aoaData.push(r);
+        headerRow2 += `<th style="background:#0f172a;color:#ffffff;border:1px solid #000000;text-align:center;font-weight:bold;">Akhir</th>`;
     });
 
-    const ws = XLSX_LIB.utils.aoa_to_sheet(aoaData);
+    headerRow1 += `</tr>`;
+    headerRow2 += `</tr>`;
 
-    // Styling Cell (Warna & Format Bersyarat < 75 Red)
-    const range = XLSX_LIB.utils.decode_range(ws['!ref']);
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            let cell_ref = XLSX_LIB.utils.encode_cell({c: C, r: R});
-            if (!ws[cell_ref]) continue;
+    // 5. SUSUN BARIS DATA SISWA & NILAI RINCIAN
+    let rowsData = fSiswa.map(siswa => {
+        let nisnSiswa = siswa[0] || '';
+        let namaSiswa = (siswa[2] || '').toUpperCase();
+        let rankSiswa = getRank(nisnSiswa);
 
-            let cell = ws[cell_ref];
-            cell.s = cell.s || {};
-            cell.s.font = { name: "Arial", sz: 10 };
-            cell.s.alignment = { vertical: "center", horizontal: "center" };
-            cell.s.border = {
-                top: {style: "thin", color: {rgb: "CBD5E1"}},
-                bottom: {style: "thin", color: {rgb: "CBD5E1"}},
-                left: {style: "thin", color: {rgb: "CBD5E1"}},
-                right: {style: "thin", color: {rgb: "CBD5E1"}}
-            };
+        let rowCells = `
+            <tr>
+                <td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;color:#dc2626;">${rankSiswa}</td>
+                <td style="border:1px solid #cbd5e1;text-align:center;mso-number-format:'\\@';">${nisnSiswa}</td>
+                <td style="border:1px solid #cbd5e1;text-align:left;font-weight:bold;">${namaSiswa}</td>`;
 
-            // Header Style (Baris 2 & 3)
-            if (R === 2 || R === 3) {
-                cell.s.fill = { fgColor: { rgb: "1E293B" } };
-                cell.s.font = { name: "Arial", sz: 10, bold: true, color: { rgb: "FFFFFF" } };
+        mapelAktif.forEach(m => {
+            let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
+            let dataMentah = {};
+            try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
+
+            let total = 0, totalBobot = 0;
+
+            kolomConfig.forEach(k => {
+                let v = dataMentah[k.id];
+                let valNum = parseFloat(v);
+
+                if (!isNaN(valNum)) {
+                    total += valNum * (k.bobot / 100);
+                    totalBobot += k.bobot;
+
+                    if (valNum === 0) {
+                        rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;color:#dc2626;font-weight:bold;background:#fee2e2;">0</td>`;
+                    } else {
+                        rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;">${valNum}</td>`;
+                    }
+                } else {
+                    rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;color:#64748b;">-</td>`;
+                }
+            });
+
+            let nilaiAkhirMurni = totalBobot > 0 ? (total / totalBobot) * 100 : 0;
+
+            if (nilaiAkhirMurni > 0) {
+                let formatNilai = nilaiAkhirMurni.toFixed(0);
+                if (nilaiAkhirMurni < 75) {
+                    rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;color:#dc2626;background:#fee2e2;">${formatNilai}</td>`;
+                } else {
+                    rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;">${formatNilai}</td>`;
+                }
+            } else {
+                rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;color:#64748b;">-</td>`;
             }
+        });
 
-            // Highlight Nilai < 75 (Merah)
-            if (R >= 4 && typeof cell.v === 'number' && cell.v < 75) {
-                cell.s.fill = { fgColor: { rgb: "FEE2E2" } };
-                cell.s.font = { name: "Arial", sz: 10, bold: true, color: { rgb: "DC2626" } };
-            }
-        }
-    }
+        rowCells += `</tr>`;
+        return rowCells;
+    }).join('');
 
-    const wb = XLSX_LIB.utils.book_new();
-    XLSX_LIB.utils.book_append_sheet(wb, ws, "Leger_Lengkap");
-    XLSX_LIB.writeFile(wb, `Leger_Rincian_Kelas_${kelas}_Sem${smt}.xlsx`);
+    // 6. KONSTRUKSI TEMPLATE LENGKAP BUKU EXCEL (DENGAN CSS AUTO-FIT COLUMN)
+    let excelTemplate = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <!--[if gte mso 9]>
+            <xml>
+                <x:ExcelWorkbook>
+                    <x:ExcelWorksheets>
+                        <x:ExcelWorksheet>
+                            <x:Name>Leger Nilai Rincian</x:Name>
+                            <x:WorksheetOptions>
+                                <x:DisplayGridlines/>
+                            </x:WorksheetOptions>
+                        </x:ExcelWorksheet>
+                    </x:ExcelWorksheets>
+                </x:ExcelWorkbook>
+            </xml>
+            <![endif]-->
+            <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+            <style>
+                table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
+                th { padding: 8px 10px; vertical-align: middle; white-space: nowrap; }
+                td { padding: 6px 8px; vertical-align: middle; white-space: nowrap; mso-number-format: "\\@"; }
+            </style>
+        </head>
+        <body>
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px;">LEGER NILAI RINCIAN KELAS ${kelas} SEMESTER ${smt}</div>
+            <table border="1">
+                <thead>
+                    ${headerRow1}
+                    ${headerRow2}
+                </thead>
+                <tbody>
+                    ${rowsData}
+                </tbody>
+            </table>
+        </body>
+        </html>`;
+
+    // 7. PROSES UNDUH FILE .XLS
+    let blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = `LEGER_NILAI_RINCIAN_KELAS_${kelas}_SEMESTER_${smt}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 
@@ -7377,7 +7454,7 @@ function tarikSiswaAktifDariCloud() {
     }, 4000); // 4 detik sekali
 })();
 
-// ============================================================
+
 // 1. // ============================================================
 // 1. HELPER CONFIG LOCALSTORAGE & TAB
 // ============================================================
@@ -7677,7 +7754,7 @@ function cetakRaporIndividu(kelas, smt) {
 
     // HEADERS TABEL
     let colHeaders = '<th style="padding:6px 8px;border:1px solid #0f172a;font-size:11px;font-weight:800;text-align:center;width:28px;color:#ffffff;background:#0f172a;">No</th>';
-    colHeaders += '<th style="padding:6px 8px;border:1px solid #0f172a;font-size:11px;font-weight:800;text-align:left;color:#ffffff;background:#0f172a;">Mata Pelajaran</th>';
+    colHeaders += '<th style="padding:6px 8px;border:1px solid #0f172a;font-size:11px;font-weight:800;text-align:left;color:#ffffff;background:#0f172a;width:220px;max-width:220px;">Mata Pelajaran</th>';
     if (cfg.showKode) colHeaders += '<th style="padding:6px 8px;border:1px solid #0f172a;font-size:11px;font-weight:800;text-align:center;width:45px;color:#ffffff;background:#0f172a;">Kode</th>';
     
     kolomConfig.forEach(k => {
@@ -7754,7 +7831,7 @@ function cetakRaporIndividu(kelas, smt) {
 
             barisNilai += `<tr>
                 <td style="padding:5px 8px;border:1px solid #cbd5e1;font-size:11px;text-align:center;font-weight:700;color:#334155;">${rowCount++}</td>
-                <td style="padding:5px 8px;border:1px solid #cbd5e1;font-size:11px;font-weight:800;color:#0f172a;">${m.namaLengkap}</td>`;
+                <td style="padding:5px 8px;border:1px solid #cbd5e1;font-size:11px;font-weight:800;color:#0f172a;width:220px;max-width:220px;word-wrap:break-word;white-space:normal;">${m.namaLengkap}</td>`;
             if (cfg.showKode) barisNilai += `<td style="padding:5px 8px;border:1px solid #cbd5e1;font-size:11px;text-align:center;font-family:monospace;font-weight:700;color:#475569;">${m.kode}</td>`;
             
             barisNilai += subCellsHtml;
