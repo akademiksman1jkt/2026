@@ -7052,24 +7052,29 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let subColCount = kolomConfig.length + 1;
     let headerRow1 = `
         <tr>
-            <th rowspan="2" class="th-main">Rank</th>
-            <th rowspan="2" class="th-main">NISN</th>
-            <th rowspan="2" class="th-main">Nama Siswa</th>`;
+            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Rank</th>
+            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">NISN</th>
+            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Nama Siswa</th>`;
 
     let headerRow2 = `<tr>`;
 
-    mapelAktif.forEach(m => {
-        headerRow1 += `<th colspan="${subColCount}" class="th-main">${escapeHtml(m.namaLengkap)}</th>`;
+    mapelAktif.forEach((m, mapelIdx) => {
+        let isAlt = (mapelIdx % 2 === 1);
+        let bgHeader1 = isAlt ? '#334155' : '#1e293b';
+        let bgHeader2 = isAlt ? '#1e293b' : '#0f172a';
+
+        headerRow1 += `<th colspan="${subColCount}" style="background-color:${bgHeader1};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(m.namaLengkap)}</th>`;
+        
         kolomConfig.forEach(k => {
-            headerRow2 += `<th class="th-sub">${escapeHtml(k.nama)}</th>`;
+            headerRow2 += `<th style="background-color:${bgHeader2};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(k.nama)}</th>`;
         });
-        headerRow2 += `<th class="th-sub">Akhir</th>`;
+        headerRow2 += `<th style="background-color:${bgHeader2};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Akhir</th>`;
     });
 
     headerRow1 += `</tr>`;
     headerRow2 += `</tr>`;
 
-    // 5. SUSUN BARIS DATA SISWA DENGAN SELINGAN WARNA MAPEL
+    // 5. SUSUN BARIS DATA SISWA DENGAN INLINE STYLING SELINGAN WARNA ANTAR-MAPEL
     let rowsData = fSiswa.map(siswa => {
         let nisnSiswa = escapeHtml(siswa[0] || '');
         let namaSiswa = escapeHtml((siswa[2] || '').toUpperCase());
@@ -7077,12 +7082,14 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 
         let rowCells = `
             <tr>
-                <td class="td-rank">${rankSiswa}</td>
-                <td class="td-nisn">${nisnSiswa}</td>
-                <td class="td-nama">${namaSiswa}</td>`;
+                <td style="text-align:center;font-weight:bold;color:#dc2626;border:1px solid #cbd5e1;">${rankSiswa}</td>
+                <td style="text-align:center;mso-number-format:'\\@';border:1px solid #cbd5e1;">${nisnSiswa}</td>
+                <td style="text-align:left;font-weight:bold;border:1px solid #cbd5e1;">${namaSiswa}</td>`;
 
         mapelAktif.forEach((m, mapelIdx) => {
-            let bgClass = (mapelIdx % 2 === 1) ? 'bg-alt' : 'bg-norm';
+            // Selingan warna antar-mapel: Mapel Genap menggunakan warna latar abu-abu soft (#e2e8f0)
+            let isAlt = (mapelIdx % 2 === 1);
+            let bgStyle = isAlt ? 'background-color:#e2e8f0;' : 'background-color:#ffffff;';
 
             let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
             let dataMentah = {};
@@ -7099,12 +7106,12 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                     totalBobot += k.bobot;
 
                     if (valNum === 0) {
-                        rowCells += `<td class="td-center td-red">0</td>`;
+                        rowCells += `<td style="text-align:center;font-weight:bold;color:#dc2626;background-color:#fee2e2;border:1px solid #cbd5e1;">0</td>`;
                     } else {
-                        rowCells += `<td class="td-center ${bgClass}">${valNum}</td>`;
+                        rowCells += `<td style="text-align:center;${bgStyle}border:1px solid #cbd5e1;">${valNum}</td>`;
                     }
                 } else {
-                    rowCells += `<td class="td-center td-gray ${bgClass}">-</td>`;
+                    rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
                 }
             });
 
@@ -7113,12 +7120,12 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
             if (nilaiAkhirMurni > 0) {
                 let formatNilai = parseInt(nilaiAkhirMurni.toFixed(0));
                 if (nilaiAkhirMurni < 75) {
-                    rowCells += `<td class="td-center td-red-bold">${formatNilai}</td>`;
+                    rowCells += `<td style="text-align:center;font-weight:bold;color:#dc2626;background-color:#fee2e2;border:1px solid #cbd5e1;">${formatNilai}</td>`;
                 } else {
-                    rowCells += `<td class="td-center td-bold ${bgClass}">${formatNilai}</td>`;
+                    rowCells += `<td style="text-align:center;font-weight:bold;${bgStyle}border:1px solid #cbd5e1;">${formatNilai}</td>`;
                 }
             } else {
-                rowCells += `<td class="td-center td-gray ${bgClass}">-</td>`;
+                rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
             }
         });
 
@@ -7126,7 +7133,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return rowCells;
     }).join('');
 
-    // 6. TEMPLATE HTML MURNI UNTUK BROWSER & EXCEL
+    // 6. TEMPLATE HTML MURNI EXCEL (WITH INLINE STYLES FOR ZEBRA STRIPING)
     let htmlTemplate = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -7147,26 +7154,14 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     <![endif]-->
     <style>
         table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
-        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: middle; white-space: nowrap; }
-        .th-main { background-color: #1e293b; color: #ffffff; text-align: center; font-weight: bold; }
-        .th-sub { background-color: #0f172a; color: #ffffff; text-align: center; font-weight: bold; }
-        .td-rank { text-align: center; font-weight: bold; color: #dc2626; }
-        .td-nisn { text-align: center; mso-number-format: "\\@"; }
-        .td-nama { text-align: left; font-weight: bold; }
-        .td-center { text-align: center; }
-        .td-bold { font-weight: bold; }
-        .td-gray { color: #64748b; }
-        .td-red { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
-        .td-red-bold { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
-        .bg-norm { background-color: #ffffff; }
-        .bg-alt { background-color: #f1f5f9; }
+        th, td { padding: 6px 8px; vertical-align: middle; white-space: nowrap; }
     </style>
 </head>
 <body>
     <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px; font-family: Arial, sans-serif;">
         LEGER NILAI RINCIAN KELAS ${escapeHtml(kelas)} SEMESTER ${escapeHtml(smt)}
     </div>
-    <table>
+    <table border="1">
         <thead>
             ${headerRow1}
             ${headerRow2}
@@ -7178,7 +7173,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 </body>
 </html>`;
 
-    // 7. PROSES UNDUH STREAM BLOB HTML AMAN
+    // 7. PROSES UNDUH STREAM BLOB HTML AMAN UNTUK EXCEL
     let blob = new Blob([htmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
     let url = URL.createObjectURL(blob);
     let a = document.createElement('a');
@@ -7189,7 +7184,6 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
-
 
     // ============================================================
     // AUTO-LOGOUT IDLE (10 MENIT TANPA AKTIVITAS)
