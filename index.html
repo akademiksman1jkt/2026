@@ -6972,7 +6972,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return;
     }
 
-    // 2. AMBIL KOMPONEN KOLOM DARI ADMIN & MAPEL PILIHAN ADMIN
+    // 2. AMBIL KOMPONEN KOLOM DARI ADMIN & MAPEL AKTIF
     const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [
         { id: 'harian', nama: 'Tugas 1', bobot: 25 },
         { id: 'tugas', nama: 'Tugas 2', bobot: 25 },
@@ -6983,7 +6983,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : daftarMapel.map(m => m.kode);
     let mapelDaftar = daftarMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
 
-    // 3. FILTER HANYA MAPEL YANG MEMILIKI NILAI DARI SELURUH SISWA KELAS INI
+    // FILTER OTOMATIS: HANYA MAPEL YANG MEMILIKI NILAI YANG DITAMPILKAN
     let mapelAktif = mapelDaftar.filter(m => {
         let adaNilai = false;
         fSiswa.forEach(siswa => {
@@ -6996,7 +6996,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 if (!isNaN(v) && v > 0) adaNilai = true;
             });
         });
-        return adaNilai; // Hanya lolos jika minimal ada 1 siswa yang nilainya terisi
+        return adaNilai;
     });
 
     if (mapelAktif.length === 0) {
@@ -7004,7 +7004,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return;
     }
 
-    // 4. HITUNG PERINGKAT (RANKING) KESELURUHAN SISWA
+    // 3. HITUNG PERINGKAT (RANKING) KESELURUHAN SISWA
     let rankData = fSiswa.map(siswa => {
         let totalNilaiRerataMapel = 0;
         let totalMapelTerhitung = 0;
@@ -7037,38 +7037,39 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let sortedRankData = [...rankData].sort((a, b) => b.avg - a.avg);
     let getRank = nisn => sortedRankData.findIndex(r => r.nisn === nisn) + 1;
 
-    // 5. CONSTRUCT CSV CONTENT (BOM UTF-8 agar angka NISN & Karakter Aman)
-    let csvRows = [];
-    
-    // Baris Judul
-    csvRows.push([`"LEGER NILAI RINCIAN KELAS ${kelas} SEMESTER ${smt}"`]);
-    csvRows.push([]); // Baris kosong
+    // 4. SUSUN HEADER MATA PELAJARAN DAN KOMPONEN NILAI (2 TINGKAT)
+    let headerRow1 = `
+        <tr>
+            <th rowspan="2" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">Rank</th>
+            <th rowspan="2" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">NISN</th>
+            <th rowspan="2" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">Nama Siswa</th>`;
 
-    // Baris Header 1 (Nama Mapel)
-    let h1 = ['"Rank"', '"NISN"', '"Nama Siswa"'];
+    let headerRow2 = `<tr>`;
+    let subColCount = kolomConfig.length + 1;
+
     mapelAktif.forEach(m => {
-        h1.push(`"${m.namaLengkap}"`);
-        // Spacer untuk kolom komponen pendukung
-        for (let i = 0; i < kolomConfig.length; i++) h1.push('""');
+        headerRow1 += `<th colspan="${subColCount}" style="background:#1e293b;color:#ffffff;border:1px solid #000000;text-align:center;vertical-align:middle;font-weight:bold;">${m.namaLengkap}</th>`;
+        
+        kolomConfig.forEach(k => {
+            headerRow2 += `<th style="background:#0f172a;color:#ffffff;border:1px solid #000000;text-align:center;font-weight:bold;">${k.nama}</th>`;
+        });
+        headerRow2 += `<th style="background:#0f172a;color:#ffffff;border:1px solid #000000;text-align:center;font-weight:bold;">Akhir</th>`;
     });
-    csvRows.push(h1.join(','));
 
-    // Baris Header 2 (Komponen Nilai & Akhir)
-    let h2 = ['""', '""', '""'];
-    mapelAktif.forEach(() => {
-        kolomConfig.forEach(k => h2.push(`"${k.nama}"`));
-        h2.push('"Akhir"');
-    });
-    csvRows.push(h2.join(','));
+    headerRow1 += `</tr>`;
+    headerRow2 += `</tr>`;
 
-    // Baris Data Siswa
-    fSiswa.forEach(siswa => {
+    // 5. SUSUN BARIS DATA SISWA & NILAI RINCIAN
+    let rowsData = fSiswa.map(siswa => {
         let nisnSiswa = siswa[0] || '';
         let namaSiswa = (siswa[2] || '').toUpperCase();
         let rankSiswa = getRank(nisnSiswa);
 
-        // Memberikan petik tunggal ' pada NISN agar Excel membacanya murni sebagai teks (mencegah '1.09E+08')
-        let row = [`"${rankSiswa}"`, `="'${nisnSiswa}"`, `"${namaSiswa}"`];
+        let rowCells = `
+            <tr>
+                <td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;color:#dc2626;">${rankSiswa}</td>
+                <td style="border:1px solid #cbd5e1;text-align:center;mso-number-format:'\\@';">${nisnSiswa}</td>
+                <td style="border:1px solid #cbd5e1;text-align:left;font-weight:bold;">${namaSiswa}</td>`;
 
         mapelAktif.forEach(m => {
             let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
@@ -7084,34 +7085,81 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 if (!isNaN(valNum)) {
                     total += valNum * (k.bobot / 100);
                     totalBobot += k.bobot;
-                    row.push(`"${valNum}"`);
+
+                    if (valNum === 0) {
+                        rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;color:#dc2626;font-weight:bold;background:#fee2e2;">0</td>`;
+                    } else {
+                        rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;">${valNum}</td>`;
+                    }
                 } else {
-                    row.push('"-"');
+                    rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;color:#64748b;">-</td>`;
                 }
             });
 
             let nilaiAkhirMurni = totalBobot > 0 ? (total / totalBobot) * 100 : 0;
+
             if (nilaiAkhirMurni > 0) {
-                row.push(`"${nilaiAkhirMurni.toFixed(0)}"`);
+                let formatNilai = nilaiAkhirMurni.toFixed(0);
+                if (nilaiAkhirMurni < 75) {
+                    rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;color:#dc2626;background:#fee2e2;">${formatNilai}</td>`;
+                } else {
+                    rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;font-weight:bold;">${formatNilai}</td>`;
+                }
             } else {
-                row.push('"-"');
+                rowCells += `<td style="border:1px solid #cbd5e1;text-align:center;color:#64748b;">-</td>`;
             }
         });
 
-        csvRows.push(row.join(','));
-    });
+        rowCells += `</tr>`;
+        return rowCells;
+    }).join('');
 
-    // 6. UNDUH DALAM FORMAT CSV UTUH (BOM UTF-8 MENCEGAH WARNING EXCEL)
-    let csvString = '\uFEFF' + csvRows.join('\n');
-    let blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    let url = URL.createObjectURL(blob);
+    // 6. KONSTRUKSI TEMPLATE EXCEL
+    let excelTemplate = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Leger Nilai Rincian</x:Name>
+                    <x:WorksheetOptions>
+                        <x:DisplayGridlines/>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style>
+        table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
+        th { padding: 8px 10px; vertical-align: middle; white-space: nowrap; }
+        td { padding: 6px 8px; vertical-align: middle; white-space: nowrap; mso-number-format: "\\@"; }
+    </style>
+</head>
+<body>
+    <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px;">LEGER NILAI RINCIAN KELAS ${kelas} SEMESTER ${smt}</div>
+    <table border="1">
+        <thead>
+            ${headerRow1}
+            ${headerRow2}
+        </thead>
+        <tbody>
+            ${rowsData}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+    // 7. PROSES UNDUH BASE64 UNTUK MENGELIMINASI WARNING EXCEL
+    let base64 = function(s) { return window.btoa(unescape(encodeURIComponent(s))); };
     let a = document.createElement('a');
-    a.href = url;
-    a.download = `LEGER_NILAI_RINCIAN_KELAS_${kelas}_SEMESTER_${smt}.csv`;
+    a.href = 'data:application/vnd.ms-excel;charset=utf-8;base64,' + base64(excelTemplate);
+    a.download = `LEGER_NILAI_RINCIAN_KELAS_${kelas}_SEMESTER_${smt}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 }
 
 
