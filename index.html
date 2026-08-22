@@ -2670,25 +2670,26 @@
     (function InisialisasiDataCloud() {
     if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) return;
 
-    // 1. Tampilkan indikator status PROSES (Kuning)
     if (typeof setStatusSinkron === 'function') {
         setStatusSinkron('proses');
     }
 
-    // 2. Tambahkan parameter Anti-Cache (timestamp unik)
     const timestampUnik = new Date().getTime();
     const urlAntiCache = URL_SCRIPT_BIODATA + (URL_SCRIPT_BIODATA.includes('?') ? '&' : '?') + '_t=' + timestampUnik;
 
-    console.log("Memuat data segar dari Cloud (Anti-Cache):", urlAntiCache);
+    console.log("Memuat data segar dari Cloud (Bypass Total Cache):", urlAntiCache);
 
     fetch(urlAntiCache, {
         method: 'GET',
-        cache: 'no-store' // Mencegah browser membaca memori cache lama
+        cache: 'no-store', // Mencegah browser menyimpan atau membaca dari disk cache
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate', // Paksa browser minta data baru ke server
+            'Pragma': 'no-cache',                                  // Dukungan untuk HTTP 1.0 / browser lama
+            'Expires': '0'                                         // Menandakan konten langsung kadaluarsa
+        }
     })
         .then(response => {
-            if (!response.ok) {
-                throw new Error("Respon jaringan tidak OK");
-            }
+            if (!response.ok) throw new Error("Respon jaringan tidak OK");
             return response.json();
         })
         .then(resData => {
@@ -2709,17 +2710,12 @@
                 dataSiswaGlobal = resData;
             }
 
-            console.log("✅ Biodata terunduh:", dataBiodataGlobal.length);
-            console.log("✅ Nilai terunduh:", dataSiswaGlobal.length);
-
-            // 3. Ubah indikator status menjadi SUKSES (Hijau)
             if (typeof setStatusSinkron === 'function') {
                 setStatusSinkron('sukses');
             }
         })
         .catch(err => {
             console.error("Gagal muat data:", err);
-            // 4. Ubah indikator status menjadi GAGAL (Merah) & munculkan tombol 'Coba Lagi'
             if (typeof setStatusSinkron === 'function') {
                 setStatusSinkron('gagal', 'Gagal memuat data dari Cloud!');
             }
