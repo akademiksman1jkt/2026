@@ -2055,46 +2055,72 @@
             </div>
 
             <!-- TAB 1: Input Nilai -->
-            <div id="epSection_inputNilai">
-                <div class="search-card">
-                    <div class="search-box">
-                        <select id="epSelectKelas"><option value="">-- Pilih Kelas --</option></select>
-                        <select id="epSelectMapel"><option value="">-- Pilih Mata Pelajaran --</option></select>
-                        <select id="epSelectSemester">
-                            <option value="1">Semester 1</option><option value="2">Semester 2</option>
-                            <option value="3">Semester 3</option><option value="4">Semester 4</option>
-                            <option value="5">Semester 5</option><option value="6">Semester 6</option>
-                        </select>
-                        <button class="btn-primary" onclick="muatLembarKerjaErapor()"><i class="ri-table-line"></i> BUKA INPUT DATA</button>
-                    </div>
-                </div>
-                <div id="sectionLembarKerjaErapor" class="result-section">
-                    <div class="label-bobot-info" id="labelMetodeHitung">✨ <strong>Metode Perhitungan:</strong> Rata-Rata Murni Terbuka. Data tersimpan di Cloud Server Google Sheets.</div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead><tr id="headerEraporKolom">
-                                <th style="width:60px; text-align:center;">No</th>
-                                <th>Identitas</th>
-                                <th>Nama Lengkap</th>
-                                <th>Nilai Harian</th>
-                                <th>Nilai Tugas</th>
-                                <th>Nilai UTS</th>
-                                <th>Nilai UAS</th>
-                                <th style="background-color:var(--primary-light); color:var(--primary);">Akhir Rapor</th>
-                            </tr></thead>
-                            <tbody id="tableBodyErapor"></tbody>
-                        </table>
-                    </div>
-                    <div style="margin-top:25px; display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap;">
-                        <button class="excel-btn" onclick="eksporTemplateErapor()">
-                            <i class="ri-download-line"></i> Unduh Template Excel
-                        </button>
-                        <button class="btn-primary" style="background-color:var(--success);" onclick="simpanKomponenNilaiCloud()">
-                            <i class="ri-cloud-upload-line"></i> SIMPAN PERMANEN KE CLOUD DATA
-                        </button>
-                    </div>
-                </div>
+<div id="epSection_inputNilai">
+    <div class="search-card">
+        <!-- Area Filter & Tombol Utama di Bagian Atas -->
+        <div class="search-box" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+            
+            <!-- Sisi Kiri: Dropdown Filter -->
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; flex:1; min-width:280px;">
+                <select id="epSelectKelas" style="height:40px;"><option value="">-- Pilih Kelas --</option></select>
+                <select id="epSelectMapel" style="height:40px;"><option value="">-- Pilih Mata Pelajaran --</option></select>
+                
+                <!-- Dropdown Semester Terkunci (Disabled) -->
+                <select id="epSelectSemester" disabled style="height:40px; background-color:#f1f5f9; color:#64748b; cursor:not-allowed; border:1px solid #cbd5e1;">
+                    <option value="1">Semester 1</option>
+                    <option value="2" selected>Semester 2</option>
+                    <option value="3">Semester 3</option>
+                    <option value="4">Semester 4</option>
+                    <option value="5">Semester 5</option>
+                    <option value="6">Semester 6</option>
+                </select>
+                
+                <button class="btn-primary" onclick="muatLembarKerjaErapor()" style="height:40px; padding:0 16px;">
+                    <i class="ri-table-line"></i> BUKA INPUT DATA
+                </button>
             </div>
+
+            <!-- Sisi Kanan: Tombol Unduh, Import, dan Simpan di Atas -->
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <button class="excel-btn" onclick="eksporTemplateErapor()" style="height:40px; padding:0 14px; font-size:12px;">
+                    <i class="ri-download-line"></i> Unduh Template
+                </button>
+
+                <label class="excel-btn" style="background:#0284c7; height:40px; padding:0 14px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; margin:0;">
+                    <i class="ri-upload-2-line"></i> Import Nilai
+                    <input type="file" id="importFileEraporAtas" accept=".xlsx,.xls" style="display:none;" onchange="prosesImportNilaiExcelLangsung(event)">
+                </label>
+
+                <button class="btn-primary" style="background-color:var(--success); height:40px; padding:0 14px; font-size:12px;" onclick="simpanKomponenNilaiCloud()">
+                    <i class="ri-cloud-upload-line"></i> SIMPAN KE CLOUD
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Lembar Kerja Tabel Input Data -->
+    <div id="sectionLembarKerjaErapor" class="result-section">
+        <div class="label-bobot-info" id="labelMetodeHitung">✨ <strong>Metode Perhitungan:</strong> Rata-Rata Murni Terbuka. Data tersimpan di Cloud Server Google Sheets.</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr id="headerEraporKolom">
+                        <th style="width:60px; text-align:center;">No</th>
+                        <th>Identitas</th>
+                        <th>Nama Lengkap</th>
+                        <th>Nilai Harian</th>
+                        <th>Nilai Tugas</th>
+                        <th>Nilai UTS</th>
+                        <th>Nilai UAS</th>
+                        <th style="background-color:var(--primary-light); color:var(--primary);">Akhir Rapor</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBodyErapor"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
             <!-- TAB 2: Kelola Kolom -->
             <div id="epSection_kelolaKolom" style="display:none;">
