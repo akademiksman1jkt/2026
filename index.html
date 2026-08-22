@@ -9515,38 +9515,86 @@ function prosesImportNilaiExcelLangsung(event) {
     event.target.value = ''; // Reset input file
 }
 
-// Fungsi untuk memasukkan hasil bacaan ke tabel e-Rapor & hitung otomatis
+// Fungsi Import Excel yang Aman untuk Kolom Smt Lalu
 function terapkanDataImportKeTabel(dataExcel) {
     const tbody = document.getElementById('tableBodyErapor');
     if (!tbody) return;
 
-    tbody.innerHTML = ''; // Bersihkan tabel lama
+    const kelas = document.getElementById('epSelectKelas')?.value;
+    const mapel = document.getElementById('epSelectMapel')?.value;
+    const smt   = parseInt(document.getElementById('epSelectSemester')?.value || '1');
+
+    const kolom     = getKolomErapor();
+    const mapelInfo = (typeof daftarMapel !== 'undefined') ? daftarMapel.find(m => m.kode === mapel) : null;
+    const mapelIdx  = (typeof daftarMapel !== 'undefined') ? daftarMapel.indexOf(mapelInfo) : -1;
+
+    tbody.innerHTML = ''; // Bersihkan tabel
 
     dataExcel.forEach((row, index) => {
-        // Ambil nilai masing-masing komponen
-        let harian = parseFloat(row['Nilai Harian'] || row['Tugas 1'] || 0);
-        let tugas = parseFloat(row['Nilai Tugas'] || row['Tugas 2'] || 0);
-        let uts = parseFloat(row['Nilai UTS'] || row['UTS'] || 0);
-        let uas = parseFloat(row['Nilai UAS'] || row['UAS'] || 0);
+        const nisn = row['NISN'] || row['Identitas'] || '-';
+        const nama = row['Nama Lengkap'] || row['Nama'] || '-';
 
-        // Hitung nilai akhir (Rata-rata)
-        let akhirRapor = row['Akhir Rapor'] || ((harian + tugas + uts + uas) / 4).toFixed(1);
+        // 1. Ambil Nilai Smt Lalu MURNI dari data master/cloud (BUKAN DARI EXCEL)
+        let nilaiSmtLalu = '-';
+        if (smt > 1 && mapelIdx >= 0 && typeof dataSiswaGlobal !== 'undefined') {
+            let siswaMaster = dataSiswaGlobal.find(s => String(s[0]).trim() === String(nisn).trim());
+            if (siswaMaster) {
+                let valLalu = siswaMaster[6 + (mapelIdx * 6) + (smt - 2)];
+                if (valLalu && valLalu !== '-') nilaiSmtLalu = parseFloat(valLalu) || '-';
+            }
+        }
+
+        // 2. Petakan nilai komponen HANYA untuk kolom input yang valid
+        let kolomInputsHTML = '';
+        let totalHitung = 0, totalBobotHitung = 0;
+
+        kolom.forEach(k => {
+            // Cari nilai di Excel berdasarkan nama kolom yang cocok
+            let val = row[k.nama] !== undefined ? row[k.nama] : (row[k.id] !== undefined ? row[k.id] : '');
+            
+            // Jika nilai Excel kosong/spesifik per komponen
+            if (val === '' || val === undefined) {
+                if (k.id === 'tugas1') val = row['Nilai Harian'] || row['Tugas 1'] || 0;
+                else if (k.id === 'tugas2') val = row['Nilai Tugas'] || row['Tugas 2'] || 0;
+                else if (k.id === 'ash') val = row['Nilai UTS'] || row['ASH'] || 0;
+                else if (k.id === 'asts') val = row['Nilai UAS'] || row['ASTS'] || 0;
+                else val = 0;
+            }
+
+            let numVal = parseFloat(val);
+            if (!isNaN(numVal)) {
+                totalHitung += numVal * (k.bobot / 100);
+                totalBobotHitung += k.bobot;
+            } else {
+                numVal = '';
+            }
+
+            kolomInputsHTML += `<td>
+                <input type="number" id="ep_${k.id}_${nisn}" class="input-nilai ep-input-m" data-bobot="${k.bobot}" value="${numVal}" oninput="hitungNilaiAkhirErapor('${nisn}')" style="width:80px; padding:5px; border:1px solid var(--slate-200); border-radius:4px; text-align:center;">
+            </td>`;
+        });
+
+        // 3. Hitung Nilai Akhir & Keterangan Tren
+        let akhirVal = '-';
+        if (totalBobotHitung > 0) {
+            akhirVal = (totalBobotHitung < 100 ? (totalHitung / totalBobotHitung) * 100 : totalHitung).toFixed(1);
+        }
+
+        let labelTrend = hitungLabelTrend(akhirVal, nilaiSmtLalu);
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="text-align:center;">${index + 1}</td>
-            <td>${row['NISN'] || row['Identitas'] || '-'}</td>
-            <td>${row['Nama Lengkap'] || row['Nama'] || '-'}</td>
-            <td><input type="number" class="input-nilai" value="${harian}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
-            <td><input type="number" class="input-nilai" value="${tugas}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
-            <td><input type="number" class="input-nilai" value="${uts}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
-            <td><input type="number" class="input-nilai" value="${uas}" oninput="hitungRataRataBaris(this)" style="width:100%; text-align:center;"></td>
-            <td class="td-akhir-rapor" style="text-align:center; font-weight:bold; background-color:var(--primary-light); color:var(--primary);">${akhirRapor}</td>
+            <td style="text-align:center; font-weight:700;">${index + 1}</td>
+            <td><code>${nisn}</code></td>
+            <td><strong>${nama}</strong></td>
+            <td id="ep_smt_lalu_${nisn}" style="text-align:center; background-color:#f8fafc; font-weight:600; color:#475569;">${nilaiSmtLalu}</td>
+            ${kolomInputsHTML}
+            <td id="ep_akhir_${nisn}" style="text-align:center; font-weight:800; color:var(--primary);">${akhirVal}</td>
+            <td id="ep_ket_${nisn}" style="text-align:center; font-weight:700;">${labelTrend}</td>
         `;
         tbody.appendChild(tr);
     });
 }
-
 // Fungsi tambahan: Otomatis perbarui Akhir Rapor jika guru mengedit angka di tabel
 function hitungRataRataBaris(inputEl) {
     let row = inputEl.closest('tr');
