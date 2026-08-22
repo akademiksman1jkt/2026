@@ -7024,13 +7024,33 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : daftarMapel.map(m => m.kode);
     let mapelDaftar = daftarMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
 
-    // FILTER OTOMATIS: HANYA TAMPILKAN MAPEL YANG MEMILIKI NILAI
+    // HELPER: Ambil data nilai siswa murni dari dataSiswaGlobal (Google Sheets)
+    function getNilaiFromCloud(nisn, mapelKode, semester) {
+        let dataMentah = {};
+        if (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) {
+            let rowNilai = dataSiswaGlobal.find(r => 
+                String(r[0]).trim() === String(nisn).trim() && 
+                String(r[1]).trim() === String(mapelKode).trim() && 
+                String(r[2]).trim() === String(semester).trim()
+            );
+
+            if (rowNilai) {
+                dataMentah = {
+                    harian: rowNilai[3] !== undefined ? rowNilai[3] : '',
+                    tugas:  rowNilai[4] !== undefined ? rowNilai[4] : '',
+                    uts:    rowNilai[5] !== undefined ? rowNilai[5] : '',
+                    uas:    rowNilai[6] !== undefined ? rowNilai[6] : ''
+                };
+            }
+        }
+        return dataMentah;
+    }
+
+    // FILTER OTOMATIS: HANYA TAMPILKAN MAPEL YANG MEMILIKI NILAI DARI SPREADSHEET
     let mapelAktif = mapelDaftar.filter(m => {
         let adaNilai = false;
         fSiswa.forEach(siswa => {
-            let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
-            let dataMentah = {};
-            try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
+            let dataMentah = getNilaiFromCloud(siswa[0], m.kode, smt);
             
             kolomConfig.forEach(k => {
                 let v = parseFloat(dataMentah[k.id]);
@@ -7051,9 +7071,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         let totalMapelTerhitung = 0;
 
         mapelAktif.forEach((m) => {
-            let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
-            let dataMentah = {};
-            try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
+            let dataMentah = getNilaiFromCloud(siswa[0], m.kode, smt);
 
             let total = 0, totalBobot = 0;
             kolomConfig.forEach(k => {
@@ -7117,13 +7135,10 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 <td style="text-align:left;font-weight:bold;border:1px solid #cbd5e1;">${namaSiswa}</td>`;
 
         mapelAktif.forEach((m, mapelIdx) => {
-            // Selingan warna antar-mapel: Mapel Genap menggunakan warna latar abu-abu soft (#e2e8f0)
             let isAlt = (mapelIdx % 2 === 1);
             let bgStyle = isAlt ? 'background-color:#e2e8f0;' : 'background-color:#ffffff;';
 
-            let keyUnik = 'ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0];
-            let dataMentah = {};
-            try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
+            let dataMentah = getNilaiFromCloud(siswa[0], m.kode, smt);
 
             let total = 0, totalBobot = 0;
 
@@ -7158,6 +7173,10 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
             }
         });
+
+        rowCells += `</tr>`;
+        return rowCells;
+    }).join('');
 
         rowCells += `</tr>`;
         return rowCells;
