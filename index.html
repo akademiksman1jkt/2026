@@ -9348,6 +9348,37 @@ function muatDataPerangkat() {
             return false;
         }
     });
+    // Simpan semester pilihan Admin
+function simpanSemesterAktifAdmin() {
+    const semDipilih = document.getElementById('adminSettingSemester').value;
+    localStorage.setItem('semesterAktifErapor', semDipilih);
+    
+    // Terapkan ke dropdown Input Nilai
+    terapkanSemesterKeInput();
+    alert(`Sukses! Semester aktif sistem berhasil diubah ke Semester ${semDipilih}.`);
+}
+
+// Otomatis terapkan nilai semester ke dropdown Input Nilai yang dikunci
+function terapkanSemesterKeInput() {
+    const semesterTersimpan = localStorage.getItem('semesterAktifErapor') || '2';
+    
+    // Set di menu Input Nilai Guru
+    const epSelectSemester = document.getElementById('epSelectSemester');
+    if (epSelectSemester) {
+        epSelectSemester.value = semesterTersimpan;
+    }
+    
+    // Set di menu Pengaturan Admin
+    const adminSettingSemester = document.getElementById('adminSettingSemester');
+    if (adminSettingSemester) {
+        adminSettingSemester.value = semesterTersimpan;
+    }
+}
+
+// Jalankan otomatis saat halaman selesai dimuat
+window.addEventListener('DOMContentLoaded', function() {
+    terapkanSemesterKeInput();
+});
 </script>
 </body>
 </html>
