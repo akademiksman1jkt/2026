@@ -6962,6 +6962,17 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return;
     }
 
+    // Helper khusus untuk escape karakter XML (mencegah eror & / < / >)
+    function escapeXml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
     // 1. FILTER SISWA BERDASARKAN KELAS & URUTKAN NAMA
     const fSiswa = dataSiswaGlobal
         .filter(r => r[3] === kelas)
@@ -7047,9 +7058,9 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let xmlHeaderRow2 = `<Row ss:AutoFitHeight="0" ss:Height="20">`;
 
     mapelAktif.forEach(m => {
-        xmlHeaderRow1 += `<Cell ss:MergeAcross="${subColCount - 1}" ss:StyleID="sHeaderNavy"><Data ss:Type="String">${m.namaLengkap}</Data></Cell>`;
+        xmlHeaderRow1 += `<Cell ss:MergeAcross="${subColCount - 1}" ss:StyleID="sHeaderNavy"><Data ss:Type="String">${escapeXml(m.namaLengkap)}</Data></Cell>`;
         kolomConfig.forEach(k => {
-            xmlHeaderRow2 += `<Cell ss:StyleID="sHeaderDark"><Data ss:Type="String">${k.nama}</Data></Cell>`;
+            xmlHeaderRow2 += `<Cell ss:StyleID="sHeaderDark"><Data ss:Type="String">${escapeXml(k.nama)}</Data></Cell>`;
         });
         xmlHeaderRow2 += `<Cell ss:StyleID="sHeaderDark"><Data ss:Type="String">Akhir</Data></Cell>`;
     });
@@ -7059,9 +7070,9 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 
     // 5. SUSUN BARIS DATA SISWA XML DENGAN SELINGAN WARNA ANTAR KOLOM MAPEL
     let xmlRows = fSiswa.map(siswa => {
-        let nisnSiswa = siswa[0] || '';
-        let namaSiswa = (siswa[2] || '').toUpperCase();
-        let rankSiswa = getRank(nisnSiswa);
+        let nisnSiswa = escapeXml(siswa[0] || '');
+        let namaSiswa = escapeXml((siswa[2] || '').toUpperCase());
+        let rankSiswa = getRank(siswa[0]);
 
         let rowXml = `<Row ss:AutoFitHeight="0" ss:Height="18">
             <Cell ss:StyleID="sCellRank"><Data ss:Type="Number">${rankSiswa}</Data></Cell>
@@ -7069,7 +7080,6 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
             <Cell ss:StyleID="sCellTextBold"><Data ss:Type="String">${namaSiswa}</Data></Cell>`;
 
         mapelAktif.forEach((m, mapelIdx) => {
-            // Tentukan apakah mapel ini menggunakan style normal (putih) atau alternate (selingan warna)
             let isAlt = (mapelIdx % 2 === 1);
             let stCenter = isAlt ? 'sCellAltCenter' : 'sCellCenter';
             let stCenterBold = isAlt ? 'sCellAltCenterBold' : 'sCellCenterBold';
@@ -7117,7 +7127,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return rowXml;
     }).join('');
 
-    // 6. KONSTRUKSI TEMPLATE XML DENGAN GAYA SELINGAN WARNA
+    // 6. KONSTRUKSI TEMPLATE XML SPREADSHEET
     let xmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -7159,7 +7169,6 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
    <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
   </Style>
-  <!-- Style Normal (Mapel Ganjil) -->
   <Style ss:ID="sCellCenter">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
@@ -7174,7 +7183,6 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
    <Font ss:FontName="Arial" ss:Size="10" ss:Color="#64748B"/>
   </Style>
-  <!-- Style Alternatif / Selingan Warna (Mapel Genap) -->
   <Style ss:ID="sCellAltCenter">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
@@ -7192,7 +7200,6 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
    <Font ss:FontName="Arial" ss:Size="10" ss:Color="#64748B"/>
    <Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/>
   </Style>
-  <!-- Style Peringatan Nilai Kurang / Merah -->
   <Style ss:ID="sCellRed">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
@@ -7212,7 +7219,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
    <Column ss:Width="95"/>
    <Column ss:Width="200"/>
    <Row ss:Height="22">
-    <Cell ss:StyleID="sTitle"><Data ss:Type="String">LEGER NILAI RINCIAN KELAS ${kelas} SEMESTER ${smt}</Data></Cell>
+    <Cell ss:StyleID="sTitle"><Data ss:Type="String">LEGER NILAI RINCIAN KELAS ${escapeXml(kelas)} SEMESTER ${escapeXml(smt)}</Data></Cell>
    </Row>
    <Row ss:Height="10"/>
    ${xmlHeaderRow1}
@@ -7222,12 +7229,12 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
  </Worksheet>
 </Workbook>`;
 
-    // 7. PROSES UNDUH FILE .XML
+    // 7. PROSES UNDUH FILE .XLS
     let blob = new Blob([xmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     let url = URL.createObjectURL(blob);
     let a = document.createElement('a');
     a.href = url;
-    a.download = `LEGER_NILAI_RINCIAN_KELAS_${kelas}_SEMESTER_${smt}.xml`;
+    a.download = `LEGER_NILAI_RINCIAN_KELAS_${kelas}_SEMESTER_${smt}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
