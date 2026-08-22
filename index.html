@@ -7569,34 +7569,8 @@ function bukaDialogCetakRapor() {
 // ============================================================
 // 3. LANGKAH 2: FUNGSI PENYIMPAN KONFIGURASI MODAL
 // ============================================================
-function eksekusiCetakRaporIndividu(kelas, smt) {
-    _raporCfgSet('namaSekolah',    document.getElementById('rcNamaSekolah')?.value    || 'SMA NEGERI 1 JAKARTA');
-    _raporCfgSet('subjudul',       document.getElementById('rcSubjudul')?.value       || '');
-    _raporCfgSet('alamat',         document.getElementById('rcAlamat')?.value         || '');
-    _raporCfgSet('kota',           document.getElementById('rcKota')?.value           || 'Jakarta');
-    _raporCfgSet('namaKepsek',     document.getElementById('rcNamaKepsek')?.value     || '');
-    _raporCfgSet('nipKepsek',      document.getElementById('rcNipKepsek')?.value      || '');
-    _raporCfgSet('namaWali',       document.getElementById('rcNamaWali')?.value       || '');
-    _raporCfgSet('nipWali',        document.getElementById('rcNipWali')?.value        || '');
-    _raporCfgSet('showRank',       document.getElementById('rcShowRank')?.checked      ?? true);
-    _raporCfgSet('showAvg',        document.getElementById('rcShowAvg')?.checked       ?? true);
-    _raporCfgSet('showKode',       document.getElementById('rcShowKode')?.checked      ?? true);
-    _raporCfgSet('showKetuntasan', document.getElementById('rcShowKetuntasan')?.checked ?? true);
-    _raporCfgSet('showKKMNote',    document.getElementById('rcShowKKMNote')?.checked   ?? true);
-    _raporCfgSet('hideEmptyMapel', document.getElementById('rcHideEmptyMapel')?.checked ?? true);
-    _raporCfgSet('showNisn',       document.getElementById('rcShowNisn')?.checked      ?? true);
-    _raporCfgSet('showNis',        document.getElementById('rcShowNis')?.checked       ?? false);
-    _raporCfgSet('ttdWali',        document.getElementById('rcTtdWali')?.checked       ?? true);
-    _raporCfgSet('ttdKepsek',      document.getElementById('rcTtdKepsek')?.checked     ?? true);
-
-    document.getElementById('modalCetakRapor')?.remove();
-    cetakRaporIndividu(kelas, parseInt(smt));
-}
-
-// ============================================================
-// 4. LANGKAH 3: FUNGSI PEMPROSES LEMBAR RAPOR / PRINT
-// ============================================================
 function cetakRaporIndividu(kelas, smt) {
+    // 1. MEMBACA KONFIGURASI SETUP TAMPILAN RAPOR
     let cfg = {
         namaSekolah:    _raporCfgGet('namaSekolah',    'SMA NEGERI 1 JAKARTA'),
         subjudul:       _raporCfgGet('subjudul',       'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi'),
@@ -7620,13 +7594,24 @@ function cetakRaporIndividu(kelas, smt) {
     if (!cfg.namaKepsek.trim()) cfg.namaKepsek = '___________________________';
     if (!cfg.namaWali.trim())   cfg.namaWali   = '___________________________';
 
+    // Menyaring daftar siswa berdasarkan Rombel Kelas yang dipilih
     const fSiswa = dataSiswaGlobal
         .filter(r => r[3] === kelas)
         .sort((a, b) => (a[2] || '').localeCompare(b[2] || ''));
     if (fSiswa.length === 0) { alert('Tidak ada siswa di rombel kelas ini.'); return; }
 
+    // AMBIL KONFIGURASI KOLOM DINAMIS DARI ADMIN (Gambar 2)
+    const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [
+        { id: 'harian', nama: 'Harian', bobot: 25 },
+        { id: 'tugas', nama: 'Tugas', bobot: 25 },
+        { id: 'uts', nama: 'UTS', bobot: 25 },
+        { id: 'uas', nama: 'UAS', bobot: 25 }
+    ];
+
+    // AMBIL DAFTAR MAPEL PILIHAN ADMIN UNTUK KELAS INI
     let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : daftarMapel.map(m => m.kode); 
 
+    // 2. LOGIKA PERINGKAT (RANK)
     let rankData = fSiswa.map(siswa => {
         let totalNilaiRerataMapel = 0;
         let totalMapelTerhitung = 0;
@@ -7638,8 +7623,15 @@ function cetakRaporIndividu(kelas, smt) {
             let dataMentah = {};
             try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
             
-            let subVals = Object.values(dataMentah).map(v => parseFloat(v) || 0).filter(v => v > 0);
-            let rataMapel = subVals.length > 0 ? subVals.reduce((a,b)=>a+b, 0) / subVals.length : 0;
+            let total = 0, totalBobot = 0;
+            kolomConfig.forEach(k => {
+                let v = parseFloat(dataMentah[k.id]);
+                if (!isNaN(v) && v > 0) {
+                    total += v * (k.bobot / 100);
+                    totalBobot += k.bobot;
+                }
+            });
+            let rataMapel = totalBobot > 0 ? (total / totalBobot) * 100 : 0;
             
             if (rataMapel > 0) {
                 totalNilaiRerataMapel += rataMapel;
@@ -7660,19 +7652,20 @@ function cetakRaporIndividu(kelas, smt) {
     let y = new Date().getFullYear();
     let tahunAjar = smt % 2 === 1 ? `${y}/${y+1}` : `${y-1}/${y}`;
 
+    // 3. SUSUN HEADERS TABEL SECARA DINAMIS SESUAI KOLOM ADMIN
     let colHeaders = '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:32px;">No</th>';
     colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:left;">Mata Pelajaran</th>';
     if (cfg.showKode) colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:50px;">Kode</th>';
     
-    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">Harian</th>';
-    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">Tugas</th>';
-    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">UTS</th>';
-    colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">UAS</th>';
+    // Generasi Header Kolom dari Admin (Gambar 2)
+    kolomConfig.forEach(k => {
+        colHeaders += `<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:60px;">${k.nama}</th>`;
+    });
     
     colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:65px;background:#e2e8f0;color:#0f172a;">Rata-Rata</th>';
     if (cfg.showKetuntasan) colHeaders += '<th style="padding:8px 10px;border:1px solid #334155;font-size:11px;text-align:center;width:90px;">Ketuntasan</th>';
     
-    let colSpanFoot = 2 + (cfg.showKode ? 1 : 0) + 4; 
+    let colSpanFoot = 2 + (cfg.showKode ? 1 : 0) + kolomConfig.length; 
 
     function buildIdentityHtml(siswa) {
         let nisnSiswa = siswa[0] || '';
@@ -7698,6 +7691,7 @@ function cetakRaporIndividu(kelas, smt) {
         </div>`;
     }
 
+    // 4. LOOPING BARIS DATA SISWA & MAPEL
     let raporPages = fSiswa.map((siswa, siswaIdx) => {
         let nisnSiswa = siswa[0] || '';
         let avgSiswa  = getAvg(nisnSiswa);
@@ -7713,22 +7707,26 @@ function cetakRaporIndividu(kelas, smt) {
             let dataMentah = {};
             try { dataMentah = JSON.parse(localStorage.getItem(keyUnik) || '{}'); } catch(e) {}
 
-            let harian = dataMentah.harian && dataMentah.harian > 0 ? dataMentah.harian : '-';
-            let tugas  = dataMentah.tugas  && dataMentah.tugas > 0  ? dataMentah.tugas  : '-';
-            let uts    = dataMentah.uts    && dataMentah.uts > 0    ? dataMentah.uts    : '-';
-            let uas    = dataMentah.uas    && dataMentah.uas > 0    ? dataMentah.uas    : '-';
+            let subCellsHtml = '';
+            let total = 0, totalBobot = 0;
 
-            let subVals = Object.values(dataMentah).map(v => parseFloat(v) || 0).filter(v => v > 0);
-            let nilaiAkhirMurni = subVals.length > 0 ? subVals.reduce((a,b)=>a+b, 0) / subVals.length : 0;
+            // Render isi sel nilai secara dinamis
+            kolomConfig.forEach(k => {
+                let v = dataMentah[k.id];
+                let valNum = parseFloat(v);
+                
+                if (!isNaN(valNum) && valNum > 0) {
+                    subCellsHtml += `<td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${valNum}</td>`;
+                    total += valNum * (k.bobot / 100);
+                    totalBobot += k.bobot;
+                } else {
+                    subCellsHtml += `<td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">-</td>`;
+                }
+            });
+
+            let nilaiAkhirMurni = totalBobot > 0 ? (total / totalBobot) * 100 : 0;
 
             if (cfg.hideEmptyMapel && nilaiAkhirMurni === 0) return;
-
-            let subCellsHtml = `
-                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${harian}</td>
-                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${tugas}</td>
-                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${uts}</td>
-                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:500;">${uas}</td>
-            `;
 
             let warnaVal   = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#dc2626' : '#0f172a';
             let bgVal      = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#fef2f2' : 'transparent';
