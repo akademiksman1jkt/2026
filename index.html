@@ -2143,9 +2143,9 @@
                         <button class="excel-btn" onclick="eksporLegerExcel()" id="btnEksporLeger" style="display:none;">
                             <i class="ri-file-excel-2-line"></i> Ekspor Leger (.xlsx)
                         </button>
-                        <button class="excel-btn" style="background:var(--primary); display:none;" id="btnCetakRapor" onclick="window.print()">
+                        <button class="excel-btn" style="background:var(--primary); display:none;" id="btnCetakRapor" onclick="cetakLegerTampilanWeb()">
                             <i class="ri-printer-line"></i> Cetak Leger
-                        </button>
+                         </button>
                         <button class="excel-btn" style="background:#0f766e; display:none;" id="btnCetakRaporIndividu" onclick="bukaDialogCetakRapor()">
                             <i class="ri-file-user-line"></i> Cetak Rapor Individu
                         </button>
@@ -6958,90 +6958,114 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     const smt   = parseInt(document.getElementById('rlSelectSemester')?.value || '1');
     const kolomConfig = getKolomErapor();
 
-    // 1. Ambil data & hitung rata-rata tiap siswa (membaca input lokal & cloud)
-    const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas).map(siswa => {
-        let sum = 0, cnt = 0;
-        
-        daftarMapel.forEach((m, mIdx) => {
+    // Pastikan pustaka XLSX pendukung styling siap
+    const XLSX_LIB = (typeof XLSXStyle !== 'undefined') ? XLSXStyle : XLSX;
+
+    const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas);
+    if (!fSiswa || fSiswa.length === 0) { alert('Data siswa kosong!'); return; }
+
+    // Prepare data & calculation
+    let listDataSiswa = fSiswa.map(siswa => {
+        let sumAvg = 0, cntMapel = 0;
+        let mapelDetail = {};
+
+        daftarMapel.forEach((m) => {
             let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
             let draftObj = {};
             try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
 
             let total = 0, totalBobot = 0;
+            let compVals = {};
+
             kolomConfig.forEach(k => {
                 let v = draftObj[k.id];
-                if (v !== undefined && !isNaN(v) && v !== '') {
-                    total += parseFloat(v) * (k.bobot / 100);
+                let valNum = (v !== undefined && !isNaN(v) && v !== '') ? parseFloat(v) : null;
+                compVals[k.id] = valNum;
+                if (valNum !== null) {
+                    total += valNum * (k.bobot / 100);
                     totalBobot += k.bobot;
                 }
             });
 
-            let v = 0;
-            if (totalBobot > 0) {
-                v = totalBobot < 100 ? (total / totalBobot) * 100 : total;
-            } else {
-                v = parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0;
-            }
+            let akhir = totalBobot > 0 ? (totalBobot < 100 ? (total / totalBobot) * 100 : total) : null;
+            if (akhir !== null) { sumAvg += akhir; cntMapel++; }
 
-            if (v > 0) { sum += v; cnt++; }
+            mapelDetail[m.kode] = { compVals, akhir };
         });
 
-        let avg = cnt > 0 ? sum / cnt : 0;
-        return { siswa, avg };
-    }).sort((a, b) => b.avg - a.avg); // Urutkan berdasarkan rata-rata tertinggi
+        return { siswa, mapelDetail, avg: cntMapel > 0 ? sumAvg / cntMapel : 0 };
+    }).sort((a,b) => b.avg - a.avg);
 
-    if (fSiswa.length === 0) {
-        alert('Tidak ada data siswa untuk diekspor!');
-        return;
-    }
+    // Build Rows AOA
+    let rowJudul = [`LEGER NILAI RINCIAN KELAS ${kelas} SEMESTER ${smt}`];
+    let rowHeader1 = ['Rank', 'NISN', 'Nama Siswa'];
+    let rowHeader2 = ['', '', ''];
 
-    // 2. Buat Header Kolom Excel
-    const header = ['Rank', 'Nama Siswa', 'NISN'].concat(daftarMapel.map(m => m.namaLengkap || m.kode)).concat(['Rata-rata', 'Peringkat Kelas']);
-
-    // 3. Susun Baris Data Excel
-    const rows = fSiswa.map((item, idx) => {
-        const siswa = item.siswa;
-        
-        let mapelVals = daftarMapel.map((m, mIdx) => {
-            let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
-            let draftObj = {};
-            try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
-
-            let total = 0, totalBobot = 0;
-            kolomConfig.forEach(k => {
-                let v = draftObj[k.id];
-                if (v !== undefined && !isNaN(v) && v !== '') {
-                    total += parseFloat(v) * (k.bobot / 100);
-                    totalBobot += k.bobot;
-                }
-            });
-
-            let v = 0;
-            if (totalBobot > 0) {
-                v = totalBobot < 100 ? (total / totalBobot) * 100 : total;
-            } else {
-                v = parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0;
-            }
-
-            return v > 0 ? parseFloat(v.toFixed(1)) : '-';
-        });
-
-        return [idx + 1, siswa[2].toUpperCase(), siswa[0]]
-            .concat(mapelVals)
-            .concat([item.avg > 0 ? parseFloat(item.avg.toFixed(2)) : '-', '#' + (idx + 1)]);
+    daftarMapel.forEach(m => {
+        rowHeader1.push(m.namaLengkap || m.kode);
+        kolomConfig.forEach(() => rowHeader1.push('')); // span
+        kolomConfig.forEach(k => rowHeader2.push(k.nama));
+        rowHeader2.push('Akhir');
     });
 
-    // 4. Generate & Unduh File Excel
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(
-        [['LEGER NILAI KELAS ' + kelas + ' SEMESTER ' + smt + ' \u2014 SMA NEGERI 1 JAKARTA'], [], header].concat(rows)
-    );
+    rowHeader1.push('Rata-rata', 'Peringkat');
+    rowHeader2.push('', '');
 
-    // Atur Lebar Kolom
-    ws['!cols'] = [{wch:6}, {wch:28}, {wch:14}].concat(daftarMapel.map(() => ({wch:14}))).concat([{wch:12}, {wch:12}]);
+    let aoaData = [rowJudul, [], rowHeader1, rowHeader2];
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Leger_' + kelas + '_S' + smt);
-    XLSX.writeFile(wb, 'Leger_' + kelas + '_Sem' + smt + '_SMAN1Jakarta.xlsx');
+    listDataSiswa.forEach((item, rankIdx) => {
+        let r = [rankIdx + 1, item.siswa[0], item.siswa[2].toUpperCase()];
+        
+        daftarMapel.forEach(m => {
+            let mData = item.mapelDetail[m.kode];
+            kolomConfig.forEach(k => {
+                let v = mData.compVals[k.id];
+                r.push(v !== null ? v : '-');
+            });
+            r.push(mData.akhir !== null ? parseFloat(mData.akhir.toFixed(1)) : '-');
+        });
+
+        r.push(item.avg > 0 ? parseFloat(item.avg.toFixed(2)) : '-', '#' + (rankIdx + 1));
+        aoaData.push(r);
+    });
+
+    const ws = XLSX_LIB.utils.aoa_to_sheet(aoaData);
+
+    // Styling Cell (Warna & Format Bersyarat < 75 Red)
+    const range = XLSX_LIB.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            let cell_ref = XLSX_LIB.utils.encode_cell({c: C, r: R});
+            if (!ws[cell_ref]) continue;
+
+            let cell = ws[cell_ref];
+            cell.s = cell.s || {};
+            cell.s.font = { name: "Arial", sz: 10 };
+            cell.s.alignment = { vertical: "center", horizontal: "center" };
+            cell.s.border = {
+                top: {style: "thin", color: {rgb: "CBD5E1"}},
+                bottom: {style: "thin", color: {rgb: "CBD5E1"}},
+                left: {style: "thin", color: {rgb: "CBD5E1"}},
+                right: {style: "thin", color: {rgb: "CBD5E1"}}
+            };
+
+            // Header Style (Baris 2 & 3)
+            if (R === 2 || R === 3) {
+                cell.s.fill = { fgColor: { rgb: "1E293B" } };
+                cell.s.font = { name: "Arial", sz: 10, bold: true, color: { rgb: "FFFFFF" } };
+            }
+
+            // Highlight Nilai < 75 (Merah)
+            if (R >= 4 && typeof cell.v === 'number' && cell.v < 75) {
+                cell.s.fill = { fgColor: { rgb: "FEE2E2" } };
+                cell.s.font = { name: "Arial", sz: 10, bold: true, color: { rgb: "DC2626" } };
+            }
+        }
+    }
+
+    const wb = XLSX_LIB.utils.book_new();
+    XLSX_LIB.utils.book_append_sheet(wb, ws, "Leger_Lengkap");
+    XLSX_LIB.writeFile(wb, `Leger_Rincian_Kelas_${kelas}_Sem${smt}.xlsx`);
 }
 
 
@@ -7357,179 +7381,209 @@ function tarikSiswaAktifDariCloud() {
     // CETAK RAPOR INDIVIDU — Konfigurasi Lengkap (Kop, Kolom, Mapel)
     // ============================================================
 
-    function _raporCfgGet(key, def) {
-        try { let v = localStorage.getItem('rapor_cfg_'+key); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; }
+    // ============================================================
+// 1. HELPER LOCALSTORAGE (DISINKRONKAN DENGAN FORMAT KODE ANDA)
+// ============================================================
+function _raporCfgGet(key, def) {
+    try { 
+        let v = localStorage.getItem('rapor_cfg_' + key); 
+        return v !== null ? JSON.parse(v) : def; 
+    } catch(e) { 
+        return def; 
     }
-    function _raporCfgSet(key, val) { localStorage.setItem('rapor_cfg_'+key, JSON.stringify(val)); }
+}
 
-    function bukaDialogCetakRapor() {
-        let kelas = document.getElementById('rlSelectKelas')?.value || '';
-        let smt   = document.getElementById('rlSelectSemester')?.value || '1';
-        if (!kelas) { alert('Pilih kelas terlebih dahulu!'); return; }
+function _raporCfgSet(key, val) { 
+    localStorage.setItem('rapor_cfg_' + key, JSON.stringify(val)); 
+}
 
-        // Load saved config
-        let cfgNamaSekolah  = _raporCfgGet('namaSekolah',  'SMA NEGERI 1 JAKARTA');
-        let cfgSubjudul     = _raporCfgGet('subjudul',     'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi');
-        let cfgAlamat       = _raporCfgGet('alamat',       'Jl. Budi Utomo No.7, Ps. Baru, Jakarta Pusat 10710');
-        let cfgKota         = _raporCfgGet('kota',         'Jakarta');
-        let cfgNamaKepsek   = _raporCfgGet('namaKepsek',   '');
-        let cfgNipKepsek    = _raporCfgGet('nipKepsek',    '');
-        let cfgNamaWali     = _raporCfgGet('namaWali',     '');
-        let cfgNipWali      = _raporCfgGet('nipWali',      '');
-        let cfgShowRank     = _raporCfgGet('showRank',     true);
-        let cfgShowAvg      = _raporCfgGet('showAvg',      true);
-        let cfgShowKode     = _raporCfgGet('showKode',     true);
-        let cfgShowKetuntasan= _raporCfgGet('showKetuntasan', true);
-        let cfgShowKKMNote  = _raporCfgGet('showKKMNote',  true);
-        let cfgHideEmptyMapel = _raporCfgGet('hideEmptyMapel', true);
-        let cfgShowNisn     = _raporCfgGet('showNisn',     true);
-        let cfgShowNis      = _raporCfgGet('showNis',      false);
-        let cfgTtdWali      = _raporCfgGet('ttdWali',      true);
-        let cfgTtdKepsek    = _raporCfgGet('ttdKepsek',    true);
+// Helper Penukar Tab Modal (Agar Tab Modal Bisa Diklik)
+function rcSwitchTab(tabIdx) {
+    document.querySelectorAll('.rapor-cfg-tab').forEach((el, idx) => {
+        if (idx === (tabIdx - 1)) el.classList.add('active');
+        else el.classList.remove('active');
+    });
+    document.querySelectorAll('.rapor-cfg-section').forEach((el, idx) => {
+        if (idx === (tabIdx - 1)) el.classList.add('active');
+        else el.classList.remove('active');
+    });
+}
 
-        let modalHtml = `
-        <div id="modalCetakRapor" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">
-            <div style="background:white;border-radius:16px;max-width:680px;width:100%;max-height:90vh;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.35);display:flex;flex-direction:column;">
+// ============================================================
+// 2. FUNGSI EKSEKUSI CETAK (DISINKRONKAN DENGAN MODAL ANDA)
+// ============================================================
+function eksekusiCetakRaporIndividu(kelas, smt) {
+    // A. Simpan Seluruh Pengaturan dari Modal ke LocalStorage
+    _raporCfgSet('namaSekolah',    document.getElementById('rcNamaSekolah')?.value || '');
+    _raporCfgSet('subjudul',       document.getElementById('rcSubjudul')?.value || '');
+    _raporCfgSet('alamat',         document.getElementById('rcAlamat')?.value || '');
+    _raporCfgSet('kota',           document.getElementById('rcKota')?.value || '');
+    _raporCfgSet('namaWali',       document.getElementById('rcNamaWali')?.value || '');
+    _raporCfgSet('nipWali',        document.getElementById('rcNipWali')?.value || '');
+    _raporCfgSet('namaKepsek',     document.getElementById('rcNamaKepsek')?.value || '');
+    _raporCfgSet('nipKepsek',      document.getElementById('rcNipKepsek')?.value || '');
+    _raporCfgSet('showKode',       document.getElementById('rcShowKode')?.checked ?? true);
+    _raporCfgSet('showKetuntasan', document.getElementById('rcShowKetuntasan')?.checked ?? true);
+    _raporCfgSet('showAvg',        document.getElementById('rcShowAvg')?.checked ?? true);
+    _raporCfgSet('showRank',       document.getElementById('rcShowRank')?.checked ?? true);
+    _raporCfgSet('showNisn',       document.getElementById('rcShowNisn')?.checked ?? true);
+    _raporCfgSet('showNis',        document.getElementById('rcShowNis')?.checked ?? false);
+    _raporCfgSet('hideEmptyMapel', document.getElementById('rcHideEmptyMapel')?.checked ?? true);
+    _raporCfgSet('ttdWali',        document.getElementById('rcTtdWali')?.checked ?? true);
+    _raporCfgSet('ttdKepsek',      document.getElementById('rcTtdKepsek')?.checked ?? true);
 
-                <!-- Header -->
-                <div style="background:#0f172a;color:white;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+    // Tutup Modal
+    document.getElementById('modalCetakRapor')?.remove();
+
+    // B. Filter Siswa & Konfigurasi Kolom Komponen Guru
+    const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas);
+    const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [];
+
+    if (!fSiswa || fSiswa.length === 0) { 
+        alert('Data siswa untuk kelas ' + kelas + ' tidak ditemukan!'); 
+        return; 
+    }
+
+    let hideEmpty = _raporCfgGet('hideEmptyMapel', true);
+    let showKode  = _raporCfgGet('showKode', true);
+    let showKKM   = _raporCfgGet('showKetuntasan', true);
+
+    // C. Render Lembar Rapor Individu Siswa
+    let htmlPages = fSiswa.map(siswa => {
+        let rowsMapel = '';
+        let totalNilaiSiswa = 0, mapelCount = 0;
+
+        daftarMapel.forEach((m, mIdx) => {
+            let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
+            let draftObj = {};
+            try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
+
+            // Ambil rincian komponen nilai yang di-input guru (Tugas 1, Tugas 2, ASH, ASTS)
+            let rincianKomponenArr = [];
+            let total = 0, totalBobot = 0;
+
+            kolomConfig.forEach(k => {
+                let v = draftObj[k.id];
+                if (v !== undefined && !isNaN(v) && v !== '') {
+                    rincianKomponenArr.push(`${k.nama}: <b>${v}</b>`);
+                    total += parseFloat(v) * (k.bobot / 100);
+                    totalBobot += k.bobot;
+                }
+            });
+
+            let akhir = 0;
+            if (totalBobot > 0) {
+                akhir = totalBobot < 100 ? (total / totalBobot) * 100 : total;
+            } else {
+                akhir = parseFloat(siswa[6 + mIdx * 6 + (parseInt(smt) - 1)]) || 0;
+            }
+
+            if (hideEmpty && akhir === 0 && rincianKomponenArr.length === 0) return;
+
+            if (akhir > 0) { totalNilaiSiswa += akhir; mapelCount++; }
+
+            let txtAkhir = akhir > 0 ? akhir.toFixed(1) : '-';
+            let statusKetuntasan = akhir >= 75 ? '<span style="color:#16a34a; font-weight:bold;">Tuntas</span>' : '<span style="color:#dc2626; font-weight:bold;">Belum Tuntas</span>';
+
+            rowsMapel += `
+                <tr>
+                    <td style="text-align:center; padding:6px; border:1px solid #cbd5e1;">${mapelCount || (mIdx + 1)}</td>
+                    ${showKode ? `<td style="text-align:center; padding:6px; border:1px solid #cbd5e1;"><code>${m.kode}</code></td>` : ''}
+                    <td style="padding:6px; border:1px solid #cbd5e1;"><strong>${m.namaLengkap || m.kode}</strong></td>
+                    <td style="font-size:11px; color:#475569; padding:6px; border:1px solid #cbd5e1;">${rincianKomponenArr.length > 0 ? rincianKomponenArr.join(' | ') : '<em>-</em>'}</td>
+                    <td style="text-align:center; font-weight:bold; font-size:13px; padding:6px; border:1px solid #cbd5e1;">${txtAkhir}</td>
+                    ${showKKM ? `<td style="text-align:center; font-size:11px; padding:6px; border:1px solid #cbd5e1;">${statusKetuntasan}</td>` : ''}
+                </tr>
+            `;
+        });
+
+        let avgSiswa = mapelCount > 0 ? (totalNilaiSiswa / mapelCount).toFixed(2) : '-';
+
+        return `
+            <div class="rapor-page" style="page-break-after:always; padding:25px; font-family:'Plus Jakarta Sans',sans-serif; background:white;">
+                <!-- KOP SEKOLAH -->
+                <div style="text-align:center; border-bottom:2px solid #0f172a; padding-bottom:8px; margin-bottom:15px;">
+                    <h2 style="margin:0; font-size:18px; text-transform:uppercase;">${_raporCfgGet('namaSekolah', 'SMA NEGERI 1 JAKARTA')}</h2>
+                    <div style="font-size:12px; color:#475569;">${_raporCfgGet('subjudul', '')}</div>
+                    <div style="font-size:11px; color:#64748b;">${_raporCfgGet('alamat', '')}</div>
+                </div>
+
+                <!-- IDENTITAS -->
+                <p style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:12px;">LEMBAR CAPAIAN HASIL BELAJAR SISWA</p>
+                <table style="width:100%; font-size:12px; margin-bottom:12px; border:none;">
+                    <tr>
+                        <td style="border:none; padding:2px;"><strong>Nama Siswa</strong>: ${siswa[2].toUpperCase()}</td>
+                        <td style="border:none; padding:2px;"><strong>Kelas</strong>: ${kelas}</td>
+                    </tr>
+                    <tr>
+                        <td style="border:none; padding:2px;">${_raporCfgGet('showNisn', true) ? `<strong>NISN</strong>: ${siswa[0]}` : ''}</td>
+                        <td style="border:none; padding:2px;"><strong>Semester</strong>: ${smt}</td>
+                    </tr>
+                </table>
+
+                <!-- TABEL RINCIAN NILAI -->
+                <table style="width:100%; border-collapse:collapse; font-size:11px;" border="1">
+                    <thead>
+                        <tr style="background:#f1f5f9;">
+                            <th style="width:30px; padding:6px;">No</th>
+                            ${showKode ? `<th style="width:50px; padding:6px;">Kode</th>` : ''}
+                            <th style="padding:6px;">Mata Pelajaran</th>
+                            <th style="padding:6px;">Rincian Komponen Nilai (Guru)</th>
+                            <th style="width:80px; padding:6px;">Nilai Akhir</th>
+                            ${showKKM ? `<th style="width:80px; padding:6px;">Status</th>` : ''}
+                        </tr>
+                    </thead>
+                    <tbody>${rowsMapel}</tbody>
+                    ${_raporCfgGet('showAvg', true) ? `
+                    <tfoot>
+                        <tr style="background:#f8fafc; font-weight:bold;">
+                            <td colspan="${showKode ? 4 : 3}" style="text-align:right; padding:6px;">Rata-Rata Rapor:</td>
+                            <td style="text-align:center; font-size:13px; padding:6px;">${avgSiswa}</td>
+                            ${showKKM ? '<td></td>' : ''}
+                        </tr>
+                    </tfoot>` : ''}
+                </table>
+
+                <!-- TANDA TANGAN -->
+                <div style="margin-top:35px; display:flex; justify-content:space-between; font-size:12px; text-align:center;">
                     <div>
-                        <div style="font-size:16px;font-weight:800;"><i class="ri-file-user-line" style="color:#9d7e56;margin-right:6px;"></i> Cetak Rapor Individu</div>
-                        <div style="font-size:12px;color:#94a3b8;margin-top:2px;">Kelas <strong style="color:white;">${kelas}</strong> &mdash; Semester <strong style="color:white;">${smt}</strong></div>
+                        <p>Orang Tua / Wali Siswa</p>
+                        <br><br><br>
+                        <p>( ..................................... )</p>
                     </div>
-                    <button onclick="document.getElementById('modalCetakRapor').remove()" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:22px;line-height:1;">✕</button>
-                </div>
-
-                <!-- Tabs -->
-                <div style="display:flex;border-bottom:2px solid #e2e8f0;flex-shrink:0;padding:0 20px;background:#f8fafc;">
-                    <button class="rapor-cfg-tab active" id="rcTab1" onclick="rcSwitchTab(1)">🏫 Kop Instansi</button>
-                    <button class="rapor-cfg-tab" id="rcTab2" onclick="rcSwitchTab(2)">📊 Kolom & Tampilan</button>
-                    <button class="rapor-cfg-tab" id="rcTab3" onclick="rcSwitchTab(3)">📚 Mata Pelajaran</button>
-                    <button class="rapor-cfg-tab" id="rcTab4" onclick="rcSwitchTab(4)">✍️ Tanda Tangan</button>
-                </div>
-
-                <!-- Content -->
-                <div style="overflow-y:auto;flex:1;padding:20px 24px;">
-
-                    <!-- TAB 1: Kop Instansi -->
-                    <div id="rcSection1" class="rapor-cfg-section active">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Informasi sekolah yang akan tampil di bagian atas (kop) setiap halaman rapor.</div>
-                        <div style="display:grid;gap:12px;">
-                            <div>
-                                <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Nama Instansi / Sekolah</label>
-                                <input id="rcNamaSekolah" value="${cfgNamaSekolah}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;font-family:inherit;">
-                            </div>
-                            <div>
-                                <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Sub-judul / Naungan</label>
-                                <input id="rcSubjudul" value="${cfgSubjudul}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
-                            </div>
-                            <div>
-                                <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Alamat Sekolah</label>
-                                <input id="rcAlamat" value="${cfgAlamat}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
-                            </div>
-                            <div>
-                                <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Kota / Kabupaten (untuk tanda tangan)</label>
-                                <input id="rcKota" value="${cfgKota}" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: Kolom & Tampilan -->
-                    <div id="rcSection2" class="rapor-cfg-section">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Pilih kolom dan elemen yang ingin ditampilkan di rapor cetak.</div>
-                        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                            <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">KOLOM TABEL NILAI</div>
-                            <div style="padding:4px 16px;">
-                                <div class="rapor-toggle-row"><span>Kolom Kode Mapel</span><label class="toggle-switch"><input type="checkbox" id="rcShowKode" ${cfgShowKode?'checked':''}><span class="toggle-slider"></span></label></div>
-                                <div class="rapor-toggle-row"><span>Kolom Ketuntasan (Tuntas/Belum)</span><label class="toggle-switch"><input type="checkbox" id="rcShowKetuntasan" ${cfgShowKetuntasan?'checked':''}><span class="toggle-slider"></span></label></div>
-                                <div class="rapor-toggle-row"><span>Kolom Rata-Rata di footer tabel</span><label class="toggle-switch"><input type="checkbox" id="rcShowAvg" ${cfgShowAvg?'checked':''}><span class="toggle-slider"></span></label></div>
-                                <div class="rapor-toggle-row"><span>Kolom Peringkat Kelas di footer tabel</span><label class="toggle-switch"><input type="checkbox" id="rcShowRank" ${cfgShowRank?'checked':''}><span class="toggle-slider"></span></label></div>
-                            </div>
-                        </div>
-                        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:14px;">
-                            <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">IDENTITAS SISWA</div>
-                            <div style="padding:4px 16px;">
-                                <div class="rapor-toggle-row"><span>Tampilkan NISN</span><label class="toggle-switch"><input type="checkbox" id="rcShowNisn" ${cfgShowNisn?'checked':''}><span class="toggle-slider"></span></label></div>
-                                <div class="rapor-toggle-row"><span>Tampilkan NIS / Nomor Induk Sekolah</span><label class="toggle-switch"><input type="checkbox" id="rcShowNis" ${cfgShowNis?'checked':''}><span class="toggle-slider"></span></label></div>
-                            </div>
-                        </div>
-                        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:14px;">
-                            <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">CATATAN BAWAH</div>
-                            <div style="padding:4px 16px;">
-                                <div class="rapor-toggle-row"><span>Tampilkan catatan KKM (*)  di bawah tabel</span><label class="toggle-switch"><input type="checkbox" id="rcShowKKMNote" ${cfgShowKKMNote?'checked':''}><span class="toggle-slider"></span></label></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: Mata Pelajaran -->
-                    <div id="rcSection3" class="rapor-cfg-section">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Atur mata pelajaran yang muncul di rapor cetak.</div>
-                        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;">
-                            <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">FILTER OTOMATIS</div>
-                            <div style="padding:4px 16px;">
-                                <div class="rapor-toggle-row">
-                                    <div>
-                                        <div style="font-weight:600;">Sembunyikan mapel yang tidak ada nilainya</div>
-                                        <div style="font-size:11px;color:#64748b;margin-top:2px;">Mapel dengan nilai "-" atau kosong tidak akan ditampilkan di rapor</div>
-                                    </div>
-                                    <label class="toggle-switch"><input type="checkbox" id="rcHideEmptyMapel" ${cfgHideEmptyMapel?'checked':''}><span class="toggle-slider"></span></label>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:12px;color:#92400e;">
-                            <strong>ℹ️ Catatan:</strong> Opsi di atas akan otomatis menyembunyikan mata pelajaran yang nilai semester-nya kosong atau belum diinput untuk siswa bersangkutan, sehingga rapor lebih ringkas dan relevan.
-                        </div>
-                    </div>
-
-                    <!-- TAB 4: Tanda Tangan -->
-                    <div id="rcSection4" class="rapor-cfg-section">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Konfigurasi penanda tangan yang muncul di bagian bawah rapor.</div>
-                        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:16px;">
-                            <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">WALI KELAS</div>
-                            <div style="padding:12px 16px;">
-                                <div class="rapor-toggle-row" style="margin-bottom:12px;"><span style="font-weight:600;">Tampilkan kolom tanda tangan Wali Kelas</span><label class="toggle-switch"><input type="checkbox" id="rcTtdWali" ${cfgTtdWali?'checked':''}><span class="toggle-slider"></span></label></div>
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                                    <div>
-                                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Nama Wali Kelas</label>
-                                        <input id="rcNamaWali" value="${cfgNamaWali}" placeholder="Nama lengkap + gelar..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">NIP Wali Kelas</label>
-                                        <input id="rcNipWali" value="${cfgNipWali}" placeholder="NIP (opsional)" style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                            <div style="padding:12px 16px;background:#f8fafc;font-size:12px;font-weight:700;color:#334155;border-bottom:1px solid #e2e8f0;">KEPALA SEKOLAH</div>
-                            <div style="padding:12px 16px;">
-                                <div class="rapor-toggle-row" style="margin-bottom:12px;"><span style="font-weight:600;">Tampilkan kolom tanda tangan Kepala Sekolah</span><label class="toggle-switch"><input type="checkbox" id="rcTtdKepsek" ${cfgTtdKepsek?'checked':''}><span class="toggle-slider"></span></label></div>
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                                    <div>
-                                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Nama Kepala Sekolah</label>
-                                        <input id="rcNamaKepsek" value="${cfgNamaKepsek}" placeholder="Nama lengkap + gelar..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">NIP Kepala Sekolah</label>
-                                        <input id="rcNipKepsek" value="${cfgNipKepsek}" placeholder="NIP..." style="width:100%;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;">
-                    <button onclick="document.getElementById('modalCetakRapor').remove()" style="padding:10px 20px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:white;color:#334155;">Batal</button>
-                    <button onclick="eksekusiCetakRaporIndividu('${kelas}',${smt})" style="padding:10px 24px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:#0f766e;color:white;display:flex;align-items:center;gap:6px;">
-                        <i class="ri-printer-line"></i> Cetak Rapor Sekarang
-                    </button>
+                    ${_raporCfgGet('ttdWali', true) ? `
+                    <div>
+                        <p>${_raporCfgGet('kota', 'Jakarta')}, ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}<br>Wali Kelas</p>
+                        <br><br>
+                        <p><u><b>${_raporCfgGet('namaWali', '') || '.....................'}</b></u><br>NIP. ${_raporCfgGet('nipWali', '-')}</p>
+                    </div>` : ''}
                 </div>
             </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
+        `;
+    }).join('');
+
+    // D. Buka Jendela Printer
+    let printWin = window.open('', '_blank');
+    printWin.document.write(`
+        <html>
+        <head>
+            <title>Cetak Rapor Kelas ${kelas}</title>
+            <style>
+                body { margin:0; padding:0; background:white; }
+                table { border-collapse: collapse; }
+                th, td { border: 1px solid #cbd5e1; }
+                @media print {
+                    @page { size: portrait; margin: 10mm; }
+                    .rapor-page { page-break-after: always; }
+                }
+            </style>
+        </head>
+        <body>${htmlPages}</body>
+        </html>
+    `);
+    printWin.document.close();
+    setTimeout(() => { printWin.print(); }, 500);
+}
 // ============================================================
 // FUNGSI EKSEKUSI CETAK (PEMBACA DRAFT GURU + PILIHAN MODAL)
 // ============================================================
@@ -9860,6 +9914,41 @@ function dapatkanInfoSemesterSiswa(namaKelas, smtGlobalSekolah) {
         smtAktif: smtAktifSiswa,
         smtLalu: smtLaluSiswa
     };
+}
+// ============================================================
+// LANGKAH 2: FUNGSI CETAK LEGER SAMA DENGAN TAMPILAN WEB
+// ============================================================
+function cetakLegerTampilanWeb() {
+    const areaLeger = document.getElementById('hasilRaporLeger');
+    if (!areaLeger || areaLeger.innerHTML.trim() === '') {
+        alert('Silakan klik tombol "Generate Leger" terlebih dahulu!');
+        return;
+    }
+
+    let win = window.open('', '_blank');
+    win.document.write(`
+        <html>
+        <head>
+            <title>Cetak Leger Nilai</title>
+            <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+            <style>
+                body { font-family: 'Plus Jakarta Sans', sans-serif; padding:15px; background:white; color:#0f172a; }
+                table { width:100%; border-collapse:collapse; font-size:11px; margin-top:10px; }
+                th, td { border:1px solid #cbd5e1; padding:6px 8px; text-align:center; }
+                th { background:#1e293b !important; color:white !important; -webkit-print-color-adjust: exact; }
+                @media print {
+                    @page { size: landscape; margin: 8mm; }
+                    .no-print { display:none !important; }
+                }
+            </style>
+        </head>
+        <body>
+            ${areaLeger.innerHTML}
+        </body>
+        </html>
+    `);
+    win.document.close();
+    setTimeout(() => { win.print(); }, 500);
 }
 </script>
 </body>
