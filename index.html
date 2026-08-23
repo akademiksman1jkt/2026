@@ -4013,9 +4013,7 @@ function pilihSaranSiswa(nisn) {
         XLSX.writeFile(wb, `Leger_Kolektif_Kelas_${kelas}_Terformat.xlsx`);
     }
 
-    // ============================================================
-    // UNDUH DATA DARI CLOUD (GOOGLE SHEETS)
-    // ============================================================
+    
     // ====================================================================
 // URL WEB APP GOOGLE APPS SCRIPT
 // ====================================================================
@@ -4236,21 +4234,37 @@ async function muatDataCloud() {
             }),
             // Plotting Guru
             downloadCloudSheet("Sistem_Plotting", function(rows) {
-                try {
-                    cloudPlottingCache = [];
-                    if (!rows || rows.length === 0) return;
-                    rows.forEach(function(row) {
-                        if (!row || !row.c) return;
-                        let cells = row.c.map(function(cell) { return cell ? String(cell.v || "").trim() : ""; });
-                        if (cells[0] && cells[0].toLowerCase() !== "username") {
-                            cloudPlottingCache.push({ username: cells[0], kelas: cells[1], mapel: cells[2] });
-                        }
+    try {
+        // RESET MURNI: Kosongkan array di memori
+        cloudPlottingCache = [];
+        
+        if (rows && rows.length > 0) {
+            rows.forEach(function(row) {
+                if (!row || !row.c) return;
+                let cells = row.c.map(function(cell) { return cell ? String(cell.v || "").trim() : ""; });
+                
+                // Ambil data jika kolom Username tidak kosong & bukan header
+                if (cells[0] && cells[0].toLowerCase() !== "username") {
+                    cloudPlottingCache.push({ 
+                        username: cells[0], 
+                        kelas: cells[1], 
+                        mapel: cells[2] 
                     });
-                    console.log("🟢 [Portal] Berhasil memuat " + cloudPlottingCache.length + " data plotting guru.");
-                } catch(errPlot) {
-                    console.warn('[Portal] Gagal memproses plotting:', errPlot);
                 }
-            })
+            });
+        }
+
+        // HAPUS CACHE LAMA: Bersihkan data lama dari browser agar tidak terbaca kembali
+        localStorage.removeItem("offline_plotting_sman1");
+        
+        // SIMPAN CACHE BARU: Hanya simpan data murni yang baru diunduh
+        localStorage.setItem("offline_plotting_sman1", JSON.stringify(cloudPlottingCache));
+        
+        console.log("🟢 [Portal] Data plotting murni cloud siap:", cloudPlottingCache.length);
+    } catch(errPlot) {
+        console.warn('[Portal] Gagal memproses plotting:', errPlot);
+    }
+})
         ]); 
     } catch (errPromise) {
         console.error("[Portal] Gagal memuat database inti:", errPromise);
@@ -4312,9 +4326,17 @@ async function muatDataCloud() {
             btnMasuk.style.cursor = 'pointer';
             btnMasuk.innerHTML = 'MASUK';
         }
+        // ============================================================
+        // 🚀 TAMBAHKAN BARIS INI DI PALING BAWAH FINALLY:
+        // ============================================================
+        if (typeof renderDropdownEraporKunci === 'function') {
+            renderDropdownEraporKunci();
+        }
     }
 }
-
+    
+        
+    
     // Alias untuk kompatibilitas kode lain yang memanggil nama lama
     function pastikanDataMasterTerunduh() {
         return muatDataCloud();
@@ -4341,44 +4363,59 @@ async function muatDataCloud() {
     }
 
     function renderDropdownEraporKunci() {
-        const selectM   = document.getElementById('epSelectMapel');
-        const selectK   = document.getElementById('epSelectKelas');
-        if (!selectM || !selectK) return;
-        selectM.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
-        selectK.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+    const selectM   = document.getElementById('epSelectMapel');
+    const selectK   = document.getElementById('epSelectKelas');
+    if (!selectM || !selectK) return;
+    selectM.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
+    selectK.innerHTML = '<option value="">-- Pilih Kelas --</option>';
 
-        let listKelasSemua = [...new Set(dataSiswaGlobal.map(row => row[3]))].filter(k => k !== "").sort();
-        let isAdmin = (sessionUserAktif && sessionUserAktif.role === 'AdminSMAN1');
+    // Hapus pesan peringatan plotting lama jika ada
+    document.getElementById('epPlottingWarning')?.remove();
 
-        if (!isAdmin) {
-            // Guru: tampilkan HANYA mapel & kelas yang sudah diplotting
-            let myPlots = (cloudPlottingCache||[]).filter(p => p.username === sessionUserAktif.username && p.mapel !== 'WALI');
-            // Hapus pesan peringatan plotting lama jika ada
-            document.getElementById('epPlottingWarning')?.remove();
-            if (myPlots.length > 0) {
-                [...new Set(myPlots.map(p => p.kelas))].sort().forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
-                [...new Set(myPlots.map(p => p.mapel))].forEach(m => {
-                    let inf = daftarMapel.find(dm => dm.kode === m);
-                    if (inf) selectM.innerHTML += `<option value="${m}">${inf.namaLengkap}</option>`;
-                });
-            } else {
-                // TIDAK ada fallback — tampilkan peringatan, blokir akses
-                let warnEl = document.createElement('div');
-                warnEl.id = 'epPlottingWarning';
-                warnEl.style.cssText = 'background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#92400e;display:flex;align-items:flex-start;gap:12px;';
-                warnEl.innerHTML = '<i class="ri-lock-2-line" style="font-size:22px;flex-shrink:0;margin-top:1px;"></i>'
-                    + '<div><strong style="font-size:14px;">Belum ada plotting mengajar untuk akun Anda.</strong><br>'
-                    + '<span style="font-size:12px;">Hubungi Admin</span></div>';
-                document.getElementById('epSection_inputNilai')?.prepend(warnEl);
-            }
+    let listKelasSemua = [...new Set((dataSiswaGlobal || []).map(row => row[3]))].filter(k => k && k !== "").sort();
+    
+    // Deteksi akun pengguna aktif
+    let uAktif = typeof sessionUserAktif !== 'undefined' ? sessionUserAktif : (typeof currentUserInfo !== 'undefined' ? currentUserInfo : {});
+    let uRole  = String(uAktif.role || '').toLowerCase();
+    let uName  = String(uAktif.username || '').toLowerCase();
+
+    // Pengecekan Admin fleksibel (mendukung admin, AdminSMAN1, adminsman1)
+    let isAdmin = uRole.includes('admin') || uName.includes('admin');
+
+    if (!isAdmin) {
+        // GURU: Ambil plotting dari cloud (cloudPlottingCache)
+        let myPlots = (cloudPlottingCache || []).filter(p => 
+            String(p.username).trim().toLowerCase() === uName && p.mapel !== 'WALI'
+        );
+
+        if (myPlots.length > 0) {
+            [...new Set(myPlots.map(p => p.kelas))].sort().forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
+            [...new Set(myPlots.map(p => p.mapel))].forEach(m => {
+                let inf = (typeof daftarMapel !== 'undefined' ? daftarMapel : []).find(dm => dm.kode === m);
+                selectM.innerHTML += `<option value="${m}">${inf ? inf.namaLengkap : m}</option>`;
+            });
         } else {
-            // Admin: see all kelas and mapel
-            daftarMapel.forEach(m => { selectM.innerHTML += `<option value="${m.kode}">${m.namaLengkap}</option>`; });
-            listKelasSemua.forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
+            // TIDAK ADA PLOTTING: Tampilkan peringatan
+            let warnEl = document.createElement('div');
+            warnEl.id = 'epPlottingWarning';
+            warnEl.style.cssText = 'background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#92400e;display:flex;align-items:flex-start;gap:12px;';
+            warnEl.innerHTML = '<i class="ri-lock-2-line" style="font-size:22px;flex-shrink:0;margin-top:1px;"></i>'
+                + '<div><strong style="font-size:14px;">Belum ada plotting mengajar untuk akun Anda.</strong><br>'
+                + '<span style="font-size:12px;">Hubungi Admin</span></div>';
+            document.getElementById('epSection_inputNilai')?.prepend(warnEl);
         }
+    } else {
+        // ADMIN: Tampilkan semua mata pelajaran dan seluruh kelas tanpa halangan
+        if (typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel)) {
+            daftarMapel.forEach(m => { selectM.innerHTML += `<option value="${m.kode}">${m.namaLengkap}</option>`; });
+        }
+        listKelasSemua.forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
+    }
 
+    if (typeof updateTabVisibilityErapor === 'function') {
         updateTabVisibilityErapor();
     }
+}
 
     // ============================================================
     // RIWAYAT KOREKSI
