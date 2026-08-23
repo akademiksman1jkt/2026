@@ -1174,7 +1174,7 @@ input.input-nilai-mentah {
         </div>
         <button class="login-btn" id="btnMasuk" onclick="prosesLogin()" disabled style="opacity:0.6; cursor:not-allowed;">⏳ Menyiapkan data...</button>
 <div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
-    ⏳ Menyiapkan data cloud...
+    ⏳ Memuat Data...
 </div>
     </div>
 </div>
@@ -4331,7 +4331,7 @@ async function muatDataCloud() {
                     st.textContent = '📦 Mode offline — ' + cloudUsersCache.length + ' akun dari cache lokal';
                     st.style.color = '#f59e0b';
                 } else {
-                    st.textContent = '✅ Data siap — ' + cloudUsersCache.length + ' akun dimuat dari cloud';
+                    st.textContent = '✅ Silakan Masuk' + cloudUsersCache.length + ' akun dimuat dari cloud';
                     st.style.color = '#22c55e';
                 }
             } else {
