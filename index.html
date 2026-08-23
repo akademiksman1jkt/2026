@@ -2670,15 +2670,16 @@
     (function InisialisasiDataCloud() {
     if (typeof URL_SCRIPT_BIODATA === 'undefined' || !URL_SCRIPT_BIODATA) return;
 
+    // 1. Ubah indikator menjadi status PROSES (Kuning)
     if (typeof setStatusSinkron === 'function') {
         setStatusSinkron('proses');
     }
 
-    // Parameter Anti-Cache Unik
+    // 2. Buat URL dengan Parameter Anti-Cache Unik
     const timestampUnik = new Date().getTime();
     const urlAntiCache = URL_SCRIPT_BIODATA + (URL_SCRIPT_BIODATA.includes('?') ? '&' : '?') + '_t=' + timestampUnik;
 
-    // Tanpa 'headers' kustom agar tidak terkena blokir CORS Google Apps Script
+    // 3. Request ke Server Google Apps Script
     fetch(urlAntiCache, {
         method: 'GET'
     })
@@ -2687,13 +2688,15 @@
             return response.json();
         })
         .then(resData => {
-            // 1. Simpan Data Biodata
+            console.log("Respon Cloud Diterima:", resData);
+
+            // Simpan Data Biodata
             if (resData && Array.isArray(resData.biodata)) {
                 window.dataBiodataGlobal = resData.biodata;
                 dataBiodataGlobal = resData.biodata;
             }
 
-            // 2. Simpan Data Nilai (Database_Web)
+            // Simpan Data Nilai (Database_Web)
             if (resData && Array.isArray(resData.nilai)) {
                 window.dataSiswaGlobal = resData.nilai;
                 dataSiswaGlobal = resData.nilai;
@@ -2702,12 +2705,12 @@
                 dataSiswaGlobal = resData;
             }
 
-            // 3. Ubah Badge Menjadi Sukses (Hijau)
+            // 4. Ubah indikator status menjadi SUKSES (Hijau)
             if (typeof setStatusSinkron === 'function') {
                 setStatusSinkron('sukses');
             }
 
-            // 4. Isi Ulang Dropdown Kelas Setelah Data Terunduh
+            // 5. Isi Ulang Dropdown Kelas Utamakan Keamanan Data
             try {
                 let selectK = document.getElementById('selectKelas');
                 if (selectK && typeof dataSiswaGlobal !== "undefined" && dataSiswaGlobal.length > 0) {
@@ -2722,16 +2725,31 @@
                     });
                     if (valLama) selectK.value = valLama;
                 }
-
-                if (typeof kunciDropdownKelasWali === 'function') kunciDropdownKelasWali();
-                if (typeof renderDropdownEraporKunci === 'function') renderDropdownEraporKunci();
             } catch (e) {
-                console.error("Gagal memperbarui dropdown kelas:", e);
+                console.warn("Peringatan pembaruan dropdown kelas utama:", e);
+            }
+
+            // 6. Panggil Fungsi Penunjang Secara Aman (Gunakan Safe Check)
+            try {
+                if (typeof renderDropdownEraporKunci === 'function') {
+                    renderDropdownEraporKunci();
+                }
+            } catch (e) { 
+                console.warn("[eRapor Dropdown Deferred]", e); 
+            }
+
+            try {
+                if (typeof kunciDropdownKelasWali === 'function' && window.currentUser) {
+                    kunciDropdownKelasWali();
+                }
+            } catch (e) { 
+                console.warn("[Wali Dropdown Deferred]", e); 
             }
 
         })
         .catch(err => {
-            console.error("Gagal muat data:", err);
+            console.error("Gagal muat data dari Cloud:", err);
+            // Ubah indikator status menjadi GAGAL (Merah) & Tampilkan Tombol Coba Lagi
             if (typeof setStatusSinkron === 'function') {
                 setStatusSinkron('gagal', 'Gagal memuat data dari Cloud!');
             }
