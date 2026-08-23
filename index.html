@@ -2674,17 +2674,13 @@
         setStatusSinkron('proses');
     }
 
+    // Parameter Anti-Cache Unik
     const timestampUnik = new Date().getTime();
     const urlAntiCache = URL_SCRIPT_BIODATA + (URL_SCRIPT_BIODATA.includes('?') ? '&' : '?') + '_t=' + timestampUnik;
 
+    // Tanpa 'headers' kustom agar tidak terkena blokir CORS Google Apps Script
     fetch(urlAntiCache, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-        }
+        method: 'GET'
     })
         .then(response => {
             if (!response.ok) throw new Error("Respon jaringan tidak OK");
@@ -2706,14 +2702,12 @@
                 dataSiswaGlobal = resData;
             }
 
-            // 3. UBAH BADGE MENJADI HIJAU (SUKSES)
+            // 3. Ubah Badge Menjadi Sukses (Hijau)
             if (typeof setStatusSinkron === 'function') {
                 setStatusSinkron('sukses');
             }
 
-            // =========================================================================
-            // 🌟 KUNCI UTAMA: ISI ULANG DROPDOWN KELAS SETELAH DATA TERUNDUH
-            // =========================================================================
+            // 4. Isi Ulang Dropdown Kelas Setelah Data Terunduh
             try {
                 let selectK = document.getElementById('selectKelas');
                 if (selectK && typeof dataSiswaGlobal !== "undefined" && dataSiswaGlobal.length > 0) {
@@ -2729,7 +2723,6 @@
                     if (valLama) selectK.value = valLama;
                 }
 
-                // Jika ada fungsi pengisi dropdown khusus di aplikasi Anda, panggil di sini
                 if (typeof kunciDropdownKelasWali === 'function') kunciDropdownKelasWali();
                 if (typeof renderDropdownEraporKunci === 'function') renderDropdownEraporKunci();
             } catch (e) {
