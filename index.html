@@ -4135,7 +4135,7 @@ async function muatDataCloud() {
                 try {
                     if (!rows || rows.length === 0) return;
                     
-                    // 1. KOSONGKAN ARRAY MEMORI
+                    // 1. KOSONGKAN ARRAY MEMORI SEBELUM DIISI DARI CLOUD
                     dataSiswaGlobal = [];
                     
                     rows.forEach(function(row) {
@@ -4146,13 +4146,13 @@ async function muatDataCloud() {
                         if (cells[0]) dataSiswaGlobal.push(cells);
                     });
 
-                    // 2. HAPUS CACHE LAMA & UPDATE CACHE BARU TERHUBUNG SPREADSHEET
+                    // 2. PERBARUI CACHE LOKAL DENGAN DATA DARI SPREADSHEET
                     localStorage.removeItem("offline_siswa_sman1");
                     localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal));
 
                     console.log("🟢 [Portal] Data siswa murni cloud berhasil dimuat:", dataSiswaGlobal.length);
                 } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
-            }), // <--- TANDA KOMA PEMISAH DENGAN SHEET KEDUA
+            }),
 
             downloadCloudSheet("Sistem_Users", function(rows) {
                 try {
@@ -4174,6 +4174,7 @@ async function muatDataCloud() {
                             cloudUsersCache.push({ 
                                 username: uName, 
                                 pass:     pWord, 
+                                nip:      pWord, // Simpan NIP/Pass untuk bridging plotting
                                 role:     rOle,
                                 nama:     nAma !== "" ? nAma : uName 
                             });
@@ -4185,7 +4186,7 @@ async function muatDataCloud() {
                 } catch(e) { 
                     console.warn('[Portal] Users parse err:', e);
                 }
-            }), // <--- TANDA KOMA PEMISAH DENGAN SHEET KETIGA
+            }),
 
             // Pengunduh Tab Biodata
             downloadCloudSheet("Sheet_Biodata", function(rows) {
@@ -4241,12 +4242,11 @@ async function muatDataCloud() {
                 } catch(errBio) { 
                     console.warn('[Portal] Gagal memproses baris biodata:', errBio); 
                 }
-            }), // <--- TANDA KOMA PEMISAH DENGAN SHEET KEEMPAT
+            }),
 
             // Plotting Guru
             downloadCloudSheet("Sistem_Plotting", function(rows) {
                 try {
-                    // RESET MURNI: Kosongkan array di memori
                     cloudPlottingCache = [];
                     
                     if (rows && rows.length > 0) {
@@ -4258,7 +4258,6 @@ async function muatDataCloud() {
                                 return String(v).replace(/['\s]/g, '').trim(); 
                             });
                             
-                            // Ambil data jika kolom Username tidak kosong & bukan header
                             if (cells[0] && cells[0].toLowerCase() !== "username") {
                                 cloudPlottingCache.push({ 
                                     username: cells[0], 
@@ -4269,10 +4268,7 @@ async function muatDataCloud() {
                         });
                     }
 
-                    // HAPUS CACHE LAMA: Bersihkan data lama dari browser
                     localStorage.removeItem("offline_plotting_sman1");
-                    
-                    // SIMPAN CACHE BARU: Hanya simpan data murni yang baru diunduh
                     localStorage.setItem("offline_plotting_sman1", JSON.stringify(cloudPlottingCache));
                     
                     console.log("🟢 [Portal] Data plotting murni cloud siap:", cloudPlottingCache.length);
@@ -4315,7 +4311,7 @@ async function muatDataCloud() {
             } catch(e) { console.warn('[Portal] Gagal memuat local cache siswa:', e); }
         }
 
-        // Update status UI
+        // Update status UI login
         if (st) {
             if (cloudUsersCache.length > 0) {
                 const isOfflineMode = !navigator.onLine || (st.textContent && st.textContent.includes('Gagal'));
@@ -4332,7 +4328,7 @@ async function muatDataCloud() {
             }
         }
 
-        // BUKA KUNCI TOMBOL SETELAH SEMUA PROSES DIMUAT
+        // Buka kunci tombol login
         if (btnMasuk) {
             btnMasuk.disabled = false;
             btnMasuk.style.opacity = '1';
@@ -4340,12 +4336,11 @@ async function muatDataCloud() {
             btnMasuk.innerHTML = 'MASUK';
         }
 
-        // REFRESH AUTOMATIS DROPDOWN APABILA USER SUDAH DALAM POSISI LOGIN
+        // 🚀 PAKSA RENDER UANG TAMPILAN JIKA USER DALAM POSISI LOGIN/REFRESH
         if (typeof renderDropdownEraporKunci === 'function') {
             renderDropdownEraporKunci();
         }
 
-        // REFRESH LEMBAR KERJA JIKA USER SEDANG MEMBUKA TABEL ERAPOR
         const selectKelas = document.getElementById('epSelectKelas')?.value;
         const selectMapel = document.getElementById('epSelectMapel')?.value;
         if (selectKelas && selectMapel && typeof muatLembarKerjaErapor === 'function') {
@@ -4354,8 +4349,7 @@ async function muatDataCloud() {
     }
 }
     
-        
-    
+          
     // Alias untuk kompatibilitas kode lain yang memanggil nama lama
     function pastikanDataMasterTerunduh() {
         return muatDataCloud();
