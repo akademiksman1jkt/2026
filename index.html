@@ -7096,94 +7096,45 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return;
     }
 
-    // 2. AMBIL KOMPONEN KOLOM DARI ADMIN & MAPEL AKTIF
+    // 2. AMBIL KOMPONEN KOLOM & DAFTAR MAPEL
     const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [
-        { id: 'harian', nama: 'Tugas 1', bobot: 25 },
-        { id: 'tugas', nama: 'Tugas 2', bobot: 25 },
-        { id: 'uts', nama: 'ASH', bobot: 25 },
-        { id: 'uas', nama: 'ASTS', bobot: 25 }
+        { id: 'harian', nama: 'Nilai Harian', bobot: 25 },
+        { id: 'tugas', nama: 'Nilai Tugas', bobot: 25 },
+        { id: 'uts', nama: 'Nilai UTS', bobot: 25 },
+        { id: 'uas', nama: 'Nilai UAS', bobot: 25 }
     ];
 
-    let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : daftarMapel.map(m => m.kode);
-    let mapelDaftar = daftarMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
+    let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' ? getMapelAktifPerKelas(kelas) : (typeof daftarMapel !== 'undefined' ? daftarMapel.map(m => m.kode) : []);
+    let mapelAktif = typeof daftarMapel !== 'undefined' ? daftarMapel.filter(m => mapelPilihanAdmin.includes(m.kode)) : [];
+
+    if (mapelAktif.length === 0) {
+        mapelAktif = typeof daftarMapel !== 'undefined' ? daftarMapel : [];
+    }
 
     // HELPER: Ambil data nilai siswa murni dari dataSiswaGlobal (Google Sheets)
     function getNilaiFromCloud(nisn, mapelKode, semester) {
-        let dataMentah = {};
-        if (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) {
-            let rowNilai = dataSiswaGlobal.find(r => 
-                String(r[0]).trim() === String(nisn).trim() && 
-                String(r[1]).trim() === String(mapelKode).trim() && 
-                String(r[2]).trim() === String(semester).trim()
-            );
+        let rowNilai = dataSiswaGlobal.find(r => 
+            String(r[0]).replace(/['\s]/g, '') === String(nisn).replace(/['\s]/g, '') && 
+            String(r[1]).trim() === String(mapelKode).trim() && 
+            String(r[2]).trim() === String(semester).trim()
+        );
 
-            if (rowNilai) {
-                dataMentah = {
-                    harian: rowNilai[3] !== undefined ? rowNilai[3] : '',
-                    tugas:  rowNilai[4] !== undefined ? rowNilai[4] : '',
-                    uts:    rowNilai[5] !== undefined ? rowNilai[5] : '',
-                    uas:    rowNilai[6] !== undefined ? rowNilai[6] : ''
-                };
-            }
+        if (rowNilai) {
+            return [
+                rowNilai[3] !== undefined ? rowNilai[3] : '',
+                rowNilai[4] !== undefined ? rowNilai[4] : '',
+                rowNilai[5] !== undefined ? rowNilai[5] : '',
+                rowNilai[6] !== undefined ? rowNilai[6] : ''
+            ];
         }
-        return dataMentah;
+        return ['', '', '', ''];
     }
 
-    // FILTER OTOMATIS: HANYA TAMPILKAN MAPEL YANG MEMILIKI NILAI DARI SPREADSHEET
-    let mapelAktif = mapelDaftar.filter(m => {
-        let adaNilai = false;
-        fSiswa.forEach(siswa => {
-            let dataMentah = getNilaiFromCloud(siswa[0], m.kode, smt);
-            
-            kolomConfig.forEach(k => {
-                let v = parseFloat(dataMentah[k.id]);
-                if (!isNaN(v) && v > 0) adaNilai = true;
-            });
-        });
-        return adaNilai;
-    });
-
-    if (mapelAktif.length === 0) {
-        alert('Belum ada nilai yang diinputkan untuk kelas ini.');
-        return;
-    }
-
-    // 3. HITUNG PERINGKAT (RANKING) KESELURUHAN SISWA
-    let rankData = fSiswa.map(siswa => {
-        let totalNilaiRerataMapel = 0;
-        let totalMapelTerhitung = 0;
-
-        mapelAktif.forEach((m) => {
-            let dataMentah = getNilaiFromCloud(siswa[0], m.kode, smt);
-
-            let total = 0, totalBobot = 0;
-            kolomConfig.forEach(k => {
-                let v = parseFloat(dataMentah[k.id]);
-                if (!isNaN(v) && v > 0) {
-                    total += v * (k.bobot / 100);
-                    totalBobot += k.bobot;
-                }
-            });
-            let rataMapel = totalBobot > 0 ? (total / totalBobot) * 100 : 0;
-
-            if (rataMapel > 0) {
-                totalNilaiRerataMapel += rataMapel;
-                totalMapelTerhitung++;
-            }
-        });
-
-        let rataRataSiswa = totalMapelTerhitung > 0 ? (totalNilaiRerataMapel / totalMapelTerhitung) : 0;
-        return { nisn: siswa[0], avg: rataRataSiswa };
-    });
-
-    let sortedRankData = [...rankData].sort((a, b) => b.avg - a.avg);
-    let getRank = nisn => sortedRankData.findIndex(r => r.nisn === nisn) + 1;
-
-    // 4. SUSUN HEADER MATA PELAJARAN DAN KOMPONEN NILAI (2 TINGKAT)
+    // 3. SUSUN HEADER MATA PELAJARAN DAN KOMPONEN NILAI (2 TINGKAT)
     let subColCount = kolomConfig.length + 1;
     let headerRow1 = `
         <tr>
-            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Rank</th>
+            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">No</th>
             <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">NISN</th>
             <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Nama Siswa</th>`;
 
@@ -7194,7 +7145,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         let bgHeader1 = isAlt ? '#334155' : '#1e293b';
         let bgHeader2 = isAlt ? '#1e293b' : '#0f172a';
 
-        headerRow1 += `<th colspan="${subColCount}" style="background-color:${bgHeader1};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(m.namaLengkap)}</th>`;
+        headerRow1 += `<th colspan="${subColCount}" style="background-color:${bgHeader1};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(m.namaLengkap || m.kode)}</th>`;
         
         kolomConfig.forEach(k => {
             headerRow2 += `<th style="background-color:${bgHeader2};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(k.nama)}</th>`;
@@ -7205,39 +7156,32 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     headerRow1 += `</tr>`;
     headerRow2 += `</tr>`;
 
-    // 5. SUSUN BARIS DATA SISWA DENGAN INLINE STYLING SELINGAN WARNA ANTAR-MAPEL
-    let rowsData = fSiswa.map(siswa => {
+    // 4. SUSUN BARIS DATA SISWA
+    let rowsData = fSiswa.map((siswa, idx) => {
         let nisnSiswa = escapeHtml(siswa[0] || '');
         let namaSiswa = escapeHtml((siswa[2] || '').toUpperCase());
-        let rankSiswa = getRank(siswa[0]);
 
         let rowCells = `
             <tr>
-                <td style="text-align:center;font-weight:bold;color:#dc2626;border:1px solid #cbd5e1;">${rankSiswa}</td>
+                <td style="text-align:center;font-weight:bold;border:1px solid #cbd5e1;">${idx + 1}</td>
                 <td style="text-align:center;mso-number-format:'\\@';border:1px solid #cbd5e1;">${nisnSiswa}</td>
                 <td style="text-align:left;font-weight:bold;border:1px solid #cbd5e1;">${namaSiswa}</td>`;
 
         mapelAktif.forEach((m, mapelIdx) => {
             let isAlt = (mapelIdx % 2 === 1);
-            let bgStyle = isAlt ? 'background-color:#e2e8f0;' : 'background-color:#ffffff;';
+            let bgStyle = isAlt ? 'background-color:#f1f5f9;' : 'background-color:#ffffff;';
 
-            let dataMentah = getNilaiFromCloud(siswa[0], m.kode, smt);
-
+            let arrNilai = getNilaiFromCloud(siswa[0], m.kode, smt);
             let total = 0, totalBobot = 0;
 
-            kolomConfig.forEach(k => {
-                let v = dataMentah[k.id];
+            kolomConfig.forEach((k, kIdx) => {
+                let v = arrNilai[kIdx];
                 let valNum = parseFloat(v);
 
                 if (!isNaN(valNum)) {
                     total += valNum * (k.bobot / 100);
                     totalBobot += k.bobot;
-
-                    if (valNum === 0) {
-                        rowCells += `<td style="text-align:center;font-weight:bold;color:#dc2626;background-color:#fee2e2;border:1px solid #cbd5e1;">0</td>`;
-                    } else {
-                        rowCells += `<td style="text-align:center;${bgStyle}border:1px solid #cbd5e1;">${valNum}</td>`;
-                    }
+                    rowCells += `<td style="text-align:center;${bgStyle}border:1px solid #cbd5e1;">${valNum}</td>`;
                 } else {
                     rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
                 }
@@ -7247,11 +7191,8 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 
             if (nilaiAkhirMurni > 0) {
                 let formatNilai = parseInt(nilaiAkhirMurni.toFixed(0));
-                if (nilaiAkhirMurni < 75) {
-                    rowCells += `<td style="text-align:center;font-weight:bold;color:#dc2626;background-color:#fee2e2;border:1px solid #cbd5e1;">${formatNilai}</td>`;
-                } else {
-                    rowCells += `<td style="text-align:center;font-weight:bold;${bgStyle}border:1px solid #cbd5e1;">${formatNilai}</td>`;
-                }
+                let styleAkhir = nilaiAkhirMurni < 75 ? 'color:#dc2626;background-color:#fee2e2;font-weight:bold;' : `font-weight:bold;${bgStyle}`;
+                rowCells += `<td style="text-align:center;${styleAkhir}border:1px solid #cbd5e1;">${formatNilai}</td>`;
             } else {
                 rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
             }
@@ -7261,8 +7202,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         return rowCells;
     }).join('');
 
-
-    // 6. TEMPLATE HTML MURNI EXCEL (WITH INLINE STYLES FOR ZEBRA STRIPING)
+    // 5. TEMPLATE HTML MURNI EXCEL
     let htmlTemplate = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -7302,7 +7242,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 </body>
 </html>`;
 
-    // 7. PROSES UNDUH STREAM BLOB HTML AMAN UNTUK EXCEL
+    // 6. PROSES UNDUH STREAM BLOB HTML AMAN UNTUK EXCEL
     let blob = new Blob([htmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
     let url = URL.createObjectURL(blob);
     let a = document.createElement('a');
