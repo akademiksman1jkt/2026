@@ -1172,10 +1172,10 @@ input.input-nilai-mentah {
             <label>Password</label>
             <input type="password" id="password" placeholder="••••••••">
         </div>
-        <button class="login-btn" id="btnMasuk" onclick="prosesLogin()">MASUK</button>
-        <div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
-            ⏳ Menyiapkan data cloud...
-        </div>
+        <button class="login-btn" id="btnMasuk" onclick="prosesLogin()" disabled style="opacity:0.6; cursor:not-allowed;">⏳ Menyiapkan data...</button>
+<div id="loginCloudStatus" style="margin-top:10px;font-size:12px;color:#888;text-align:center;">
+    ⏳ Menyiapkan data cloud...
+</div>
     </div>
 </div>
 
@@ -4113,18 +4113,30 @@ function downloadCloudSheet(sheetName, callbackAction) {
 }
 
     // Muat cloud data di BACKGROUND — tidak memblokir login screen
-    async function muatDataCloud() {
+    // Muat cloud data di BACKGROUND — mengunci tombol login sampai data 100% siap
+async function muatDataCloud() {
     const st = document.getElementById('loginCloudStatus');
-    
+    const btnMasuk = document.getElementById('btnMasuk');
+
+    // ============================================================
+    // 1. KUNCI TOMBOL LOGIN DI AWAL PROSES
+    // ============================================================
+    if (btnMasuk) {
+        btnMasuk.disabled = true;
+        btnMasuk.style.opacity = '0.6';
+        btnMasuk.style.cursor = 'not-allowed';
+        btnMasuk.innerHTML = '⏳ Menyiapkan data...';
+    }
+
     // =========================================================================
-        // PROSES PENGAMBILAN DATA UTAMA (VERSI GABUNGAN PARALEL - ANTI STUCK & ANTI BLANK)
-        // =========================================================================
-        try {
-            // Jalankan ketiga database PARALEL (bukan berurutan) — hemat waktu & anti-stuck
+    // PROSES PENGAMBILAN DATA UTAMA (VERSI GABUNGAN PARALEL - ANTI STUCK & ANTI BLANK)
+    // =========================================================================
+    try {
+        // Jalankan database PARALEL — hemat waktu & anti-stuck
         await Promise.all([
             downloadCloudSheet("Database_Web", function(rows) {
                 try {
-                    if (!rows) return; // PENGAMAN: Jika sheet kosong atau bermasalah
+                    if (!rows) return;
                     dataSiswaGlobal = [];
                     rows.forEach(function(row) {
                         if (!row || !row.c) return;
@@ -4136,44 +4148,43 @@ function downloadCloudSheet(sheetName, callbackAction) {
                 } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
             }),
             downloadCloudSheet("Sistem_Users", function(rows) {
-    try {
-        if (!rows) return;
-        cloudUsersCache = [];
-        rows.forEach(function(row) {
-            if (!row || !row.c) return;
-            
-            let cells = row.c.map(function(cell) { 
-                return cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : ""; 
-            });
+                try {
+                    if (!rows) return;
+                    cloudUsersCache = [];
+                    rows.forEach(function(row) {
+                        if (!row || !row.c) return;
+                        
+                        let cells = row.c.map(function(cell) { 
+                            return cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : ""; 
+                        });
 
-            let uName = cells[0] || ""; // Kolom A: Username
-            let pWord = cells[1] || ""; // Kolom B: Password
-            let rOle  = cells[2] || ""; // Kolom C: Role
-            let nAma  = cells[3] || ""; // Kolom D: Nama Lengkap
+                        let uName = cells[0] || ""; // Kolom A: Username
+                        let pWord = cells[1] || ""; // Kolom B: Password
+                        let rOle  = cells[2] || ""; // Kolom C: Role
+                        let nAma  = cells[3] || ""; // Kolom D: Nama Lengkap
 
-            if (uName && uName.toLowerCase() !== "username") {
-                cloudUsersCache.push({ 
-                    username: uName, 
-                    pass:     pWord, 
-                    role:     rOle,
-                    nama:     nAma !== "" ? nAma : uName 
-                });
-            }
-        });
+                        if (uName && uName.toLowerCase() !== "username") {
+                            cloudUsersCache.push({ 
+                                username: uName, 
+                                pass:     pWord, 
+                                role:     rOle,
+                                nama:     nAma !== "" ? nAma : uName 
+                            });
+                        }
+                    });
 
-        localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache));
+                    localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache));
 
-    } catch(e) { 
-        console.warn('[Portal] Users parse err:', e);
-    }
-}),
-            // 🌟 BERHASIL DIMASUKKAN: Pengunduh Tab Biodata Secara Mandiri & Paralel
+                } catch(e) { 
+                    console.warn('[Portal] Users parse err:', e);
+                }
+            }),
+            // Pengunduh Tab Biodata
             downloadCloudSheet("Sheet_Biodata", function(rows) {
                 try {
                     dataBiodataGlobal = []; 
                     if (!rows || rows.length === 0) return;
 
-                    // ── Deteksi header kolom otomatis dari baris pertama ──
                     let firstRow = rows[0];
                     if (firstRow && firstRow.c) {
                         let hcells = firstRow.c.map(function(c){ return c ? String(c.v || '').trim().toUpperCase() : ''; });
@@ -4196,7 +4207,6 @@ function downloadCloudSheet(sheetName, callbackAction) {
                             alamatWali: hcells.findIndex(function(h){ return h.includes('ALAMAT') && h.includes('WALI'); }),
                             telpWali:   hcells.findIndex(function(h){ return (h.includes('TELP')||h.includes('HP')) && h.includes('WALI'); }),
                         };
-                        // Terapkan hasil deteksi, fallback ke default jika tidak ditemukan
                         Object.keys(detected).forEach(function(k){
                             if (detected[k] >= 0) bioBioColMap[k] = detected[k];
                         });
@@ -4215,7 +4225,6 @@ function downloadCloudSheet(sheetName, callbackAction) {
                         });
                         let nisnIdx = bioBioColMap.nisn >= 0 ? bioBioColMap.nisn : 3;
                         let nisnVal = cells[nisnIdx] || "";
-                        // Terima baris yang punya NISN numerik (minimal 5 digit), tolak header
                         if (nisnVal && !nisnVal.match(/NISN|NAMA|KELAS|NO/i) && nisnVal.replace(/\D/g,'').length >= 5) {
                             dataBiodataGlobal.push(cells);
                         }
@@ -4225,7 +4234,7 @@ function downloadCloudSheet(sheetName, callbackAction) {
                     console.warn('[Portal] Gagal memproses baris biodata:', errBio); 
                 }
             }),
-            // 🌟 PLOTTING GURU: Muat hak akses mengajar per guru dari sheet Sistem_Plotting
+            // Plotting Guru
             downloadCloudSheet("Sistem_Plotting", function(rows) {
                 try {
                     cloudPlottingCache = [];
@@ -4233,8 +4242,7 @@ function downloadCloudSheet(sheetName, callbackAction) {
                     rows.forEach(function(row) {
                         if (!row || !row.c) return;
                         let cells = row.c.map(function(cell) { return cell ? String(cell.v || "").trim() : ""; });
-                        // Kolom: [0]Username [1]Kelas [2]Mapel
-                        if (cells[0] && cells[0].toLowerCase() !== "username" && cells[0].toLowerCase() !== "Username") {
+                        if (cells[0] && cells[0].toLowerCase() !== "username") {
                             cloudPlottingCache.push({ username: cells[0], kelas: cells[1], mapel: cells[2] });
                         }
                     });
@@ -4244,18 +4252,14 @@ function downloadCloudSheet(sheetName, callbackAction) {
                 }
             })
         ]); 
-        } catch (errPromise) {
-            console.error("[Portal] Gagal memuat database inti:", errPromise);
-        }
-finally {
-        // PENGAMAN UTAMA: Pastikan array tidak bernilai null agar tidak memicu error (.length)
+    } catch (errPromise) {
+        console.error("[Portal] Gagal memuat database inti:", errPromise);
+    } finally {
         if (!cloudUsersCache) { cloudUsersCache = []; }
         if (!dataSiswaGlobal) { dataSiswaGlobal = []; }
 
-        // Pastikan flag diset true agar sistem login tidak terkunci dalam status loading terus-menerus
         cloudDataLoaded = true;
 
-        // Simpan ke localStorage sebagai cache offline (jika data berhasil dimuat dari cloud)
         if (cloudUsersCache.length > 0) {
             try { localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache)); } catch(e) {}
         }
@@ -4263,13 +4267,12 @@ finally {
             try { localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal)); } catch(e) {}
         }
 
-        // Jalankan mekanisme Fallback ke Cache Offline jika cloud kosong/gagal
+        // Fallback ke Cache Offline jika cloud kosong
         if (cloudUsersCache.length === 0) {
             try {
                 const localCacheUsers = localStorage.getItem("offline_users_sman1");
                 if (localCacheUsers) {
                     cloudUsersCache = JSON.parse(localCacheUsers);
-                    console.log('[Portal] Fallback: Menggunakan data user dari cache lokal:', cloudUsersCache.length);
                 }
             } catch(e) { console.warn('[Portal] Gagal memuat local cache users:', e); }
         }
@@ -4279,28 +4282,35 @@ finally {
                 const localCacheSiswa = localStorage.getItem("offline_siswa_sman1");
                 if (localCacheSiswa) {
                     dataSiswaGlobal = JSON.parse(localCacheSiswa);
-                    console.log('[Portal] Fallback: Menggunakan data siswa dari cache lokal:', dataSiswaGlobal.length);
                 }
             } catch(e) { console.warn('[Portal] Gagal memuat local cache siswa:', e); }
         }
 
-        // Update status indicator di UI Login berdasarkan hasil akhir data
+        // Update status UI
         if (st) {
             if (cloudUsersCache.length > 0) {
-                // Periksa apakah ini hasil muatan baru (cloud) atau fallback lama (offline)
                 const isOfflineMode = !navigator.onLine || (st.textContent && st.textContent.includes('Gagal'));
                 if (isOfflineMode || st.textContent.includes('Mode offline')) {
                     st.textContent = '📦 Mode offline — ' + cloudUsersCache.length + ' akun dari cache lokal';
-                    st.style.color = '#f59e0b'; // Oranye
+                    st.style.color = '#f59e0b';
                 } else {
                     st.textContent = '✅ Data siap — ' + cloudUsersCache.length + ' akun dimuat dari cloud';
-                    st.style.color = '#22c55e'; // Hijau
+                    st.style.color = '#22c55e';
                 }
             } else {
-                // Jika benar-benar kosong dan tidak ada internet sama sekali
                 st.textContent = '⚠️ Tidak ada data akun. Gunakan kredensial darurat.';
-                st.style.color = '#ef4444'; // Merah
+                st.style.color = '#ef4444';
             }
+        }
+
+        // ============================================================
+        // 2. BUKA KUNCI TOMBOL SETELAH SEMUA PROSES DIMUAT DENGAN SEMPURNA
+        // ============================================================
+        if (btnMasuk) {
+            btnMasuk.disabled = false;
+            btnMasuk.style.opacity = '1';
+            btnMasuk.style.cursor = 'pointer';
+            btnMasuk.innerHTML = 'MASUK';
         }
     }
 }
