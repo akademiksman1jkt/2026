@@ -605,21 +605,29 @@
         /* =============================================
            TABEL & INPUT NILAI
         ============================================= */
-        .input-nilai-mentah {
-            width: 75px;
-            padding: 8px;
-            border: 1px solid var(--slate-200);
-            border-radius: 6px;
-            text-align: center;
-            font-family: inherit;
-            font-weight: 600;
-        }
+        /* ✅ KODE PERBAIKAN: */
+.input-nilai-mentah,
+#tableBodyErapor input[type="number"] {
+    width: 75px;
+    padding: 8px;
+    border: 1.5px solid #94a3b8 !important; /* Border abu-abu tegas & jelas */
+    border-radius: 6px;
+    text-align: center;
+    font-family: inherit;
+    font-weight: 700 !important; /* Angka lebih tebal */
+    color: #0f172a !important;   /* Hitam pekat */
+    background-color: #ffffff !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease-in-out;
+}
 
-        .input-nilai-mentah:focus {
-            border-color: var(--primary);
-            background-color: var(--primary-light);
-            outline: none;
-        }
+.input-nilai-mentah:focus,
+#tableBodyErapor input[type="number"]:focus {
+    border-color: #0284c7 !important; /* Garis biru terang saat diklik */
+    background-color: #f0f9ff !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
+}
 
         .label-bobot-info {
             display: inline-block;
@@ -701,6 +709,24 @@
             color: var(--primary) !important;
             font-weight: 700;
         }
+
+        /* =============================================
+   MENGHILANGKAN TOMBOL PANAH NAIK-TURUN (SPINNER)
+============================================= */
+/* Untuk Chrome, Safari, Edge, Opera */
+#tableBodyErapor input[type="number"]::-webkit-outer-spin-button,
+#tableBodyErapor input[type="number"]::-webkit-inner-spin-button,
+input.input-nilai-mentah::-webkit-outer-spin-button,
+input.input-nilai-mentah::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+/* Untuk Firefox */
+#tableBodyErapor input[type="number"],
+input.input-nilai-mentah {
+    -moz-appearance: textfield !important;
+}
 
         /* =============================================
            KOMPONEN UI LAINNYA
@@ -9991,6 +10017,14 @@ function setStatusSinkron(status, pesan = '') {
         btn.style.display = 'inline-block'; // Tampilkan tombol Coba Lagi
     }
 }
+// ============================================================
+// MENCEGAH NILAI BERUBAH SAAT SCROLLING DI KOTAK INPUT
+// ============================================================
+document.addEventListener('wheel', function (e) {
+    if (document.activeElement.type === 'number') {
+        document.activeElement.blur(); // Melepas fokus input agar scroll layar tidak mengubah angka
+    }
+}, { passive: false });
 </script>
 <!-- BADGE INDIKATOR STATUS SINKRONISASI -->
 <div id="syncStatusBadge" style="position: fixed; bottom: 20px; right: 20px; padding: 8px 16px; border-radius: 30px; font-size: 12px; font-weight: bold; background: #0f172a; color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; z-index: 9999; transition: all 0.3s ease;">
