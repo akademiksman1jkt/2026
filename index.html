@@ -605,28 +605,30 @@
         /* =============================================
            TABEL & INPUT NILAI
         ============================================= */
-        /* ✅ KODE PERBAIKAN: */
+        /* KOTAK INPUT NILAI TERTEGAS DAN SANGAT KONTRAS */
 .input-nilai-mentah,
 #tableBodyErapor input[type="number"] {
     width: 75px;
     padding: 8px;
-    border: 1.5px solid #94a3b8 !important; /* Border abu-abu tegas & jelas */
-    border-radius: 6px;
+    border: 2px solid #475569 !important; /* Garis tepi tebal & warna Slate Gelap */
+    border-radius: 8px;
     text-align: center;
     font-family: inherit;
-    font-weight: 700 !important; /* Angka lebih tebal */
-    color: #0f172a !important;   /* Hitam pekat */
+    font-size: 14px;
+    font-weight: 800 !important;          /* Angka hitam tebal pekat */
+    color: #0f172a !important;            
     background-color: #ffffff !important;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important; /* Bayangan halus luar */
+    transition: all 0.15s ease-in-out;
 }
 
+/* WAKTU KOTAK DIKLIK / DIPILIH (FOKUS) */
 .input-nilai-mentah:focus,
 #tableBodyErapor input[type="number"]:focus {
-    border-color: #0284c7 !important; /* Garis biru terang saat diklik */
-    background-color: #f0f9ff !important;
+    border-color: #0284c7 !important;     /* Garis tepi Biru Terang */
+    background-color: #f0f9ff !important; /* Latar belakang biru soft */
     outline: none !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
+    box-shadow: 0 0 0 3.5px rgba(2, 132, 199, 0.3) !important; /* Efek menyala */
 }
 
         .label-bobot-info {
