@@ -4285,6 +4285,22 @@ async function muatDataCloud() {
 
         cloudDataLoaded = true;
 
+        // 🚀 1. SINKRONKAN USER AKTIF DENGAN DATA SPREADSHEET TERBARU
+        if (typeof sessionUserAktif !== 'undefined' && sessionUserAktif && cloudUsersCache.length > 0) {
+            let uNameAktif = String(sessionUserAktif.username || '').toLowerCase().trim();
+            let freshUser  = cloudUsersCache.find(u => String(u.username).toLowerCase().trim() === uNameAktif);
+            
+            if (freshUser) {
+                // Perbarui sesi aktif dengan NIP & Username murni dari Google Sheets
+                sessionUserAktif = {
+                    ...sessionUserAktif,
+                    ...freshUser,
+                    nip: freshUser.pass || freshUser.nip || sessionUserAktif.nip
+                };
+                localStorage.setItem("session_user_sman1", JSON.stringify(sessionUserAktif));
+            }
+        }
+
         if (cloudUsersCache.length > 0) {
             try { localStorage.setItem("offline_users_sman1", JSON.stringify(cloudUsersCache)); } catch(e) {}
         }
@@ -4296,18 +4312,14 @@ async function muatDataCloud() {
         if (cloudUsersCache.length === 0) {
             try {
                 const localCacheUsers = localStorage.getItem("offline_users_sman1");
-                if (localCacheUsers) {
-                    cloudUsersCache = JSON.parse(localCacheUsers);
-                }
+                if (localCacheUsers) cloudUsersCache = JSON.parse(localCacheUsers);
             } catch(e) { console.warn('[Portal] Gagal memuat local cache users:', e); }
         }
 
         if (dataSiswaGlobal.length === 0) {
             try {
                 const localCacheSiswa = localStorage.getItem("offline_siswa_sman1");
-                if (localCacheSiswa) {
-                    dataSiswaGlobal = JSON.parse(localCacheSiswa);
-                }
+                if (localCacheSiswa) dataSiswaGlobal = JSON.parse(localCacheSiswa);
             } catch(e) { console.warn('[Portal] Gagal memuat local cache siswa:', e); }
         }
 
@@ -4336,7 +4348,7 @@ async function muatDataCloud() {
             btnMasuk.innerHTML = 'MASUK';
         }
 
-        // 🚀 PAKSA RENDER UANG TAMPILAN JIKA USER DALAM POSISI LOGIN/REFRESH
+        // 🚀 2. PAKSA RENDER UANG DROPDOWN DENGAN DATA PLOTTING MURNI DARI CLOUD
         if (typeof renderDropdownEraporKunci === 'function') {
             renderDropdownEraporKunci();
         }
@@ -4380,38 +4392,43 @@ async function muatDataCloud() {
     const selectK = document.getElementById('epSelectKelas');
     if (!selectM || !selectK) return;
 
+    // 🚀 PAKSA HAPUS PESAN WARNING KUNING LAMA (BAIK DARI DOM MAUPUN CLASS)
+    document.getElementById('epPlottingWarning')?.remove();
+    document.querySelectorAll('.ep-warning-box').forEach(el => el.style.display = 'none');
+
     selectM.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
     selectK.innerHTML = '<option value="">-- Pilih Kelas --</option>';
-
-    // Hapus pesan peringatan plotting lama jika ada
-    document.getElementById('epPlottingWarning')?.remove();
 
     // 1. Ambil data user aktif
     let uAktif = typeof sessionUserAktif !== 'undefined' && sessionUserAktif 
         ? sessionUserAktif 
         : (typeof currentUserInfo !== 'undefined' ? currentUserInfo : {});
 
-    // Ambil Username, NIP, dan Role dalam format string bersih (tanpa spasi/tanda petik)
     let uNameClean = String(uAktif.username || '').replace(/['\s]/g, '').toLowerCase();
-    let uNipClean  = String(uAktif.nip || uAktif.pass || '').replace(/['\s]/g, '').toLowerCase(); // NIP user
+    let uNipClean  = String(uAktif.nip || uAktif.pass || '').replace(/['\s]/g, '').toLowerCase();
     let uRoleClean = String(uAktif.role || '').toLowerCase();
 
-    // Cek Akses Admin
     let isAdmin = uRoleClean.includes('admin') || uNameClean.includes('admin');
 
     if (!isAdmin) {
-        // 2. GURU: COCOKKAN PLOTTING BERDASARKAN USERNAME ATAU NIP DARI CLOUD
+        // Jika memori cloudPlottingCache masih kosong saat refresh, ambil dari localStorage
+        if (!cloudPlottingCache || cloudPlottingCache.length === 0) {
+            try {
+                let localPlot = localStorage.getItem("offline_plotting_sman1");
+                if (localPlot) cloudPlottingCache = JSON.parse(localPlot);
+            } catch(e) {}
+        }
+
+        // 2. Filter Plotting Guru
         let myPlots = (cloudPlottingCache || []).filter(p => {
             let plotUserClean = String(p.username || '').replace(/['\s]/g, '').toLowerCase();
             let isWali = String(p.mapel || '').toUpperCase().trim() === 'WALI';
-            
-            // Cocok jika (Plotting === Username ATAU Plotting === NIP) DAN bukan 'WALI'
             let isMatch = (plotUserClean === uNameClean) || (uNipClean !== '' && plotUserClean === uNipClean);
             return isMatch && !isWali;
         });
 
         if (myPlots.length > 0) {
-            // ✅ PLOTTING DITEMUKAN: Isi dropdown Kelas & Mapel
+            // ✅ PLOTTING DITEMUKAN: Render dropdown
             let kelasList = [...new Set(myPlots.map(p => p.kelas))].filter(Boolean).sort();
             kelasList.forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
 
@@ -4422,7 +4439,7 @@ async function muatDataCloud() {
                 selectM.innerHTML += `<option value="${m}">${namaMapel}</option>`;
             });
         } else {
-            // ❌ TIDAK COCOK: Tampilkan warning kuning
+            // ❌ TIDAK ADA PLOTTING: Tampilkan warning
             let warnEl = document.createElement('div');
             warnEl.id = 'epPlottingWarning';
             warnEl.style.cssText = 'background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#92400e;display:flex;align-items:flex-start;gap:12px;';
@@ -7522,15 +7539,17 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         }
     }
 
-    // ── LOAD CACHE OFFLINE DULU (AGAR UI TIDAK BLANK) ──────────────────
+    // ── LOAD CACHE OFFLINE DULU (USERS, SISWA, & PLOTTING) ──────────────────
     try {
         let cachedUsers = localStorage.getItem("offline_users_sman1");
         let cachedSiswa = localStorage.getItem("offline_siswa_sman1");
+        let cachedPlot  = localStorage.getItem("offline_plotting_sman1"); // 👈 DITAMBAHKAN
         
         if (cachedUsers) {
             cloudUsersCache = JSON.parse(cachedUsers);
             if (cloudUsersCache && cloudUsersCache.length > 0) cloudDataLoaded = true;
         }
+        
         if (cachedSiswa) {
             dataSiswaGlobal = JSON.parse(cachedSiswa);
             if (dataSiswaGlobal && Array.isArray(dataSiswaGlobal)) {
@@ -7542,12 +7561,18 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 }
             }
         }
+
+        // 🚀 BACA CACHE PLOTTING AGAR DROPDOWN TIDAK BLANK / MUNCUL KOTAK KUNING SAAT REFRESH
+        if (cachedPlot) {
+            cloudPlottingCache = JSON.parse(cachedPlot);
+        }
     } catch(e) { console.warn('[Portal] Cache load error:', e); }
 
     if (!cloudUsersCache) { cloudUsersCache = []; }
     if (!dataSiswaGlobal) { dataSiswaGlobal = []; }
+    if (!cloudPlottingCache) { cloudPlottingCache = []; } // 👈 DITAMBAHKAN
 
-    // Jika pengguna sudah login, buka dashboard langsung
+    // Jika pengguna sudah login, buka dashboard langsung menggunakan cache sementara
     if (sessionUserAktif) {
         if (typeof bukaHalamanDashboard === 'function') {
             bukaHalamanDashboard();
@@ -7558,8 +7583,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         if (loginScr) loginScr.style.display = 'flex';
     }
 
-    // 🚀 PERBAIKAN UTAMA: WAJIB MUAT/SINKRONKAN CLOUD DATA DI BACKGROUND SETIAP REFRESH!
-    // (Tanpa dihalangi oleh return!)
+    // 🚀 SINKRONKAN DATA TERBARU DARI GOOGLE SHEETS DI BACKGROUND
     if (typeof muatDataCloud === 'function') {
         muatDataCloud();
     }
