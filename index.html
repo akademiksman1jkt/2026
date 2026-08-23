@@ -8008,12 +8008,19 @@ function cetakRaporIndividu(kelas, smt) {
             barisNilai += `</tr>`;
         });
 
+        // ✅ KODE BARU (MENGGUNAKAN SAKLAR PERINGKAT):
         let footerRow = `<tr style="background:#f1f5f9;">
             <td colspan="${colSpanFoot}" style="padding:6px 8px;border:1px solid #cbd5e1;font-size:11px;font-weight:800;text-align:right;color:#1e293b;">Rata-rata Progress Nilai</td>
             <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:13px;font-weight:900;text-align:center;color:#b45309;background:#fef3c7;">${avgSiswa}</td>`;
-        if (cfg.showKetuntasan) {
+            
+        // Pengecekan disesuaikan dengan properti saklar Peringkat (cfg.showPeringkat / cfg.showRank / cfg.showPeringkatKelas)
+        if (cfg.showPeringkat || cfg.showRank || cfg.showPeringkatKelas) {
             footerRow += `<td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:11px;text-align:center;color:#15803d;font-weight:900;background:#dcfce7;">Peringkat #${rank}</td>`;
+        } else if (cfg.showKetuntasan) {
+            // Kolom penyeimbang jika saklar ketuntasan ON tapi peringkat OFF
+            footerRow += `<td style="padding:6px 8px;border:1px solid #cbd5e1;background:#f1f5f9;"></td>`;
         }
+        
         footerRow += `</tr>`;
 
         // PENGATURAN TANDA TANGAN (SINGLE TTD POSISI KANAN & RATA KIRI)
@@ -8093,7 +8100,7 @@ function cetakRaporIndividu(kelas, smt) {
                 <tbody>${barisNilai || '<tr><td colspan="9" style="padding:12px;text-align:center;color:#64748b;font-size:11px;border:1px solid #cbd5e1;">Belum ada riwayat komponen masuk</td></tr>'}</tbody>
                 <tfoot>${footerRow}</tfoot>
             </table>
-            <div style="margin-top:6px;font-size:10px;color:#64748b;font-style:italic;font-weight:600;">* Nilai murni rata-rata berlatar merah menandakan subkompetensi mapel berada di bawah standar ketuntasan (75)</div>
+            <div style="margin-top:6px;font-size:10px;color:#64748b;font-style:italic;font-weight:600;"></div>
             ${ttdHtml}
         </div>`;
     }).join('');
