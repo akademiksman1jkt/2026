@@ -1968,8 +1968,8 @@ input.input-nilai-mentah {
         ========================================== -->
         <div id="eraporTab" class="tab-content-view" style="display:none;">
             <div class="content-header">
-                <h1>Modul Penilaian e-Rapor Cloud Guru</h1>
-                <p id="epHeaderDesc">Input nilai mata pelajaran Anda, unduh template, dan simpan ke cloud. Admin dapat mengelola kolom, import massal, dan generate rapor/leger.</p>
+                <h1>E-Rapor</h1>
+                <p id="epHeaderDesc">Input Nilai Mata Pelajaran</p>
             </div>
 
             <!-- Tab Navigation erapor -->
@@ -2030,7 +2030,7 @@ input.input-nilai-mentah {
                 </label>
 
                 <button class="btn-primary" style="background-color:var(--success); height:40px; padding:0 14px; font-size:12px;" onclick="simpanKomponenNilaiCloud()">
-                    <i class="ri-cloud-upload-line"></i> SIMPAN KE CLOUD
+                    <i class="ri-cloud-upload-line"></i> SIMPAN NILAI
                 </button>
             </div>
 
@@ -2143,7 +2143,7 @@ input.input-nilai-mentah {
                         </div>
                         <div style="margin-top:15px; display:flex; justify-content:flex-end; gap:10px;">
                             <button class="btn-primary" style="background:var(--success);" onclick="konfirmasiImportNilai()">
-                                <i class="ri-cloud-upload-line"></i> KONFIRMASI &amp; SIMPAN KE CLOUD
+                                <i class="ri-cloud-upload-line"></i> KONFIRMASI &amp; SIMPAN NILAI
                             </button>
                         </div>
                     </div>
@@ -6880,7 +6880,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         if (desc) {
             desc.textContent = isAdmin
                 ? 'Kelola kolom nilai, import Excel massal, generate rapor/leger, dan release data ke guru.'
-                : 'Input nilai mata pelajaran Anda sesuai penugasan, unduh template, dan simpan ke cloud. Leger tersedia jika sudah di-release oleh admin.';
+                : 'Input nilai mata pelajaran Anda sesuai penugasan, unduh template, dan simpan. Leger tersedia jika sudah di-release oleh admin.';
         }
 
         // ── SINKRONISASI DROPDOWN ANGKATAN VOTING ──
