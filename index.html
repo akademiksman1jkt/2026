@@ -4363,49 +4363,66 @@ async function muatDataCloud() {
     }
 
     function renderDropdownEraporKunci() {
-    const selectM   = document.getElementById('epSelectMapel');
-    const selectK   = document.getElementById('epSelectKelas');
+    const selectM = document.getElementById('epSelectMapel');
+    const selectK = document.getElementById('epSelectKelas');
     if (!selectM || !selectK) return;
+
     selectM.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
     selectK.innerHTML = '<option value="">-- Pilih Kelas --</option>';
 
     // Hapus pesan peringatan plotting lama jika ada
     document.getElementById('epPlottingWarning')?.remove();
 
-    let listKelasSemua = [...new Set((dataSiswaGlobal || []).map(row => row[3]))].filter(k => k && k !== "").sort();
-    
-    // Deteksi akun pengguna aktif
-    let uAktif = typeof sessionUserAktif !== 'undefined' ? sessionUserAktif : (typeof currentUserInfo !== 'undefined' ? currentUserInfo : {});
-    let uRole  = String(uAktif.role || '').toLowerCase();
-    let uName  = String(uAktif.username || '').toLowerCase();
+    // 1. Ambil data user aktif
+    let uAktif = typeof sessionUserAktif !== 'undefined' && sessionUserAktif 
+        ? sessionUserAktif 
+        : (typeof currentUserInfo !== 'undefined' ? currentUserInfo : {});
 
-    // Pengecekan Admin fleksibel (mendukung admin, AdminSMAN1, adminsman1)
-    let isAdmin = uRole.includes('admin') || uName.includes('admin');
+    // Ambil Username, NIP, dan Role dalam format string bersih (tanpa spasi/tanda petik)
+    let uNameClean = String(uAktif.username || '').replace(/['\s]/g, '').toLowerCase();
+    let uNipClean  = String(uAktif.nip || uAktif.pass || '').replace(/['\s]/g, '').toLowerCase(); // NIP user
+    let uRoleClean = String(uAktif.role || '').toLowerCase();
+
+    // Cek Akses Admin
+    let isAdmin = uRoleClean.includes('admin') || uNameClean.includes('admin');
 
     if (!isAdmin) {
-        // GURU: Ambil plotting dari cloud (cloudPlottingCache)
-        let myPlots = (cloudPlottingCache || []).filter(p => 
-            String(p.username).trim().toLowerCase() === uName && p.mapel !== 'WALI'
-        );
+        // 2. GURU: COCOKKAN PLOTTING BERDASARKAN USERNAME ATAU NIP DARI CLOUD
+        let myPlots = (cloudPlottingCache || []).filter(p => {
+            let plotUserClean = String(p.username || '').replace(/['\s]/g, '').toLowerCase();
+            let isWali = String(p.mapel || '').toUpperCase().trim() === 'WALI';
+            
+            // Cocok jika (Plotting === Username ATAU Plotting === NIP) DAN bukan 'WALI'
+            let isMatch = (plotUserClean === uNameClean) || (uNipClean !== '' && plotUserClean === uNipClean);
+            return isMatch && !isWali;
+        });
 
         if (myPlots.length > 0) {
-            [...new Set(myPlots.map(p => p.kelas))].sort().forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
-            [...new Set(myPlots.map(p => p.mapel))].forEach(m => {
-                let inf = (typeof daftarMapel !== 'undefined' ? daftarMapel : []).find(dm => dm.kode === m);
-                selectM.innerHTML += `<option value="${m}">${inf ? inf.namaLengkap : m}</option>`;
+            // ✅ PLOTTING DITEMUKAN: Isi dropdown Kelas & Mapel
+            let kelasList = [...new Set(myPlots.map(p => p.kelas))].filter(Boolean).sort();
+            kelasList.forEach(k => { selectK.innerHTML += `<option value="${k}">${k}</option>`; });
+
+            let mapelList = [...new Set(myPlots.map(p => p.mapel))].filter(Boolean);
+            mapelList.forEach(m => {
+                let inf = (typeof daftarMapel !== 'undefined' ? daftarMapel : []).find(dm => String(dm.kode).trim() === String(m).trim());
+                let namaMapel = inf ? inf.namaLengkap : m;
+                selectM.innerHTML += `<option value="${m}">${namaMapel}</option>`;
             });
         } else {
-            // TIDAK ADA PLOTTING: Tampilkan peringatan
+            // ❌ TIDAK COCOK: Tampilkan warning kuning
             let warnEl = document.createElement('div');
             warnEl.id = 'epPlottingWarning';
             warnEl.style.cssText = 'background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#92400e;display:flex;align-items:flex-start;gap:12px;';
             warnEl.innerHTML = '<i class="ri-lock-2-line" style="font-size:22px;flex-shrink:0;margin-top:1px;"></i>'
                 + '<div><strong style="font-size:14px;">Belum ada plotting mengajar untuk akun Anda.</strong><br>'
                 + '<span style="font-size:12px;">Hubungi Admin</span></div>';
-            document.getElementById('epSection_inputNilai')?.prepend(warnEl);
+            
+            let containerTarget = document.getElementById('epSection_inputNilai') || document.querySelector('.ep-warning-box')?.parentNode;
+            if (containerTarget) containerTarget.prepend(warnEl);
         }
     } else {
-        // ADMIN: Tampilkan semua mata pelajaran dan seluruh kelas tanpa halangan
+        // ADMIN: Tampilkan semua kelas & mapel
+        let listKelasSemua = [...new Set((dataSiswaGlobal || []).map(row => row[3]))].filter(k => k && k !== "").sort();
         if (typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel)) {
             daftarMapel.forEach(m => { selectM.innerHTML += `<option value="${m.kode}">${m.namaLengkap}</option>`; });
         }
