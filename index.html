@@ -6244,6 +6244,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     // ERAPOR — LEMBAR KERJA FLEKSIBEL
     // ============================================================
     function muatLembarKerjaErapor() {
+    Object.keys(localStorage).forEach(k => k.startsWith('ep_draft_') && localStorage.removeItem(k));
     const kelas    = document.getElementById('epSelectKelas')?.value;
     const mapel    = document.getElementById('epSelectMapel')?.value;
     const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
@@ -6292,8 +6293,32 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     // ============================================================
     fSiswa.forEach((siswa, i) => {
         let savedNilai = {};
-        try { savedNilai = JSON.parse(localStorage.getItem('ep_draft_'+mapel+'_'+kelas+'_'+smt+'_'+siswa[0])||'{}'); } catch(e) {}
-        let cloudVal = parseFloat(siswa[6+(mapelIdx*6)+(smt-1)])||0;
+        if (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) {
+            let rowNilai = dataSiswaGlobal.find(r => 
+                String(r[0]).replace(/['\s]/g, '') === String(siswa[0]).replace(/['\s]/g, '') && 
+                String(r[1]).trim() === String(mapel).trim() && 
+                String(r[2]).trim() === String(smt).trim()
+            );
+
+            if (rowNilai) {
+                savedNilai = {
+                    harian: rowNilai[3] !== undefined ? rowNilai[3] : '',
+                    tugas:  rowNilai[4] !== undefined ? rowNilai[4] : '',
+                    uts:    rowNilai[5] !== undefined ? rowNilai[5] : '',
+                    uas:    rowNilai[6] !== undefined ? rowNilai[6] : ''
+                };
+            }
+        }
+
+        let totalCloud = 0, totalBobotCloud = 0;
+        kolom.forEach(k => {
+            let v = parseFloat(savedNilai[k.id]);
+            if (!isNaN(v)) {
+                totalCloud += v * (k.bobot / 100);
+                totalBobotCloud += k.bobot;
+            }
+        });
+        let cloudVal = totalBobotCloud > 0 ? (totalCloud / totalBobotCloud) * 100 : 0;
 
         // ============================================================
         // POTONG & GANTI BAGIAN DENGAN LOGIKA PEMETAAN KELAS INI
@@ -6431,7 +6456,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         });
 
         if (Object.keys(draftObj).length > 0) {
-            localStorage.setItem('ep_draft_' + mapel + '_' + kelas + '_' + smt + '_' + siswa[0], JSON.stringify(draftObj));
+           // localStorage.setItem('ep_draft_' + mapel + '_' + kelas + '_' + smt + '_' + siswa[0], JSON.stringify(draftObj));
             saved++;
         }
 
