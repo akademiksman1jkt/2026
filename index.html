@@ -4110,8 +4110,7 @@ function downloadCloudSheet(sheetName, callbackAction) {
     });
 }
 
-    // Muat cloud data di BACKGROUND — tidak memblokir login screen
-    // Muat cloud data di BACKGROUND — mengunci tombol login sampai data 100% siap
+        // Muat cloud data di BACKGROUND — mengunci tombol login sampai data 100% siap
 async function muatDataCloud() {
     const st = document.getElementById('loginCloudStatus');
     const btnMasuk = document.getElementById('btnMasuk');
@@ -4133,27 +4132,28 @@ async function muatDataCloud() {
         // Jalankan database PARALEL — hemat waktu & anti-stuck
         await Promise.all([
             downloadCloudSheet("Database_Web", function(rows) {
-    try {
-        if (!rows || rows.length === 0) return;
-        
-        // 1. KOSONGKAN ARRAY MEMORI
-        dataSiswaGlobal = [];
-        
-        rows.forEach(function(row) {
-            if (!row || !row.c) return;
-            let cells = row.c.map(function(cell) {
-                return cell ? (cell.f ? String(cell.f) : String(cell.v)) : "";
-            });
-            if (cells[0]) dataSiswaGlobal.push(cells);
-        });
+                try {
+                    if (!rows || rows.length === 0) return;
+                    
+                    // 1. KOSONGKAN ARRAY MEMORI
+                    dataSiswaGlobal = [];
+                    
+                    rows.forEach(function(row) {
+                        if (!row || !row.c) return;
+                        let cells = row.c.map(function(cell) {
+                            return cell ? (cell.f ? String(cell.f) : String(cell.v)) : "";
+                        });
+                        if (cells[0]) dataSiswaGlobal.push(cells);
+                    });
 
-        // 2. HAPUS CACHE LAMA & UPDATE CACHE BARU TERHUBUNG SPREADSHEET
-        localStorage.removeItem("offline_siswa_sman1");
-        localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal));
+                    // 2. HAPUS CACHE LAMA & UPDATE CACHE BARU TERHUBUNG SPREADSHEET
+                    localStorage.removeItem("offline_siswa_sman1");
+                    localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal));
 
-        console.log("🟢 [Portal] Data siswa murni cloud berhasil dimuat:", dataSiswaGlobal.length);
-    } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
-})
+                    console.log("🟢 [Portal] Data siswa murni cloud berhasil dimuat:", dataSiswaGlobal.length);
+                } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
+            }), // <--- TANDA KOMA PEMISAH DENGAN SHEET KEDUA
+
             downloadCloudSheet("Sistem_Users", function(rows) {
                 try {
                     if (!rows) return;
@@ -4185,7 +4185,8 @@ async function muatDataCloud() {
                 } catch(e) { 
                     console.warn('[Portal] Users parse err:', e);
                 }
-            }),
+            }), // <--- TANDA KOMA PEMISAH DENGAN SHEET KETIGA
+
             // Pengunduh Tab Biodata
             downloadCloudSheet("Sheet_Biodata", function(rows) {
                 try {
@@ -4240,40 +4241,45 @@ async function muatDataCloud() {
                 } catch(errBio) { 
                     console.warn('[Portal] Gagal memproses baris biodata:', errBio); 
                 }
-            }),
+            }), // <--- TANDA KOMA PEMISAH DENGAN SHEET KEEMPAT
+
             // Plotting Guru
             downloadCloudSheet("Sistem_Plotting", function(rows) {
-    try {
-        // RESET MURNI: Kosongkan array di memori
-        cloudPlottingCache = [];
-        
-        if (rows && rows.length > 0) {
-            rows.forEach(function(row) {
-                if (!row || !row.c) return;
-                let cells = row.c.map(function(cell) { return cell ? String(cell.v || "").trim() : ""; });
-                
-                // Ambil data jika kolom Username tidak kosong & bukan header
-                if (cells[0] && cells[0].toLowerCase() !== "username") {
-                    cloudPlottingCache.push({ 
-                        username: cells[0], 
-                        kelas: cells[1], 
-                        mapel: cells[2] 
-                    });
-                }
-            });
-        }
+                try {
+                    // RESET MURNI: Kosongkan array di memori
+                    cloudPlottingCache = [];
+                    
+                    if (rows && rows.length > 0) {
+                        rows.forEach(function(row) {
+                            if (!row || !row.c) return;
+                            let cells = row.c.map(function(cell) { 
+                                if (!cell) return "";
+                                let v = cell.f ? cell.f : (cell.v !== null && cell.v !== undefined ? cell.v : "");
+                                return String(v).replace(/['\s]/g, '').trim(); 
+                            });
+                            
+                            // Ambil data jika kolom Username tidak kosong & bukan header
+                            if (cells[0] && cells[0].toLowerCase() !== "username") {
+                                cloudPlottingCache.push({ 
+                                    username: cells[0], 
+                                    kelas: cells[1], 
+                                    mapel: cells[2] 
+                                });
+                            }
+                        });
+                    }
 
-        // HAPUS CACHE LAMA: Bersihkan data lama dari browser agar tidak terbaca kembali
-        localStorage.removeItem("offline_plotting_sman1");
-        
-        // SIMPAN CACHE BARU: Hanya simpan data murni yang baru diunduh
-        localStorage.setItem("offline_plotting_sman1", JSON.stringify(cloudPlottingCache));
-        
-        console.log("🟢 [Portal] Data plotting murni cloud siap:", cloudPlottingCache.length);
-    } catch(errPlot) {
-        console.warn('[Portal] Gagal memproses plotting:', errPlot);
-    }
-})
+                    // HAPUS CACHE LAMA: Bersihkan data lama dari browser
+                    localStorage.removeItem("offline_plotting_sman1");
+                    
+                    // SIMPAN CACHE BARU: Hanya simpan data murni yang baru diunduh
+                    localStorage.setItem("offline_plotting_sman1", JSON.stringify(cloudPlottingCache));
+                    
+                    console.log("🟢 [Portal] Data plotting murni cloud siap:", cloudPlottingCache.length);
+                } catch(errPlot) {
+                    console.warn('[Portal] Gagal memproses plotting:', errPlot);
+                }
+            })
         ]); 
     } catch (errPromise) {
         console.error("[Portal] Gagal memuat database inti:", errPromise);
@@ -4326,20 +4332,24 @@ async function muatDataCloud() {
             }
         }
 
-        // ============================================================
-        // 2. BUKA KUNCI TOMBOL SETELAH SEMUA PROSES DIMUAT DENGAN SEMPURNA
-        // ============================================================
+        // BUKA KUNCI TOMBOL SETELAH SEMUA PROSES DIMUAT
         if (btnMasuk) {
             btnMasuk.disabled = false;
             btnMasuk.style.opacity = '1';
             btnMasuk.style.cursor = 'pointer';
             btnMasuk.innerHTML = 'MASUK';
         }
-        // ============================================================
-        // 🚀 TAMBAHKAN BARIS INI DI PALING BAWAH FINALLY:
-        // ============================================================
+
+        // REFRESH AUTOMATIS DROPDOWN APABILA USER SUDAH DALAM POSISI LOGIN
         if (typeof renderDropdownEraporKunci === 'function') {
             renderDropdownEraporKunci();
+        }
+
+        // REFRESH LEMBAR KERJA JIKA USER SEDANG MEMBUKA TABEL ERAPOR
+        const selectKelas = document.getElementById('epSelectKelas')?.value;
+        const selectMapel = document.getElementById('epSelectMapel')?.value;
+        if (selectKelas && selectMapel && typeof muatLembarKerjaErapor === 'function') {
+            muatLembarKerjaErapor();
         }
     }
 }
