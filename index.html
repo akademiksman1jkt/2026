@@ -4133,18 +4133,27 @@ async function muatDataCloud() {
         // Jalankan database PARALEL — hemat waktu & anti-stuck
         await Promise.all([
             downloadCloudSheet("Database_Web", function(rows) {
-                try {
-                    if (!rows) return;
-                    dataSiswaGlobal = [];
-                    rows.forEach(function(row) {
-                        if (!row || !row.c) return;
-                        let cells = row.c.map(function(cell) {
-                            return cell ? (cell.f ? String(cell.f) : String(cell.v)) : "";
-                        });
-                        if (cells[0]) dataSiswaGlobal.push(cells);
-                    });
-                } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
-            }),
+    try {
+        if (!rows || rows.length === 0) return;
+        
+        // 1. KOSONGKAN ARRAY MEMORI
+        dataSiswaGlobal = [];
+        
+        rows.forEach(function(row) {
+            if (!row || !row.c) return;
+            let cells = row.c.map(function(cell) {
+                return cell ? (cell.f ? String(cell.f) : String(cell.v)) : "";
+            });
+            if (cells[0]) dataSiswaGlobal.push(cells);
+        });
+
+        // 2. HAPUS CACHE LAMA & UPDATE CACHE BARU TERHUBUNG SPREADSHEET
+        localStorage.removeItem("offline_siswa_sman1");
+        localStorage.setItem("offline_siswa_sman1", JSON.stringify(dataSiswaGlobal));
+
+        console.log("🟢 [Portal] Data siswa murni cloud berhasil dimuat:", dataSiswaGlobal.length);
+    } catch(e) { console.warn('[Portal] DB_Web parse err:', e); }
+})
             downloadCloudSheet("Sistem_Users", function(rows) {
                 try {
                     if (!rows) return;
@@ -6336,7 +6345,17 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     // ERAPOR — LEMBAR KERJA FLEKSIBEL
     // ============================================================
     function muatLembarKerjaErapor() {
+    // 1. Bersihkan draf lokal lama agar tidak menimpa data spreadsheet terbaru
     Object.keys(localStorage).forEach(k => k.startsWith('ep_draft_') && localStorage.removeItem(k));
+
+    // 2. PENGAMAN: Jika data memori kosong, muat ulang cache siswa terbaru
+    if (!dataSiswaGlobal || dataSiswaGlobal.length === 0) {
+        try {
+            const localCache = localStorage.getItem("offline_siswa_sman1");
+            if (localCache) dataSiswaGlobal = JSON.parse(localCache);
+        } catch(e) { console.warn('[Portal] Gagal membaca cache siswa:', e); }
+    }
+
     const kelas    = document.getElementById('epSelectKelas')?.value;
     const mapel    = document.getElementById('epSelectMapel')?.value;
     const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
@@ -7486,77 +7505,61 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     // INISIALISASI HALAMAN (VERSI AMAN FIX LOGIN STUCK)
     // ============================================================
     window.onload = function() {
-        // Siapkan XLSX patch
-        if (typeof XLSX !== "undefined" && XLSX.utils && !XLSX.utils.aoa_to_sheet_original) {
-            XLSX.utils.aoa_to_sheet_original = XLSX.utils.aoa_to_sheet;
-        }
+    // Siapkan XLSX patch
+    if (typeof XLSX !== "undefined" && XLSX.utils && !XLSX.utils.aoa_to_sheet_original) {
+        XLSX.utils.aoa_to_sheet_original = XLSX.utils.aoa_to_sheet;
+    }
 
-        // Pulihkan sesi tersimpan (jika ada)
-        let savedSession = localStorage.getItem("session_user_sman1");
-        if (savedSession) {
-            try { sessionUserAktif = JSON.parse(savedSession); } catch(e) {
-                localStorage.removeItem("session_user_sman1");
-            }
+    // Pulihkan sesi tersimpan (jika ada)
+    let savedSession = localStorage.getItem("session_user_sman1");
+    if (savedSession) {
+        try { sessionUserAktif = JSON.parse(savedSession); } catch(e) {
+            localStorage.removeItem("session_user_sman1");
         }
+    }
 
-        // ── LOAD CACHE OFFLINE DULU ──────────────────────────────────
-        try {
-            let cachedUsers = localStorage.getItem("offline_users_sman1");
-            let cachedSiswa = localStorage.getItem("offline_siswa_sman1");
-            
-            if (cachedUsers) {
-                cloudUsersCache = JSON.parse(cachedUsers);
-                // Kita set true hanya jika data hasil parse valid dan ada isinya
-                if (cloudUsersCache && cloudUsersCache.length > 0) {
-                    cloudDataLoaded = true;
+    // ── LOAD CACHE OFFLINE DULU (AGAR UI TIDAK BLANK) ──────────────────
+    try {
+        let cachedUsers = localStorage.getItem("offline_users_sman1");
+        let cachedSiswa = localStorage.getItem("offline_siswa_sman1");
+        
+        if (cachedUsers) {
+            cloudUsersCache = JSON.parse(cachedUsers);
+            if (cloudUsersCache && cloudUsersCache.length > 0) cloudDataLoaded = true;
+        }
+        if (cachedSiswa) {
+            dataSiswaGlobal = JSON.parse(cachedSiswa);
+            if (dataSiswaGlobal && Array.isArray(dataSiswaGlobal)) {
+                let listKls = [...new Set(dataSiswaGlobal.map(r => r && r[3] ? r[3] : ""))].filter(k => k && k !== "Kelas").sort();
+                const selK = document.getElementById('selectKelas');
+                if (selK) {
+                    selK.innerHTML = '<option value="">-- Tentukan Kelas --</option>';
+                    listKls.forEach(k => { selK.innerHTML += '<option value="'+k+'">'+k+'</option>'; });
                 }
             }
-            if (cachedSiswa) {
-                dataSiswaGlobal = JSON.parse(cachedSiswa);
-                
-                // Isi dropdown kelas dari cache secara aman
-                if (dataSiswaGlobal && Array.isArray(dataSiswaGlobal)) {
-                    let listKls = [...new Set(dataSiswaGlobal.map(r => r && r[3] ? r[3] : ""))].filter(k => k && k !== "Kelas").sort();
-                    const selK = document.getElementById('selectKelas');
-                    if (selK) {
-                        selK.innerHTML = '<option value="">-- Tentukan Kelas --</option>';
-                        listKls.forEach(k => { selK.innerHTML += '<option value="'+k+'">'+k+'</option>'; });
-                    }
-                }
-            }
-        } catch(e) { console.warn('[Portal] Cache load error:', e); }
-
-        // PENGAMAN ABSOLUT: Pastikan variabel tidak null sebelum dicek agar website TIDAK STUCK
-        if (!cloudUsersCache) { cloudUsersCache = []; }
-        if (!dataSiswaGlobal) { dataSiswaGlobal = []; }
-
-        // Update status indikator login secara aman
-        const st = document.getElementById('loginCloudStatus');
-        if (st) {
-            if (cloudDataLoaded && cloudUsersCache.length > 0) {
-                st.textContent = '✅ ' + cloudUsersCache.length + ' akun siap (dari cache) — menyegarkan...';
-                st.style.color = '#f59e0b'; // Oranye mendandakan cache siap
-            } else {
-                st.textContent = '⏳ Menyiapkan data akun dari cloud...';
-                st.style.color = '#888888';
-            }
         }
+    } catch(e) { console.warn('[Portal] Cache load error:', e); }
 
-        // Login screen selalu tampil langsung
-        const loginScr = document.getElementById('loginScreen');
-        if (loginScr) {
-            loginScr.style.display = 'flex';
-        }
+    if (!cloudUsersCache) { cloudUsersCache = []; }
+    if (!dataSiswaGlobal) { dataSiswaGlobal = []; }
 
-        // Jika ada sesi tersimpan dan cache sudah ada, langsung buka dashboard
-        if (sessionUserAktif && cloudDataLoaded && cloudUsersCache.length > 0) {
+    // Jika pengguna sudah login, buka dashboard langsung
+    if (sessionUserAktif) {
+        if (typeof bukaHalamanDashboard === 'function') {
             bukaHalamanDashboard();
-            return;
         }
+    } else {
+        // Tampilkan screen login jika belum login
+        const loginScr = document.getElementById('loginScreen');
+        if (loginScr) loginScr.style.display = 'flex';
+    }
 
-        // Muat/refresh cloud data terbaru di background
+    // 🚀 PERBAIKAN UTAMA: WAJIB MUAT/SINKRONKAN CLOUD DATA DI BACKGROUND SETIAP REFRESH!
+    // (Tanpa dihalangi oleh return!)
+    if (typeof muatDataCloud === 'function') {
         muatDataCloud();
-    };
+    }
+};
 
     // Deteksi role saat DOM siap (untuk class CSS is-admin-theme)
     document.addEventListener("DOMContentLoaded", function() {
