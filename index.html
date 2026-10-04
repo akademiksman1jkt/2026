@@ -6881,18 +6881,18 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     const smt   = parseInt(document.getElementById('rlSelectSemester')?.value || '1');
     if (!kelas) { alert('Pilih kelas terlebih dahulu!'); return; }
 
+    // Ambil daftar siswa kelas terpilih dari data master
     const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas).sort((a,b) => (a[2] || '').localeCompare(b[2] || ''));
     if (fSiswa.length === 0) { alert('Tidak ada siswa di kelas ini.'); return; }
 
-    // Memanggil fungsi getKolomErapor() bawaan milik Anda
     const kolomConfig = getKolomErapor();
 
-    // 1. Hitung Nilai Rata-rata Tiap Siswa
+    // 1. Hitung Nilai Rata-rata Tiap Siswa (Murni Hasil Inputan E-Rapor)
     let rankData = fSiswa.map(siswa => {
         let sum = 0, cnt = 0;
         
-        daftarMapel.forEach((m, mIdx) => {
-            // JALUR 1: BACA INPUTAN E-RAPOR GURU DARI LOCALSTORAGE
+        daftarMapel.forEach((m) => {
+            // HANYA BACA LOCALSTORAGE DRAF INPUTAN GURU
             let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
             let draftObj = {};
             try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
@@ -6906,13 +6906,10 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 }
             });
 
+            // Nilai murni dari e-Rapor (0 jika belum diinput guru)
             let v = 0;
             if (totalBobot > 0) {
-                // Menggunakan Nilai Hasil Inputan E-Rapor Guru
                 v = totalBobot < 100 ? (total / totalBobot) * 100 : total;
-            } else {
-                // JALUR 2: FALLBACK KE DATABASE_WEB HANYA JIKA E-RAPOR BELUM DIISI GURU
-                v = parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0;
             }
 
             if (v > 0) { sum += v; cnt++; }
@@ -6930,7 +6927,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     let bodyRows = rankData.map((item, rankIdx) => {
         const siswa = item.siswa;
         
-        let mapelCols = daftarMapel.map((m, mIdx) => {
+        let mapelCols = daftarMapel.map((m) => {
             let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
             let draftObj = {};
             try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
@@ -6944,13 +6941,13 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 }
             });
 
+            // Nilai murni inputan guru:
             let v = 0;
             if (totalBobot > 0) {
                 v = totalBobot < 100 ? (total / totalBobot) * 100 : total;
-            } else {
-                v = parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0;
             }
 
+            // Jika belum diinput guru, tampilkan '-' (strip)
             let txt = v > 0 ? v.toFixed(0) : '-';
             let style = v > 0 && v < 75 ? 'color:#dc2626;font-weight:700;background:#fee2e2;' : '';
             return '<td style="text-align:center;font-size:12px;' + style + '">' + txt + '</td>';
@@ -6973,7 +6970,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         let avg  = rankData.find(r => r.siswa[0] === siswa[0])?.avg || 0;
         
         let merahCount = 0;
-        daftarMapel.forEach((m, mIdx) => {
+        daftarMapel.forEach((m) => {
             let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
             let draftObj = {};
             try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
@@ -6987,7 +6984,7 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
                 }
             });
 
-            let v = totalBobot > 0 ? (totalBobot < 100 ? (total / totalBobot) * 100 : total) : (parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0);
+            let v = totalBobot > 0 ? (totalBobot < 100 ? (total / totalBobot) * 100 : total) : 0;
             if (v > 0 && v < 75) merahCount++;
         });
 
