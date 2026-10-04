@@ -6878,13 +6878,15 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     const fSiswa = dataSiswaGlobal.filter(r => r[3] === kelas).sort((a,b) => (a[2] || '').localeCompare(b[2] || ''));
     if (fSiswa.length === 0) { alert('Tidak ada siswa di kelas ini.'); return; }
 
+    // Memanggil fungsi getKolomErapor() bawaan milik Anda
     const kolomConfig = getKolomErapor();
 
-    // 1. Hitung Nilai Rata-rata Tiap Siswa (Mendukung Input Lokal & Cloud)
+    // 1. Hitung Nilai Rata-rata Tiap Siswa
     let rankData = fSiswa.map(siswa => {
         let sum = 0, cnt = 0;
         
         daftarMapel.forEach((m, mIdx) => {
+            // JALUR 1: BACA INPUTAN E-RAPOR GURU DARI LOCALSTORAGE
             let draftStr = localStorage.getItem('ep_draft_' + m.kode + '_' + kelas + '_' + smt + '_' + siswa[0]);
             let draftObj = {};
             try { if (draftStr) draftObj = JSON.parse(draftStr); } catch(e){}
@@ -6900,8 +6902,10 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 
             let v = 0;
             if (totalBobot > 0) {
+                // Menggunakan Nilai Hasil Inputan E-Rapor Guru
                 v = totalBobot < 100 ? (total / totalBobot) * 100 : total;
             } else {
+                // JALUR 2: FALLBACK KE DATABASE_WEB HANYA JIKA E-RAPOR BELUM DIISI GURU
                 v = parseFloat(siswa[6 + mIdx * 6 + (smt - 1)]) || 0;
             }
 
@@ -7022,14 +7026,13 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
         + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">'
         + raporCards + '</div></div>';
 
-    document.getElementById('btnEksporLeger').style.display = 'inline-flex';
-    document.getElementById('btnCetakRapor').style.display = 'inline-flex';
+    if (document.getElementById('btnEksporLeger')) document.getElementById('btnEksporLeger').style.display = 'inline-flex';
+    if (document.getElementById('btnCetakRapor')) document.getElementById('btnCetakRapor').style.display = 'inline-flex';
     let btnRI = document.getElementById('btnCetakRaporIndividu');
     if (btnRI) btnRI.style.display = 'inline-flex';
     
     hasilEl.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
-
 
     // ============================================================
     // ERAPOR — ROLE-BASED TAB VISIBILITY
