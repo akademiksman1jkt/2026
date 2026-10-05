@@ -7353,50 +7353,109 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     }
 
     // ============================================================
-// HELPER UNTUK MENGAMBIL NILAI DARI SPREADSHEET / CLOUD / LOCALSTORAGE
+// HELPER SMART LOOKUP: AUTO-DETECT SHEET PER MAPEL & STRUCTURE
 // ============================================================
 function getNilaiKomponenSiswaLengkap(nisn, mapelKode, kelas, semester, kolomConfig) {
     let res = {};
     kolomConfig.forEach(k => res[k.id] = '');
+    
+    let cleanNisn = String(nisn || '').replace(/'/g, '').trim();
+    if (!cleanNisn) return res;
 
-    // 1. Prioritas Utama: Cek Draf LocalStorage Guru
-    let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + nisn;
+    // 1. PRIORITAS 1: Draf LocalStorage Guru
+    let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + cleanNisn;
     try {
         let draftStr = localStorage.getItem(keyUnik);
         if (draftStr) {
             let draftObj = JSON.parse(draftStr);
-            let hasValue = false;
+            let adaNilai = false;
             kolomConfig.forEach(k => {
                 let val = draftObj[k.id] !== undefined ? draftObj[k.id] : draftObj[k.nama];
                 if (val !== undefined && val !== '') {
                     res[k.id] = val;
-                    hasValue = true;
+                    adaNilai = true;
                 }
             });
-            if (hasValue) return res;
+            if (adaNilai) return res;
         }
     } catch (e) {}
 
-    // 2. Prioritas Kedua: Cari dari Data Master Spreadsheet Cloud (dataLegerGlobal / dataSiswaGlobal)
-    if (typeof dataLegerGlobal !== 'undefined' && Array.isArray(dataLegerGlobal)) {
-        // Ambil baris data berdasarkan NISN
-        let rowSiswa = dataLegerGlobal.find(r => r && String(r[0]).trim() === String(nisn).trim());
-        if (rowSiswa) {
-            // Pencarian kolom dinamis berdasarkan nama header
-            kolomConfig.forEach(k => {
-                // Cari index header yang cocok dengan k.nama atau k.id
-                if (typeof headerLegerGlobal !== 'undefined' && Array.isArray(headerLegerGlobal)) {
-                    let idx = headerLegerGlobal.findIndex(h => 
-                        String(h).toLowerCase().includes(k.nama.toLowerCase()) || 
-                        String(h).toLowerCase().includes(k.id.toLowerCase())
-                    );
-                    if (idx !== -1 && rowSiswa[idx] !== undefined && rowSiswa[idx] !== '') {
-                        res[k.id] = rowSiswa[idx];
-                    }
-                }
-            });
+    // 2. PRIORITAS 2: Cari dari Data Spreadsheet Global
+    // Menyusun kemungkinan nama sheet di Google Sheets (misal: Leger_PCSL_XII-1_S1)
+    let possibleSheetNames = [
+        `Leger_${mapelKode}_${kelas}_S${semester}`,
+        `Leger_${mapelKode}_${kelas}`,
+        `Leger_${mapelKode}`,
+        mapelKode
+    ];
+
+    let rawRows = [];
+
+    // Kasus A: dataLegerGlobal berbentuk Objek/Dictionary kunci nama sheet
+    if (typeof dataLegerGlobal === 'object' && dataLegerGlobal !== null && !Array.isArray(dataLegerGlobal)) {
+        for (let sName of possibleSheetNames) {
+            if (dataLegerGlobal[sName] && Array.isArray(dataLegerGlobal[sName])) {
+                rawRows = dataLegerGlobal[sName];
+                break;
+            }
+        }
+    } 
+    // Kasus B: dataLegerGlobal adalah Flat Array / Matriks 2D
+    else if (Array.isArray(dataLegerGlobal)) {
+        rawRows = dataLegerGlobal;
+    } 
+    // Kasus C: Membaca dari dataSiswaGlobal jika leger digabung
+    else if (Array.isArray(dataSiswaGlobal)) {
+        rawRows = dataSiswaGlobal;
+    }
+
+    if (rawRows.length === 0) return res;
+
+    // Detect Baris Header & Baris Data
+    // Pada spreadsheet Anda, Header ada di baris dengan kata 'NISN' atau 'Nama Siswa'
+    let headerRowIdx = -1;
+    for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+        let rowStr = JSON.stringify(rawRows[i] || '').toLowerCase();
+        if (rowStr.includes('nisn') || rowStr.includes('nama')) {
+            headerRowIdx = i;
+            break;
         }
     }
+
+    let headers = headerRowIdx !== -1 ? rawRows[headerRowIdx] : (typeof headerLegerGlobal !== 'undefined' ? headerLegerGlobal : []);
+
+    // Cari Baris Siswa Berdasarkan NISN
+    let studentRow = rawRows.find((r, idx) => {
+        if (idx <= headerRowIdx) return false; // Abaikan baris header & judul
+        if (!r || !Array.isArray(r)) return false;
+        let rNisn = String(r[0] || '').replace(/'/g, '').trim();
+        return rNisn === cleanNisn;
+    });
+
+    if (!studentRow) return res;
+
+    // Memetakan Nilai Komponen Berdasarkan Header Kolom
+    kolomConfig.forEach(k => {
+        let colIdx = -1;
+        if (headers && headers.length > 0) {
+            colIdx = headers.findIndex(h => {
+                let hStr = String(h || '').toLowerCase().trim();
+                return hStr.includes(k.nama.toLowerCase()) || hStr.includes(k.id.toLowerCase());
+            });
+        }
+
+        // Fallback jika header tidak terdeteksi: ikuti posisi kolom standar C(2), D(3), E(4), F(5)
+        if (colIdx === -1) {
+            if (k.id === 'harian' || k.nama.toLowerCase().includes('harian')) colIdx = 2;
+            else if (k.id === 'tugas' || k.nama.toLowerCase().includes('tugas')) colIdx = 3;
+            else if (k.id === 'uts' || k.nama.toLowerCase().includes('uts')) colIdx = 4;
+            else if (k.id === 'uas' || k.nama.toLowerCase().includes('uas')) colIdx = 5;
+        }
+
+        if (colIdx !== -1 && studentRow[colIdx] !== undefined && studentRow[colIdx] !== '' && studentRow[colIdx] !== '-') {
+            res[k.id] = studentRow[colIdx];
+        }
+    });
 
     return res;
 }
