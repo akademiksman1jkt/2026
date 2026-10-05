@@ -4116,26 +4116,42 @@ function downloadCloudSheet(sheetName, callbackAction) {
             }
         }, 8000);
 
-        let urlTarget = (typeof URL_APPS_SCRIPT !== 'undefined' ? URL_APPS_SCRIPT : URL_GOOGLE_APPS_SCRIPT) + "?sheet=" + encodeURIComponent(sheetName);
+        // Jika sheet yang diminta adalah Leger spesifik, sertakan parameter ?sheet=
+        // Jika sheet utama (Database_Web, Sheet_Biodata, dll), panggil URL utama
+        let baseUrl = typeof URL_APPS_SCRIPT !== 'undefined' ? URL_APPS_SCRIPT : URL_APPS_SCRIPT_UTAMA;
+        let urlTarget = baseUrl;
         
+        if (sheetName && sheetName.startsWith('Leger_')) {
+            urlTarget += "?sheet=" + encodeURIComponent(sheetName);
+        }
+
         fetch(urlTarget)
-            .then(response => response.json())
+            .then(async (response) => {
+                if (!response.ok) throw new Error("HTTP Status " + response.status);
+                let rawText = await response.text();
+                
+                // Cegah crash jika Google mengembalikan HTML Eror
+                if (rawText.trim().startsWith("<")) {
+                    throw new Error("URL Apps Script mati / mengembalikan HTML 404");
+                }
+                return JSON.parse(rawText);
+            })
             .then(resData => {
                 clearTimeout(timer);
                 let sourceArray = [];
-                
-                // Parser fleksibel mendukung Array dan Object dari Apps Script
+
+                // Parsing adaptif sesuai respon Apps Script Anda
                 if (resData && typeof resData === 'object' && !Array.isArray(resData)) {
-                    if (resData.nilai) sourceArray = resData.nilai;
-                    else if (resData.biodata) sourceArray = resData.biodata;
-                    else if (resData.users) sourceArray = resData.users.map(u => [u.username, u.password, u.role, u.nama]);
-                    else if (resData.plotting) sourceArray = resData.plotting.map(p => [p.username, p.kelas, p.mapel]);
+                    if (sheetName === "Sheet_Biodata" || sheetName === "biodata") sourceArray = resData.biodata || [];
+                    else if (sheetName === "Database_Web" || sheetName === "nilai") sourceArray = resData.nilai || [];
+                    else if (sheetName === "Sistem_Users" || sheetName === "users") sourceArray = resData.users || [];
+                    else if (sheetName === "Sistem_Plotting" || sheetName === "plotting") sourceArray = resData.plotting || [];
                     else sourceArray = Object.values(resData)[0] || [];
                 } else if (Array.isArray(resData)) {
                     sourceArray = resData;
                 }
 
-                // Standardisasi ke format sel { c: [ { v: ... }, { f: ... } ] }
+                // Format ke array object/cell selaras frontend
                 if (sourceArray && sourceArray.length > 0) {
                     let rowsFormatted = sourceArray.map(row => {
                         let cols = Array.isArray(row) ? row : Object.values(row);
@@ -4151,7 +4167,7 @@ function downloadCloudSheet(sheetName, callbackAction) {
             })
             .catch(err => {
                 clearTimeout(timer);
-                console.warn('[Portal] Fetch error sheet "' + sheetName + '":', err);
+                console.warn('[Portal] Fetch error sheet "' + sheetName + '":', err.message);
                 callbackAction([]);
                 finish();
             });
