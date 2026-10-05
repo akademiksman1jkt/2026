@@ -6439,144 +6439,62 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     // ERAPOR — LEMBAR KERJA FLEKSIBEL
     // ============================================================
     function muatLembarKerjaErapor() {
-    // 1. Bersihkan draf lokal lama agar tidak menimpa data spreadsheet terbaru
-    Object.keys(localStorage).forEach(k => k.startsWith('ep_draft_') && localStorage.removeItem(k));
-
-    // 2. PENGAMAN: Jika data memori kosong, muat ulang cache siswa terbaru
-    if (!dataSiswaGlobal || dataSiswaGlobal.length === 0) {
-        try {
-            const localCache = localStorage.getItem("offline_siswa_sman1");
-            if (localCache) dataSiswaGlobal = JSON.parse(localCache);
-        } catch(e) { console.warn('[Portal] Gagal membaca cache siswa:', e); }
+    const nisnAktif = document.getElementById('selectSiswaErapor')?.value;
+    const mapelAktif = document.getElementById('selectMapelErapor')?.value;
+    
+    if (!nisnAktif || !dataSiswaGlobal || dataSiswaGlobal.length === 0) {
+        console.warn("Data siswa atau NISN belum siap.");
+        return;
     }
 
-    const kelas    = document.getElementById('epSelectKelas')?.value;
-    const mapel    = document.getElementById('epSelectMapel')?.value;
-    const smt      = parseInt(document.getElementById('epSelectSemester')?.value||'1');
-    if (!kelas||!mapel) { alert('Pilih kelas dan mata pelajaran terlebih dahulu!'); return; }
+    // 1. Cari baris data siswa berdasarkan NISN (Kolom [0])
+    let siswaRow = dataSiswaGlobal.find(row => String(row[0]).trim() === String(nisnAktif).trim());
 
-    const kolom     = getKolomErapor();
-    const mapelInfo = daftarMapel.find(m=>m.kode===mapel);
-    const mapelIdx  = daftarMapel.indexOf(mapelInfo);
-    if (!mapelInfo) { alert('Mata pelajaran tidak ditemukan!'); return; }
-
-    // ============================================================
-    // LANGKAH 1: REBUILD HEADER (TAMBAH SMT LALU & KETERANGAN)
-    // ============================================================
-    const headerRow = document.getElementById('headerEraporKolom');
-    if (headerRow) {
-        let hHtml = '<th style="width:60px;text-align:center;">No</th>'
-                  + '<th>Identitas</th>'
-                  + '<th>Nama Lengkap</th>'
-                  + '<th style="background-color:#f8fafc; text-align:center; min-width:90px;">Smt Lalu</th>'; // KOLOM BARU SMT LALU
-
-        kolom.forEach(k => { 
-            hHtml += '<th>'+k.nama+' <small style="color:#94a3b8;font-weight:400;">('+k.bobot+'%)</small></th>'; 
-        });
-
-        hHtml += '<th style="background-color:var(--primary-light);color:var(--primary);text-align:center;">Akhir Rapor</th>'
-               + '<th style="text-align:center; min-width:100px;">Keterangan</th>'; // KOLOM BARU KETERANGAN
-
-        headerRow.innerHTML = hHtml;
+    if (!siswaRow) {
+        alert("Data siswa dengan NISN tersebut tidak ditemukan di database cloud!");
+        return;
     }
 
-    const label = document.getElementById('labelMetodeHitung');
-    if (label) {
-        let bobotTxt = kolom.map(k=>k.nama+' '+k.bobot+'%').join(' + ');
-        label.innerHTML = '<strong>Metode:</strong> Rata-rata berbobot | '+bobotTxt+' = <strong>Nilai Akhir Rapor</strong>.';
+    // 2. Cari indeks mata pelajaran yang sesuai
+    let mapelIdx = daftarMapel.findIndex(m => 
+        String(m.kode || m.namaLengkap).toLowerCase().trim() === String(mapelAktif).toLowerCase().trim()
+    );
+
+    if (mapelIdx === -1) {
+        console.error("Mata pelajaran tidak ditemukan dalam daftarMapel.");
+        return;
     }
 
-    const tBody = document.getElementById('tableBodyErapor');
-    if (!tBody) return;
-    tBody.innerHTML = '';
+    // 3. Ambil nilai 6 semester berdasarkan formula offset indeks yang benar
+    // Rumus Indeks Kolom: 6 + (mapelIndex * 6) + semesterOffset
+    let nilaiPerSemester = [];
+    for (let s = 0; s < 6; s++) {
+        let colIndex = 6 + (mapelIdx * 6) + s;
+        let rawVal = siswaRow[colIndex];
 
-    const fSiswa = dataSiswaGlobal.filter(r=>r[3]===kelas);
-    if (fSiswa.length===0) { alert('Tidak ada siswa di kelas ini.'); return; }
-
-    // ============================================================
-    // RENDERING BARIS TABEL SISWA
-    // ============================================================
-    fSiswa.forEach((siswa, i) => {
-        let savedNilai = {};
-        if (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) {
-            let rowNilai = dataSiswaGlobal.find(r => 
-                String(r[0]).replace(/['\s]/g, '') === String(siswa[0]).replace(/['\s]/g, '') && 
-                String(r[1]).trim() === String(mapel).trim() && 
-                String(r[2]).trim() === String(smt).trim()
-            );
-
-            if (rowNilai) {
-                savedNilai = {
-                    harian: rowNilai[3] !== undefined ? rowNilai[3] : '',
-                    tugas:  rowNilai[4] !== undefined ? rowNilai[4] : '',
-                    uts:    rowNilai[5] !== undefined ? rowNilai[5] : '',
-                    uas:    rowNilai[6] !== undefined ? rowNilai[6] : ''
-                };
-            }
+        // Format & konversi nilai secara aman
+        if (rawVal !== undefined && rawVal !== null && rawVal !== "") {
+            let cleanVal = String(rawVal).replace(',', '.');
+            let numVal = parseFloat(cleanVal);
+            nilaiPerSemester.push(!isNaN(numVal) ? numVal : rawVal);
+        } else {
+            nilaiPerSemester.push("-"); // Kosong/Belum diisi
         }
+    }
 
-        let totalCloud = 0, totalBobotCloud = 0;
-        kolom.forEach(k => {
-            let v = parseFloat(savedNilai[k.id]);
-            if (!isNaN(v)) {
-                totalCloud += v * (k.bobot / 100);
-                totalBobotCloud += k.bobot;
-            }
-        });
-        let cloudVal = totalBobotCloud > 0 ? (totalCloud / totalBobotCloud) * 100 : 0;
+    // 4. Render nilai ke input form / tabel e-Rapor
+    renderNilaiKeTabelErapor(nilaiPerSemester);
+}
 
-        // ============================================================
-        // POTONG & GANTI BAGIAN DENGAN LOGIKA PEMETAAN KELAS INI
-        // ============================================================
-        const infoSmt = dapatkanInfoSemesterSiswa(kelas, smt);
-        let smtLaluTarget = infoSmt.smtLalu;
-        let nilaiSmtLalu = '-';
-
-        if (smtLaluTarget > 0 && mapelIdx >= 0) {
-            // Cek Draft Lokal
-            let draftSmtLalu = localStorage.getItem('ep_draft_' + mapel + '_' + kelas + '_' + smtLaluTarget + '_' + siswa[0]);
-            if (draftSmtLalu) {
-                try {
-                    let objLalu = JSON.parse(draftSmtLalu);
-                    if (objLalu['akhir']) nilaiSmtLalu = parseFloat(objLalu['akhir']).toFixed(1);
-                } catch(e){}
-            }
-
-            // Jika lokal kosong, cek Master Array dataSiswaGlobal
-            if (nilaiSmtLalu === '-') {
-                let idxTarget = 6 + (mapelIdx * 6) + (smtLaluTarget - 1);
-                let valMaster = siswa[idxTarget];
-                if (valMaster && valMaster !== '-' && valMaster !== '') {
-                    nilaiSmtLalu = parseFloat(valMaster).toFixed(1);
-                }
-            }
+// Fungsi Helper Render Nilai ke Elemen Input / Tabel
+function renderNilaiKeTabelErapor(arrayNilai) {
+    for (let sem = 1; sem <= 6; sem++) {
+        let inputEl = document.getElementById(`nilai_sem_${sem}`);
+        if (inputEl) {
+            let val = arrayNilai[sem - 1];
+            inputEl.value = (val !== "-") ? val : "";
         }
-        // ============================================================
-
-        let kolomInputs = '';
-        kolom.forEach(k => {
-            let savedVal = savedNilai[k.id]!==undefined ? savedNilai[k.id] : '';
-            kolomInputs += '<td><input type="number" id="ep_'+k.id+'_'+siswa[0]+'" value="'+savedVal
-                +'" min="0" max="100" step="0.5" style="width:80px;padding:5px;border:1px solid var(--slate-200);border-radius:4px;text-align:center;"'
-                +' oninput="hitungNilaiAkhirErapor(\''+siswa[0]+'\')"></td>';
-        });
-
-        let nilaiAkhirDisplay = cloudVal>0 ? cloudVal.toFixed(1) : '-';
-        let labelTrend = hitungLabelTrend(nilaiAkhirDisplay, nilaiSmtLalu);
-
-        tBody.innerHTML += '<tr>'
-            + '<td style="text-align:center;font-weight:700;">'+(i+1)+'</td>'
-            + '<td><code>'+siswa[0]+'</code></td>'
-            + '<td><strong>'+siswa[2]+'</strong></td>'
-            + '<td id="ep_smt_lalu_'+siswa[0]+'" style="text-align:center; background-color:#f8fafc; font-weight:600; color:#475569;">'+nilaiSmtLalu+'</td>'
-            + kolomInputs
-            + '<td style="text-align:center;font-weight:800;color:var(--primary);" id="ep_akhir_'+siswa[0]+'">'+nilaiAkhirDisplay+'</td>'
-            + '<td id="ep_ket_'+siswa[0]+'" style="text-align:center;font-weight:700;">'+labelTrend+'</td>'
-            + '</tr>';
-    });
-
-    const sectionEl = document.getElementById('sectionLembarKerjaErapor');
-    if (sectionEl) { sectionEl.style.display='block'; sectionEl.scrollIntoView({behavior:'smooth',block:'start'}); }
+    }
 }
 
 // ============================================================
