@@ -6471,34 +6471,50 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
 
     bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-indigo-600 font-semibold"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data siswa & nilai...</td></tr>`;
 
-    // 2. Ambil Master Data Siswa Global
-    const masterSiswa = (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) 
-        ? dataSiswaGlobal 
-        : (window.dataSiswaGlobal || []);
+    const urlScript = typeof URL_GOOGLE_APPS_SCRIPT !== 'undefined' ? URL_GOOGLE_APPS_SCRIPT : (typeof scriptUrl !== 'undefined' ? scriptUrl : '');
 
-    if (masterSiswa.length === 0) {
-        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-rose-500 font-medium">Data siswa belum dimuat di memori. Silakan refresh halaman.</td></tr>`;
+    // 2. CEK & SELF-HEAL DATA SISWA GLOBAL (Jika memori kosong, tarik langsung dari Apps Script)
+    let masterSiswa = (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) ? dataSiswaGlobal : (window.dataSiswaGlobal || []);
+
+    if (!masterSiswa || masterSiswa.length === 0) {
+        try {
+            console.warn("dataSiswaGlobal kosong! Memanggil biodata segar dari Google Sheets...");
+            const respBio = await fetch(`${urlScript}?sheet=Sheet_Biodata`);
+            if (respBio.ok) {
+                const jsonBio = await respBio.json();
+                if (Array.isArray(jsonBio) && jsonBio.length > 1) {
+                    masterSiswa = jsonBio.slice(1); // Ambil data tanpa header
+                    window.dataSiswaGlobal = masterSiswa;
+                    if (typeof dataSiswaGlobal !== 'undefined') dataSiswaGlobal = masterSiswa;
+                }
+            }
+        } catch (errBio) {
+            console.error("Gagal memuat biodata darurat:", errBio);
+        }
+    }
+
+    if (!masterSiswa || masterSiswa.length === 0) {
+        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-rose-500 font-medium">Data siswa tidak ditemukan di database. Pastikan tab "Sheet_Biodata" di Google Sheets sudah terisi.</td></tr>`;
         return;
     }
 
-    // 3. Filter Siswa Sesuai Indeks Portal (s[2] = Kelas, s[1] = Nama, s[3] = NISN)
+    // 3. Filter Siswa Berdasarkan Kelas Target (Aman untuk berbagai indeks: s[2], s[3], atau s.kelas)
     const listSiswa = masterSiswa.filter(s => {
         if (!s) return false;
-        // Ambil Kelas dari Indeks 2 (atau properti .kelas)
-        const kSiswa = String(s[2] || s.kelas || s[3] || '').trim().toLowerCase();
+        const kSiswa = String(s[2] || s[3] || s[0] || s.kelas || '').trim().toLowerCase();
         return kSiswa === String(kelas).trim().toLowerCase();
     }).sort((a, b) => {
-        const namaA = String(a[1] || a.nama || a[2] || '');
-        const namaB = String(b[1] || b.nama || b[2] || '');
+        const namaA = String(a[1] || a[2] || a[0] || a.nama || '');
+        const namaB = String(b[1] || b[2] || b[0] || b.nama || '');
         return namaA.localeCompare(namaB);
     });
 
     if (listSiswa.length === 0) {
-        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-amber-600 font-medium">Siswa tidak ditemukan untuk kelas "<b>${kelas}</b>". (Total siswa di memori: ${masterSiswa.length})</td></tr>`;
+        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-amber-600 font-medium">Tidak ada siswa ditemukan di database untuk kelas "<b>${kelas}</b>". (Total siswa terdeteksi di memori: ${masterSiswa.length})</td></tr>`;
         return;
     }
 
-    // 4. Ambil Konfigurasi Kolom Nilai (Aman dari error localStorage)
+    // 4. Ambil Konfigurasi Kolom Nilai
     let kolomConfig = [
         {id:'harian', nama:'Nilai Harian', bobot:25},
         {id:'tugas',  nama:'Nilai Tugas',  bobot:25},
@@ -6512,10 +6528,9 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         }
     } catch(e) { console.warn("Menggunakan konfigurasi kolom default:", e); }
 
-    // 5. Tarik Data Cloud dari Spreadsheet (Membaca Tab Leger_PCSL_XII-1_S1 atau eRapor_Mentah)
+    // 5. Tarik Data Cloud Nilai dari Google Sheets (Leger_MAPEL_KELAS_S1 atau eRapor_Mentah)
     let dataLegerCloud = {};
     const namaSheetLeger = `Leger_${mapel}_${kelas}_S${smt}`.replace(/[^a-zA-Z0-9_\-]/g, '_');
-    const urlScript = typeof URL_GOOGLE_APPS_SCRIPT !== 'undefined' ? URL_GOOGLE_APPS_SCRIPT : (typeof scriptUrl !== 'undefined' ? scriptUrl : '');
 
     if (urlScript) {
         try {
@@ -6568,11 +6583,9 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     // 6. Render Tabel Baris Siswa & Kolom Input Nilai
     let htmlRows = '';
     listSiswa.forEach((siswa, index) => {
-        // Ambil NISN dari s[3] dan Nama dari s[1] sesuai data portal
         const nisn = String(siswa[3] || siswa[0] || siswa.nisn || '').replace(/['\s]/g, '').trim();
         const nama = String(siswa[1] || siswa[2] || siswa.nama || '').toUpperCase();
 
-        // Ambil Draf LocalStorage secara aman
         const localKey = `ep_draft_${mapel}_${kelas}_${smt}_${nisn}`;
         let localData = {};
         try {
@@ -6622,7 +6635,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
 
     bodyEl.innerHTML = htmlRows;
 
-    // Hitung Nilai Akhir Otomatis
+    // Trigger Hitung
     listSiswa.forEach(siswa => {
         const nisn = String(siswa[3] || siswa[0] || siswa.nisn || '').replace(/['\s]/g, '').trim();
         if (typeof hitungNilaiAkhirErapor === 'function') {
