@@ -8057,7 +8057,7 @@ function eksekusiCetakRaporIndividu(kelas, smt) {
 }
 
 // ============================================================
-// FUNGSI CETAK RAPOR INDIVIDU (SINKRON SPREADSHEET CLOUD)
+// FUNGSI CETAK RAPOR INDIVIDU (SINKRON PRESISI DENGAN SPREADSHEET)
 // ============================================================
 function cetakRaporIndividu(kelas, smt) {
     if (!kelas) {
@@ -8089,7 +8089,7 @@ function cetakRaporIndividu(kelas, smt) {
         showKode:       _raporCfgGet('showKode',       true),
         showKetuntasan: _raporCfgGet('showKetuntasan', true),
         showKKMNote:    _raporCfgGet('showKKMNote',    true),
-        hideEmptyMapel: false, // DIPAKSA FALSE AGAR TABEL TIDAK DIBANGKITKAN DALAM KONDISI KOSONG
+        hideEmptyMapel: _raporCfgGet('hideEmptyMapel', true), // DIKEMBALIKAN KE TRUE SESUAI KEINGINAN
         showNisn:       _raporCfgGet('showNisn',       true),
         showNis:        _raporCfgGet('showNis',        false),
         ttdWali:        _raporCfgGet('ttdWali',        true),
@@ -8118,21 +8118,33 @@ function cetakRaporIndividu(kelas, smt) {
         { id: 'uas',    nama: 'Nilai UAS',    bobot: 25 }
     ];
 
-    // MASTER MAPEL DENGAN MATCHING FLEXIBLE
     let listMapel = typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel) && daftarMapel.length > 0 
         ? daftarMapel 
         : [{ kode: 'PCSL', nama: 'Pendidikan Pancasila', namaLengkap: 'Pendidikan Pancasila' }];
 
-    let mapelAktif = listMapel; // AMBIL SELURUH LIST MAPEL TANPA TERCEAT OLEH FILTER PILIHAN ADMIN
+    let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' 
+        ? (getMapelAktifPerKelas(kelas) || []) 
+        : listMapel.map(m => m.kode);
+        
+    let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode) || mapelPilihanAdmin.includes(m.nama));
+    if (mapelAktif.length === 0) mapelAktif = listMapel;
 
-    // HELPER UNIVERSAL SEARCH KE OBJECT CLOUD SPREADSHEET
+    // Helper Normalisasi NISN (menghilangkan petik, spasi, dan zero-padding)
+    function cleanNisnStr(val) {
+        if (!val) return '';
+        let s = String(val).replace(/['\s]/g, '').trim();
+        return s.replace(/^0+/, ''); // normalisasi agar 0094646300 dan 94646300 dianggap sama
+    }
+
+    // HELPER AKURAT PENARIK NILAI DARI GOOGLE SHEETS CLOUD & LOCALSTORAGE
     function getNilaiKomponenSiswa(nisn, mapelKode, semester) {
         let res = {};
         kolomConfig.forEach((k) => res[k.id] = '');
-        let cleanNisn = String(nisn || '').replace(/['\s]/g, '').trim();
+        let targetNisn = cleanNisnStr(nisn);
+        if (!targetNisn) return res;
 
-        // A. LocalStorage Check
-        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + cleanNisn;
+        // A. Cek LocalStorage Draf Guru Pertama Kali
+        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + String(nisn).trim();
         try {
             let draftStr = localStorage.getItem(keyUnik);
             if (draftStr) {
@@ -8149,7 +8161,7 @@ function cetakRaporIndividu(kelas, smt) {
             }
         } catch (e) {}
 
-        // B. Cloud/Spreadsheet Array Check
+        // B. Ambil dari Variabel Cloud Data Hasil Fetch
         let poolNilai = null;
         if (typeof cloudData !== 'undefined' && cloudData.nilai) poolNilai = cloudData.nilai;
         else if (typeof dbCloud !== 'undefined' && dbCloud.nilai) poolNilai = dbCloud.nilai;
@@ -8159,21 +8171,37 @@ function cetakRaporIndividu(kelas, smt) {
         if (!poolNilai) return res;
 
         let rowsTarget = null;
+
+        // Jika poolNilai Objek Sheet { "Leger_PCSL_XII-1_S1": [[...]], ... }
         if (typeof poolNilai === 'object' && !Array.isArray(poolNilai)) {
             let keys = Object.keys(poolNilai);
-            let matchKey = keys.find(k => k.toLowerCase().includes('pcsl') || k.toLowerCase().includes(mapelKode.toLowerCase()));
+            // Cari nama sheet yang mengandung kode mapel (PCSL)
+            let matchKey = keys.find(k => {
+                let kLower = k.toLowerCase();
+                let codeLower = mapelKode.toLowerCase();
+                return kLower.includes(codeLower) || (codeLower === 'pcsl' && (kLower.includes('pcsl') || kLower.includes('pancasila')));
+            });
             if (matchKey) rowsTarget = poolNilai[matchKey];
-        } else if (Array.isArray(poolNilai)) {
+        } 
+        // Jika poolNilai berupa Array 147 Matriks Sheet
+        else if (Array.isArray(poolNilai)) {
             for (let sh of poolNilai) {
-                if (Array.isArray(sh) && sh.some(r => r && String(r[0] || '').replace(/['\s]/g, '') === cleanNisn)) {
-                    rowsTarget = sh;
-                    break;
+                if (Array.isArray(sh)) {
+                    let isMatch = sh.some((r, idx) => {
+                        if (idx < 2 || !r) return false;
+                        return cleanNisnStr(r[0]) === targetNisn;
+                    });
+                    if (isMatch) {
+                        rowsTarget = sh;
+                        break;
+                    }
                 }
             }
         }
 
+        // Ekstraksi Kolom Nilai Harian, Tugas, UTS, UAS dari Sheet
         if (rowsTarget && Array.isArray(rowsTarget)) {
-            let studentRow = rowsTarget.find((r, idx) => idx >= 2 && r && String(r[0] || '').replace(/['\s]/g, '') === cleanNisn);
+            let studentRow = rowsTarget.find((r, idx) => idx >= 2 && r && cleanNisnStr(r[0]) === targetNisn);
             if (studentRow) {
                 kolomConfig.forEach((k) => {
                     let kName = k.nama.toLowerCase();
@@ -8297,6 +8325,10 @@ function cetakRaporIndividu(kelas, smt) {
             });
 
             let nilaiAkhirMurni = totalBobot > 0 ? (total / (totalBobot / 100)) : 0;
+
+            // KONTROL SEMBUNYIKAN MAPEL KOSONG:
+            // Jika hideEmptyMapel true DAN tidak ada nilai yang terisi (nilaiAkhirMurni == 0), lewati mapel ini
+            if (cfg.hideEmptyMapel && nilaiAkhirMurni === 0) return;
 
             let warnaVal = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#dc2626' : '#0f172a';
             let bgVal    = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#fef2f2' : '#eff6ff';
