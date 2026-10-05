@@ -4104,15 +4104,10 @@ const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwA8zc2QKDxrvtK
 function downloadCloudSheet(sheetName, callbackAction) {
     return new Promise((resolve) => {
         let done = false;
-
         function finish() {
-            if (!done) {
-                done = true;
-                resolve();
-            }
+            if (!done) { done = true; resolve(); }
         }
-
-        // Set Timeout 8 detik untuk penanganan koneksi lambat
+        
         const timer = setTimeout(function() {
             if (!done) {
                 console.warn('[Portal] Timeout 8s: sheet "' + sheetName + '"');
@@ -4121,57 +4116,31 @@ function downloadCloudSheet(sheetName, callbackAction) {
             }
         }, 8000);
 
-        // Panggil Apps Script dengan parameter sheet
-        fetch(URL_APPS_SCRIPT + "?sheet=" + encodeURIComponent(sheetName))
+        let urlTarget = (typeof URL_APPS_SCRIPT !== 'undefined' ? URL_APPS_SCRIPT : URL_GOOGLE_APPS_SCRIPT) + "?sheet=" + encodeURIComponent(sheetName);
+        
+        fetch(urlTarget)
             .then(response => response.json())
             .then(resData => {
                 clearTimeout(timer);
-                
-                // 1. Jika Apps Script mengembalikan objek terpadu (seperti di doGet)
                 let sourceArray = [];
+                
+                // Parser fleksibel mendukung Array dan Object dari Apps Script
                 if (resData && typeof resData === 'object' && !Array.isArray(resData)) {
-                    if (sheetName === "Sistem_Users" && resData.users) {
-                        // Petakan objek user kembali ke array 2D agar cocok dengan parser frontend
-                        sourceArray = resData.users.map(u => [u.username, u.password, u.role, u.nama]);
-                    
-                    // 🌟 PERBAIKAN DI SINI (DITAMBAHKAN TTL & AGAMA SERTA DISESUAIKAN DEGAN ARRAY 2D FRONTEND):
-                    } else if (sheetName === "Sheet_Biodata" && resData.biodata) {
-    // Simpan objek utuh ke variabel global agar tidak [] saat ekspor
-    dataBiodataGlobal = resData.biodata; 
-
-    sourceArray = resData.biodata.map(b => [
-        b.nisn || "",             // Indeks 0 (NISN)
-        b.nama_siswa || "",       // Indeks 1 (Nama)
-        b.kelas || "",            // Indeks 2 (Kelas)
-        b.agama || "",            // Indeks 3 (Agama)
-        b.ttl || "",              // Indeks 4 (TTL)
-        b.alamat_siswa || "",     // Indeks 5 (Alamat)
-        b.status_dlm_keluarga || "", 
-        b.anak_ke || "", 
-        b.asal_sekolah || "", 
-        b.diterima_di_kelas || "", 
-        b.pekerjaan_ayah || "", 
-        b.pekerjaan_ibu || "", 
-        b.alamat_ortu || "", 
-        b.telepon_ortu || "", 
-        b.pekerjaan_wali || "", 
-        b.alamat_wali || "", 
-        b.telepon_wali || ""
-    ]);
-} else if (sheetName === "Sistem_Plotting" && resData.plotting) {
-                        sourceArray = resData.plotting.map(p => [p.username, p.kelas, p.mapel]);
-                    }
+                    if (resData.nilai) sourceArray = resData.nilai;
+                    else if (resData.biodata) sourceArray = resData.biodata;
+                    else if (resData.users) sourceArray = resData.users.map(u => [u.username, u.password, u.role, u.nama]);
+                    else if (resData.plotting) sourceArray = resData.plotting.map(p => [p.username, p.kelas, p.mapel]);
+                    else sourceArray = Object.values(resData)[0] || [];
                 } else if (Array.isArray(resData)) {
                     sourceArray = resData;
-                    if (sheetName === "Sheet_Biodata") dataBiodataGlobal = resData;
                 }
 
-                // 2. Format ulang ke struktur { c: [ { v: ... } ] } sesuai harapan parser web kamu
+                // Standardisasi ke format sel { c: [ { v: ... }, { f: ... } ] }
                 if (sourceArray && sourceArray.length > 0) {
                     let rowsFormatted = sourceArray.map(row => {
                         let cols = Array.isArray(row) ? row : Object.values(row);
                         return {
-                            c: cols.map(val => ({ v: val !== undefined && val !== null ? val : "" }))
+                            c: cols.map(val => ({ v: val !== undefined && val !== null ? val : "", f: String(val || "") }))
                         };
                     });
                     callbackAction(rowsFormatted);
@@ -4182,7 +4151,7 @@ function downloadCloudSheet(sheetName, callbackAction) {
             })
             .catch(err => {
                 clearTimeout(timer);
-                console.warn('[Portal] Apps Script fetch error pada sheet "' + sheetName + '":', err);
+                console.warn('[Portal] Fetch error sheet "' + sheetName + '":', err);
                 callbackAction([]);
                 finish();
             });
@@ -7358,11 +7327,10 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
 function getNilaiKomponenSiswaLengkap(nisn, mapelKode, kelas, semester, kolomConfig) {
     let res = {};
     kolomConfig.forEach(k => res[k.id] = '');
-
     let cleanNisn = String(nisn || '').replace(/['\s]/g, '').trim();
     if (!cleanNisn) return res;
 
-    // 1. PRIORITAS 1: Cek LocalStorage Draf Guru
+    // 1. Prioritas Utama: Pembacaan Draf Lokal Browser
     let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + cleanNisn;
     try {
         let draftStr = localStorage.getItem(keyUnik);
@@ -7380,77 +7348,21 @@ function getNilaiKomponenSiswaLengkap(nisn, mapelKode, kelas, semester, kolomCon
         }
     } catch (e) {}
 
-    // 2. PRIORITAS 2: Ambil Langsung dari Array Cloud 'nilai'
-    let poolNilai = null;
-    if (typeof cloudData !== 'undefined' && cloudData.nilai) poolNilai = cloudData.nilai;
-    else if (typeof dbCloud !== 'undefined' && dbCloud.nilai) poolNilai = dbCloud.nilai;
-    else if (typeof responCloud !== 'undefined' && responCloud.nilai) poolNilai = responCloud.nilai;
-    else if (typeof dataLegerGlobal !== 'undefined') poolNilai = dataLegerGlobal;
-
-    if (!poolNilai) return res;
-
-    // Kemungkinan nama tab di spreadsheet: Leger_PCSL_XII-1_S1
-    let exactSheetName = `Leger_${mapelKode}_${kelas}_S${semester}`;
-
-    let targetRows = null;
-
-    // A. Jika poolNilai berupa Object/Dictionary nama sheet
-    if (typeof poolNilai === 'object' && !Array.isArray(poolNilai)) {
-        if (poolNilai[exactSheetName]) {
-            targetRows = poolNilai[exactSheetName];
-        } else {
-            // Pencarian nama sheet fleksibel
-            let foundKey = Object.keys(poolNilai).find(k => 
-                k.toLowerCase().includes(mapelKode.toLowerCase()) && k.toLowerCase().includes(kelas.toLowerCase())
-            );
-            if (foundKey) targetRows = poolNilai[foundKey];
-        }
-    } 
-    // B. Jika poolNilai berupa Array 147 sheet
-    else if (Array.isArray(poolNilai)) {
-        for (let sheet of poolNilai) {
-            if (Array.isArray(sheet)) {
-                // Cek apakah baris 1 atau 2 sheet ini mengandung nama mapel / kelas
-                let headerStr = JSON.stringify(sheet.slice(0, 3)).toLowerCase();
-                if (headerStr.includes(mapelKode.toLowerCase()) || headerStr.includes('leger nilai')) {
-                    // Cari apakah NISN siswa ini ada di sheet tersebut
-                    let hasStudent = sheet.some(r => r && String(r[0] || '').replace(/['\s]/g, '') === cleanNisn);
-                    if (hasStudent) {
-                        targetRows = sheet;
-                        break;
-                    }
+    // 2. Fallback: Pembacaan dari Array Master Global
+    if (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) {
+        let studentRow = dataSiswaGlobal.find(r => r && String(r[0] || '').replace(/['\s]/g, '').trim() === cleanNisn);
+        if (studentRow) {
+            let listM = typeof daftarMapel !== 'undefined' ? daftarMapel : [];
+            let mIdx = listM.findIndex(m => m.kode === mapelKode);
+            if (mIdx !== -1) {
+                let targetIdx = 6 + (mIdx * 6) + (parseInt(semester) - 1);
+                let val = studentRow[targetIdx];
+                if (val !== undefined && val !== null && val !== '' && val !== '-') {
+                    kolomConfig.forEach(k => res[k.id] = val);
                 }
             }
         }
     }
-
-    if (!targetRows || !Array.isArray(targetRows)) return res;
-
-    // Deteksi Baris Siswa (Mulai Baris 3 / Index 2 ke atas)
-    let studentRow = targetRows.find((r, idx) => {
-        if (idx < 2 || !r || !Array.isArray(r)) return false;
-        let rNisn = String(r[0] || '').replace(/['\s]/g, '').trim();
-        return rNisn === cleanNisn;
-    });
-
-    if (!studentRow) return res;
-
-    // Sesuai layout Spreadsheet Anda:
-    // Index 0: NISN | Index 1: Nama Siswa | Index 2: Nilai Harian | Index 3: Nilai Tugas | Index 4: Nilai UTS | Index 5: Nilai UAS
-    kolomConfig.forEach(k => {
-        let colIdx = -1;
-        let kName = k.nama.toLowerCase();
-
-        if (k.id === 'harian' || kName.includes('harian')) colIdx = 2;
-        else if (k.id === 'tugas' || kName.includes('tugas')) colIdx = 3;
-        else if (k.id === 'uts' || kName.includes('uts')) colIdx = 4;
-        else if (k.id === 'uas' || kName.includes('uas')) colIdx = 5;
-
-        if (colIdx !== -1 && studentRow[colIdx] !== undefined && studentRow[colIdx] !== '' && studentRow[colIdx] !== '-') {
-            res[k.id] = studentRow[colIdx];
-        }
-    });
-
     return res;
 }
 
