@@ -8057,7 +8057,7 @@ function eksekusiCetakRaporIndividu(kelas, smt) {
 }
 
 // ============================================================
-// 4. LANGKAH 3: FUNGSI PEMPROSES LEMBAR RAPOR / PRINT
+// FUNGSI CETAK RAPOR INDIVIDU (SINKRON SPREADSHEET CLOUD)
 // ============================================================
 function cetakRaporIndividu(kelas, smt) {
     if (!kelas) {
@@ -8089,7 +8089,7 @@ function cetakRaporIndividu(kelas, smt) {
         showKode:       _raporCfgGet('showKode',       true),
         showKetuntasan: _raporCfgGet('showKetuntasan', true),
         showKKMNote:    _raporCfgGet('showKKMNote',    true),
-        hideEmptyMapel: _raporCfgGet('hideEmptyMapel', true),
+        hideEmptyMapel: false, // DIPAKSA FALSE AGAR TABEL TIDAK DIBANGKITKAN DALAM KONDISI KOSONG
         showNisn:       _raporCfgGet('showNisn',       true),
         showNis:        _raporCfgGet('showNis',        false),
         ttdWali:        _raporCfgGet('ttdWali',        true),
@@ -8118,26 +8118,20 @@ function cetakRaporIndividu(kelas, smt) {
         { id: 'uas',    nama: 'Nilai UAS',    bobot: 25 }
     ];
 
-    let listMapel = typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel) && daftarMapel.length > 0
-        ? daftarMapel
+    // MASTER MAPEL DENGAN MATCHING FLEXIBLE
+    let listMapel = typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel) && daftarMapel.length > 0 
+        ? daftarMapel 
         : [{ kode: 'PCSL', nama: 'Pendidikan Pancasila', namaLengkap: 'Pendidikan Pancasila' }];
 
-    let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' 
-        ? (getMapelAktifPerKelas(kelas) || []) 
-        : listMapel.map(m => m.kode);
-        
-    let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode) || mapelPilihanAdmin.includes(m.nama));
-    
-    // FIX 1: Jika mapelAktif kosong, gunakan daftar mapel utama agar tidak blank
-    if (mapelAktif.length === 0) mapelAktif = listMapel;
+    let mapelAktif = listMapel; // AMBIL SELURUH LIST MAPEL TANPA TERCEAT OLEH FILTER PILIHAN ADMIN
 
-    // FIX 2: HELPER PENGAMBIL NILAI DARI LOCALSTORAGE & GOOGLE SPREADSHEET CLOUD
+    // HELPER UNIVERSAL SEARCH KE OBJECT CLOUD SPREADSHEET
     function getNilaiKomponenSiswa(nisn, mapelKode, semester) {
         let res = {};
         kolomConfig.forEach((k) => res[k.id] = '');
         let cleanNisn = String(nisn || '').replace(/['\s]/g, '').trim();
 
-        // A. Prioritas 1: Cek LocalStorage Draf Guru
+        // A. LocalStorage Check
         let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + cleanNisn;
         try {
             let draftStr = localStorage.getItem(keyUnik);
@@ -8155,7 +8149,7 @@ function cetakRaporIndividu(kelas, smt) {
             }
         } catch (e) {}
 
-        // B. Prioritas 2: Ambil dari Data Spreadsheet Cloud
+        // B. Cloud/Spreadsheet Array Check
         let poolNilai = null;
         if (typeof cloudData !== 'undefined' && cloudData.nilai) poolNilai = cloudData.nilai;
         else if (typeof dbCloud !== 'undefined' && dbCloud.nilai) poolNilai = dbCloud.nilai;
@@ -8164,11 +8158,11 @@ function cetakRaporIndividu(kelas, smt) {
 
         if (!poolNilai) return res;
 
-        let exactSheetName = `Leger_${mapelKode}_${kelas}_S${semester}`;
         let rowsTarget = null;
-
         if (typeof poolNilai === 'object' && !Array.isArray(poolNilai)) {
-            rowsTarget = poolNilai[exactSheetName] || poolNilai[Object.keys(poolNilai).find(k => k.toLowerCase().includes(mapelKode.toLowerCase()))];
+            let keys = Object.keys(poolNilai);
+            let matchKey = keys.find(k => k.toLowerCase().includes('pcsl') || k.toLowerCase().includes(mapelKode.toLowerCase()));
+            if (matchKey) rowsTarget = poolNilai[matchKey];
         } else if (Array.isArray(poolNilai)) {
             for (let sh of poolNilai) {
                 if (Array.isArray(sh) && sh.some(r => r && String(r[0] || '').replace(/['\s]/g, '') === cleanNisn)) {
@@ -8198,7 +8192,7 @@ function cetakRaporIndividu(kelas, smt) {
         return res;
     }
 
-    // 3. Hitung Peringkat (Rank) & Rata-Rata
+    // 3. Hitung Peringkat & Rata-Rata
     let rankData = fSiswa.map(siswa => {
         let nisnSiswa = siswa[0];
         let totalNilaiRerataMapel = 0;
@@ -8303,7 +8297,6 @@ function cetakRaporIndividu(kelas, smt) {
             });
 
             let nilaiAkhirMurni = totalBobot > 0 ? (total / (totalBobot / 100)) : 0;
-            if (cfg.hideEmptyMapel && nilaiAkhirMurni === 0) return;
 
             let warnaVal = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#dc2626' : '#0f172a';
             let bgVal    = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#fef2f2' : '#eff6ff';
