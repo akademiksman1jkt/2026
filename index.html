@@ -8118,32 +8118,83 @@ function cetakRaporIndividu(kelas, smt) {
         { id: 'uas',    nama: 'Nilai UAS',    bobot: 25 }
     ];
 
-    let listMapel = typeof daftarMapel !== 'undefined' ? daftarMapel : [];
+    let listMapel = typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel) && daftarMapel.length > 0
+        ? daftarMapel
+        : [{ kode: 'PCSL', nama: 'Pendidikan Pancasila', namaLengkap: 'Pendidikan Pancasila' }];
+
     let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' 
-        ? getMapelAktifPerKelas(kelas) 
+        ? (getMapelAktifPerKelas(kelas) || []) 
         : listMapel.map(m => m.kode);
-    let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
+        
+    let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode) || mapelPilihanAdmin.includes(m.nama));
+    
+    // FIX 1: Jika mapelAktif kosong, gunakan daftar mapel utama agar tidak blank
     if (mapelAktif.length === 0) mapelAktif = listMapel;
 
-    // Helper Mengambil Nilai Komponen
+    // FIX 2: HELPER PENGAMBIL NILAI DARI LOCALSTORAGE & GOOGLE SPREADSHEET CLOUD
     function getNilaiKomponenSiswa(nisn, mapelKode, semester) {
-        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + nisn;
-        let draftObj = {};
+        let res = {};
+        kolomConfig.forEach((k) => res[k.id] = '');
+        let cleanNisn = String(nisn || '').replace(/['\s]/g, '').trim();
+
+        // A. Prioritas 1: Cek LocalStorage Draf Guru
+        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + cleanNisn;
         try {
             let draftStr = localStorage.getItem(keyUnik);
-            if (draftStr) draftObj = JSON.parse(draftStr);
+            if (draftStr) {
+                let draftObj = JSON.parse(draftStr);
+                let adaIsi = false;
+                kolomConfig.forEach((k) => {
+                    let v = draftObj[k.id] !== undefined ? draftObj[k.id] : draftObj[k.nama];
+                    if (v !== undefined && v !== '') {
+                        res[k.id] = v;
+                        adaIsi = true;
+                    }
+                });
+                if (adaIsi) return res;
+            }
         } catch (e) {}
 
-        let res = {};
-        kolomConfig.forEach((k) => {
-            if (draftObj[k.id] !== undefined && draftObj[k.id] !== '') {
-                res[k.id] = draftObj[k.id];
-            } else if (draftObj[k.nama] !== undefined && draftObj[k.nama] !== '') {
-                res[k.id] = draftObj[k.nama];
-            } else {
-                res[k.id] = '';
+        // B. Prioritas 2: Ambil dari Data Spreadsheet Cloud
+        let poolNilai = null;
+        if (typeof cloudData !== 'undefined' && cloudData.nilai) poolNilai = cloudData.nilai;
+        else if (typeof dbCloud !== 'undefined' && dbCloud.nilai) poolNilai = dbCloud.nilai;
+        else if (typeof responCloud !== 'undefined' && responCloud.nilai) poolNilai = responCloud.nilai;
+        else if (typeof dataLegerGlobal !== 'undefined') poolNilai = dataLegerGlobal;
+
+        if (!poolNilai) return res;
+
+        let exactSheetName = `Leger_${mapelKode}_${kelas}_S${semester}`;
+        let rowsTarget = null;
+
+        if (typeof poolNilai === 'object' && !Array.isArray(poolNilai)) {
+            rowsTarget = poolNilai[exactSheetName] || poolNilai[Object.keys(poolNilai).find(k => k.toLowerCase().includes(mapelKode.toLowerCase()))];
+        } else if (Array.isArray(poolNilai)) {
+            for (let sh of poolNilai) {
+                if (Array.isArray(sh) && sh.some(r => r && String(r[0] || '').replace(/['\s]/g, '') === cleanNisn)) {
+                    rowsTarget = sh;
+                    break;
+                }
             }
-        });
+        }
+
+        if (rowsTarget && Array.isArray(rowsTarget)) {
+            let studentRow = rowsTarget.find((r, idx) => idx >= 2 && r && String(r[0] || '').replace(/['\s]/g, '') === cleanNisn);
+            if (studentRow) {
+                kolomConfig.forEach((k) => {
+                    let kName = k.nama.toLowerCase();
+                    let colIdx = -1;
+                    if (k.id === 'harian' || kName.includes('harian')) colIdx = 2; // Kolom C
+                    else if (k.id === 'tugas' || kName.includes('tugas')) colIdx = 3; // Kolom D
+                    else if (k.id === 'uts' || kName.includes('uts')) colIdx = 4; // Kolom E
+                    else if (k.id === 'uas' || kName.includes('uas')) colIdx = 5; // Kolom F
+
+                    if (colIdx !== -1 && studentRow[colIdx] !== undefined && studentRow[colIdx] !== '' && studentRow[colIdx] !== '-') {
+                        res[k.id] = studentRow[colIdx];
+                    }
+                });
+            }
+        }
         return res;
     }
 
