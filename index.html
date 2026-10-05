@@ -7353,7 +7353,56 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     }
 
     // ============================================================
-// PERBAIKAN: EKSPOR LEGER EXCEL (SINKRON SPREADSHEET & DRAFT GURU)
+// HELPER UNTUK MENGAMBIL NILAI DARI SPREADSHEET / CLOUD / LOCALSTORAGE
+// ============================================================
+function getNilaiKomponenSiswaLengkap(nisn, mapelKode, kelas, semester, kolomConfig) {
+    let res = {};
+    kolomConfig.forEach(k => res[k.id] = '');
+
+    // 1. Prioritas Utama: Cek Draf LocalStorage Guru
+    let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + nisn;
+    try {
+        let draftStr = localStorage.getItem(keyUnik);
+        if (draftStr) {
+            let draftObj = JSON.parse(draftStr);
+            let hasValue = false;
+            kolomConfig.forEach(k => {
+                let val = draftObj[k.id] !== undefined ? draftObj[k.id] : draftObj[k.nama];
+                if (val !== undefined && val !== '') {
+                    res[k.id] = val;
+                    hasValue = true;
+                }
+            });
+            if (hasValue) return res;
+        }
+    } catch (e) {}
+
+    // 2. Prioritas Kedua: Cari dari Data Master Spreadsheet Cloud (dataLegerGlobal / dataSiswaGlobal)
+    if (typeof dataLegerGlobal !== 'undefined' && Array.isArray(dataLegerGlobal)) {
+        // Ambil baris data berdasarkan NISN
+        let rowSiswa = dataLegerGlobal.find(r => r && String(r[0]).trim() === String(nisn).trim());
+        if (rowSiswa) {
+            // Pencarian kolom dinamis berdasarkan nama header
+            kolomConfig.forEach(k => {
+                // Cari index header yang cocok dengan k.nama atau k.id
+                if (typeof headerLegerGlobal !== 'undefined' && Array.isArray(headerLegerGlobal)) {
+                    let idx = headerLegerGlobal.findIndex(h => 
+                        String(h).toLowerCase().includes(k.nama.toLowerCase()) || 
+                        String(h).toLowerCase().includes(k.id.toLowerCase())
+                    );
+                    if (idx !== -1 && rowSiswa[idx] !== undefined && rowSiswa[idx] !== '') {
+                        res[k.id] = rowSiswa[idx];
+                    }
+                }
+            });
+        }
+    }
+
+    return res;
+}
+
+// ============================================================
+// PERBAIKAN: EKSPOR LEGER EXCEL (.xlsx / .xls)
 // ============================================================
 function eksporLegerExcel() {
     let kelas = document.getElementById('rlSelectKelas')?.value || document.getElementById('epSelectKelas')?.value || '';
@@ -7364,17 +7413,6 @@ function eksporLegerExcel() {
         return;
     }
 
-    function escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    // 1. Filter & Urutkan Data Siswa
     const fSiswa = (typeof dataSiswaGlobal !== 'undefined' ? dataSiswaGlobal : [])
         .filter(r => r && (String(r[3]).trim() === String(kelas).trim() || String(r[2]).trim() === String(kelas).trim()))
         .sort((a, b) => (a[2] || a[1] || '').localeCompare(b[2] || b[1] || ''));
@@ -7384,7 +7422,6 @@ function eksporLegerExcel() {
         return;
     }
 
-    // 2. Ambil Konfigurasi Kolom & Mapel
     const kolomConfig = typeof getKolomErapor === 'function' ? getKolomErapor() : [
         { id: 'harian', nama: 'Nilai Harian', bobot: 25 },
         { id: 'tugas',  nama: 'Nilai Tugas',  bobot: 25 },
@@ -7399,65 +7436,27 @@ function eksporLegerExcel() {
     let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
     if (mapelAktif.length === 0) mapelAktif = listMapel;
 
-    // Helper Presisi: Mengambil nilai komponen dari LocalStorage Draf / Cloud Leger
-    function getNilaiKomponenSiswa(nisn, mapelKode, semester) {
-        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + nisn;
-        let draftObj = {};
-        try {
-            let draftStr = localStorage.getItem(keyUnik);
-            if (draftStr) draftObj = JSON.parse(draftStr);
-        } catch (e) {}
-
-        let res = {};
-        kolomConfig.forEach((k) => {
-            if (draftObj[k.id] !== undefined && draftObj[k.id] !== '') {
-                res[k.id] = draftObj[k.id];
-            } else if (draftObj[k.nama] !== undefined && draftObj[k.nama] !== '') {
-                res[k.id] = draftObj[k.nama];
-            } else {
-                res[k.id] = '';
-            }
-        });
-        return res;
-    }
-
-    // 3. Susun Header Excel Multi-Header
     let subColCount = kolomConfig.length + 1;
-    let headerRow1 = `
-        <tr>
-            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">No</th>
-            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">NISN</th>
-            <th rowspan="2" style="background-color:#1e293b;color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Nama Siswa</th>`;
+    let headerRow1 = `<tr><th rowspan="2">No</th><th rowspan="2">NISN</th><th rowspan="2">Nama Siswa</th>`;
     let headerRow2 = `<tr>`;
 
-    mapelAktif.forEach((m, mapelIdx) => {
-        let isAlt = (mapelIdx % 2 === 1);
-        let bgHeader1 = isAlt ? '#334155' : '#1e293b';
-        let bgHeader2 = isAlt ? '#1e293b' : '#0f172a';
-        headerRow1 += `<th colspan="${subColCount}" style="background-color:${bgHeader1};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(m.namaLengkap || m.nama || m.kode)}</th>`;
-        
+    mapelAktif.forEach((m) => {
+        headerRow1 += `<th colspan="${subColCount}">${m.namaLengkap || m.nama || m.kode}</th>`;
         kolomConfig.forEach(k => {
-            headerRow2 += `<th style="background-color:${bgHeader2};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">${escapeHtml(k.nama)}</th>`;
+            headerRow2 += `<th>${k.nama}</th>`;
         });
-        headerRow2 += `<th style="background-color:${bgHeader2};color:#ffffff;text-align:center;font-weight:bold;border:1px solid #000000;">Akhir</th>`;
+        headerRow2 += `<th>Nilai Akhir</th>`;
     });
     headerRow1 += `</tr>`;
     headerRow2 += `</tr>`;
 
-    // 4. Baris Data Nilai
     let rowsData = fSiswa.map((siswa, idx) => {
-        let nisnSiswa = escapeHtml(siswa[0] || '');
-        let namaSiswa = escapeHtml((siswa[2] || siswa[1] || '').toUpperCase());
-        let rowCells = `
-            <tr>
-                <td style="text-align:center;font-weight:bold;border:1px solid #cbd5e1;">${idx + 1}</td>
-                <td style="text-align:center;mso-number-format:'\\@';border:1px solid #cbd5e1;">${nisnSiswa}</td>
-                <td style="text-align:left;font-weight:bold;border:1px solid #cbd5e1;">${namaSiswa}</td>`;
+        let nisnSiswa = siswa[0] || '';
+        let namaSiswa = (siswa[2] || siswa[1] || '').toUpperCase();
+        let rowCells = `<tr><td>${idx + 1}</td><td style="mso-number-format:'\\@';">${nisnSiswa}</td><td>${namaSiswa}</td>`;
 
-        mapelAktif.forEach((m, mapelIdx) => {
-            let isAlt = (mapelIdx % 2 === 1);
-            let bgStyle = isAlt ? 'background-color:#f1f5f9;' : 'background-color:#ffffff;';
-            let nilaiObj = getNilaiKomponenSiswa(siswa[0], m.kode, smt);
+        mapelAktif.forEach((m) => {
+            let nilaiObj = getNilaiKomponenSiswaLengkap(nisnSiswa, m.kode, kelas, smt, kolomConfig);
             let total = 0, totalBobot = 0;
 
             kolomConfig.forEach((k) => {
@@ -7466,65 +7465,29 @@ function eksporLegerExcel() {
                 if (!isNaN(valNum) && valNum >= 0 && v !== '') {
                     total += valNum * (k.bobot / 100);
                     totalBobot += k.bobot;
-                    rowCells += `<td style="text-align:center;${bgStyle}border:1px solid #cbd5e1;">${valNum}</td>`;
+                    rowCells += `<td>${valNum}</td>`;
                 } else {
-                    rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
+                    rowCells += `<td style="color:#888;">-</td>`;
                 }
             });
 
             let nilaiAkhirMurni = totalBobot > 0 ? (total / (totalBobot / 100)) : 0;
-            if (nilaiAkhirMurni > 0) {
-                let formatNilai = nilaiAkhirMurni.toFixed(1);
-                let styleAkhir = nilaiAkhirMurni < 75 ? 'color:#dc2626;background-color:#fee2e2;font-weight:bold;' : `font-weight:bold;${bgStyle}`;
-                rowCells += `<td style="text-align:center;${styleAkhir}border:1px solid #cbd5e1;">${formatNilai}</td>`;
-            } else {
-                rowCells += `<td style="text-align:center;color:#64748b;${bgStyle}border:1px solid #cbd5e1;">-</td>`;
-            }
+            rowCells += `<td>${nilaiAkhirMurni > 0 ? nilaiAkhirMurni.toFixed(1) : '-'}</td>`;
         });
         rowCells += `</tr>`;
         return rowCells;
     }).join('');
 
-    // 5. Download Stream
-    let htmlTemplate = `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <!--[if gte mso 9]>
-    <xml>
-        <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-                <x:ExcelWorksheet>
-                    <x:Name>Leger Nilai Rincian</x:Name>
-                    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
-                </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-        </x:ExcelWorkbook>
-    </xml>
-    <![endif]-->
-    <style>
-        table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
-        th, td { padding: 6px 8px; vertical-align: middle; white-space: nowrap; }
-    </style>
-</head>
-<body>
-    <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px;">LEGER NILAI KELAS ${escapeHtml(kelas)} SEMESTER ${escapeHtml(smt)}</div>
-    <table border="1">
-        <thead>${headerRow1}${headerRow2}</thead>
-        <tbody>${rowsData}</tbody>
-    </table>
-</body>
-</html>`;
+    let htmlTemplate = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"/></head>
+    <body><h2>LEGER NILAI KELAS ${kelas} SEMESTER ${smt}</h2><table border="1"><thead>${headerRow1}${headerRow2}</thead><tbody>${rowsData}</tbody></table></body></html>`;
 
     let blob = new Blob([htmlTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
     let url = URL.createObjectURL(blob);
     let a = document.createElement('a');
     a.href = url;
     a.download = `LEGER_NILAI_KELAS_${kelas}_SEMESTER_${smt}.xls`;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 }
 
     // ============================================================
