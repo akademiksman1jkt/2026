@@ -6442,25 +6442,20 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
     }
 
     // ============================================================
-    // ERAPOR — LEMBAR KERJA FLEKSIBEL
-    // ============================================================
-    // ============================================================
-    // ERAPOR — LEMBAR KERJA FLEKSIBEL (FIXED PRESISI DARI FILE ASLI)
+    // ERAPOR — MUAT LEMBAR KERJA (SINKRON DENGAN APPS SCRIPT NEW)
     // ============================================================
     async function muatLembarKerjaErapor() {
-        // 1. Bersihkan draf lokal lama secara aman
+        // 1. Bersihkan draf lokal lama
         try {
             Object.keys(localStorage).forEach(k => k.startsWith('ep_draft_') && localStorage.removeItem(k));
-        } catch(e) { 
-            console.warn('[Portal] LocalStorage terblokir oleh browser/InPrivate:', e); 
-        }
+        } catch(e) { console.warn('[Portal] LocalStorage terblokir:', e); }
 
-        // 2. PENGAMAN: Jika dataSiswaGlobal di memori kosong, muat ulang dari Cache
+        // 2. Ambil cache siswa jika memori kosong
         if (!dataSiswaGlobal || !Array.isArray(dataSiswaGlobal) || dataSiswaGlobal.length === 0) {
             try {
                 const localCache = localStorage.getItem("offline_siswa_sman1");
                 if (localCache) dataSiswaGlobal = JSON.parse(localCache);
-            } catch(e) { console.warn('[Portal] Gagal membaca cache siswa:', e); }
+            } catch(e) {}
         }
 
         const kelas = document.getElementById('epSelectKelas')?.value;
@@ -6473,17 +6468,13 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         }
 
         const tBody = document.getElementById('tableBodyErapor');
-        if (!tBody) {
-            alert("Elemen HTML 'tableBodyErapor' tidak ditemukan!");
-            return;
-        }
+        if (!tBody) return;
 
-        // Tampilkan Indikator Loading di Tabel
-        tBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#4f46e5; font-weight:700;"><i class="ri-loader-4-line ri-spin"></i> Memuat data siswa & nilai dari Google Sheets...</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#4f46e5; font-weight:700;"><i class="ri-loader-4-line ri-spin"></i> Memuat data nilai dari Google Sheets...</td></tr>`;
 
         const urlScript = typeof URL_GOOGLE_APPS_SCRIPT !== 'undefined' ? URL_GOOGLE_APPS_SCRIPT : (typeof scriptUrl !== 'undefined' ? scriptUrl : '');
 
-        // TARIK BIODATA DARURAT JIKA MEMORI SISWA KOSONG
+        // Tarik biodata darurat jika memori siswa kosong
         if ((!dataSiswaGlobal || dataSiswaGlobal.length === 0) && urlScript) {
             try {
                 const respBio = await fetch(`${urlScript}?sheet=Sheet_Biodata`);
@@ -6493,11 +6484,11 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
                         dataSiswaGlobal = jsonBio.slice(1);
                     }
                 }
-            } catch(errBio) { console.warn("Gagal tarik biodata darurat:", errBio); }
+            } catch(e) {}
         }
 
         if (!dataSiswaGlobal || dataSiswaGlobal.length === 0) {
-            tBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626; font-weight:600;">Data siswa (dataSiswaGlobal) belum dimuat di memori. Silakan refresh halaman web.</td></tr>`;
+            tBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626; font-weight:600;">Data siswa belum dimuat di memori. Silakan refresh halaman web.</td></tr>`;
             return;
         }
 
@@ -6505,71 +6496,50 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         const mapelInfo = (typeof daftarMapel !== 'undefined') ? daftarMapel.find(m => m.kode === mapel) : null;
         const mapelIdx  = (typeof daftarMapel !== 'undefined') ? daftarMapel.indexOf(mapelInfo) : -1;
 
-        if (!mapelInfo) { 
-            alert('Mata pelajaran tidak ditemukan di daftar sistem!'); 
-            tBody.innerHTML = '';
-            return; 
-        }
-
-        // ============================================================
-        // TARIK DATA NILAI DARI SHEET LEGER GOOGLE SHEETS
-        // Contoh nama sheet: Leger_PCSL_XII-1_S1
-        // ============================================================
+        // ------------------------------------------------------------
+        // TARIK DATA DARI SPREADSHEET LEGER
+        // ------------------------------------------------------------
         let dataLegerCloud = {};
-        const namaSheetLeger = `Leger_${mapel}_${kelas}_S${smt}`.replace(/[^a-zA-Z0-9_\-]/g, '_');
-
+        
         if (urlScript) {
-            try {
-                const respLeger = await fetch(`${urlScript}?sheet=${encodeURIComponent(namaSheetLeger)}`);
-                if (respLeger.ok) {
-                    const jsonLeger = await respLeger.json();
-                    // Baris 1: Judul, Baris 2: Nama Kolom Header (NISN, Nama, Nilai Harian, dll)
-                    if (Array.isArray(jsonLeger) && jsonLeger.length >= 3) {
-                        const headerCols = jsonLeger[1].map(c => String(c).trim()); // Baris ke-2 (index 1)
-                        for (let r = 2; r < jsonLeger.length; r++) {
-                            const row = jsonLeger[r];
-                            const nisnRaw = String(row[0] || '').replace(/['\s]/g, '').trim();
-                            if (!nisnRaw) continue;
+            // Coba beberapa variasi nama sheet (PCSL vs Nama Mapel)
+            const variasiSheet = [
+                `Leger_${mapel}_${kelas}_S${smt}`,
+                `Leger_PCSL_${kelas}_S${smt}`,
+                `Leger_${mapelInfo ? mapelInfo.namaLengkap : mapel}_${kelas}_S${smt}`
+            ];
 
-                            dataLegerCloud[nisnRaw] = {};
-                            headerCols.forEach((colName, colIdx) => {
-                                if (colIdx >= 2) {
-                                    dataLegerCloud[nisnRaw][colName] = (row[colIdx] !== undefined && row[colIdx] !== null) ? row[colIdx] : '';
-                                }
-                            });
-                        }
-                    }
-                }
-            } catch (e) { console.warn("Pencarian fallback ke eRapor_Mentah...", e); }
-
-            // FALLBACK DARI SHEET eRapor_Mentah
-            if (Object.keys(dataLegerCloud).length === 0) {
+            for (let namaSheet of variasiSheet) {
+                const cleanSheetName = namaSheet.replace(/[^a-zA-Z0-9_\-]/g, '_');
                 try {
-                    const respM = await fetch(`${urlScript}?sheet=eRapor_Mentah`);
-                    if (respM.ok) {
-                        const jsonM = await respM.json();
-                        if (Array.isArray(jsonM) && jsonM.length > 1) {
-                            for (let r = 1; r < jsonM.length; r++) {
-                                const row = jsonM[r];
-                                const nisnRow = String(row[1] || '').replace(/['\s]/g, '').trim();
-                                const mapelRow = String(row[2] || '').trim();
-                                const semRow = String(row[3] || '').trim();
+                    const respLeger = await fetch(`${urlScript}?sheet=${encodeURIComponent(cleanSheetName)}`);
+                    if (respLeger.ok) {
+                        const jsonLeger = await respLeger.json();
+                        
+                        // Pastikan balasan berupa Array 2D dari Apps Script
+                        if (Array.isArray(jsonLeger) && jsonLeger.length >= 3) {
+                            for (let r = 2; r < jsonLeger.length; r++) {
+                                const row = jsonLeger[r];
+                                const nisnRaw = String(row[0] || '').replace(/['\s]/g, '').trim();
+                                if (!nisnRaw) continue;
 
-                                if (mapelRow === mapel && semRow === String(smt)) {
-                                    if (!dataLegerCloud[nisnRow]) dataLegerCloud[nisnRow] = {};
-                                    dataLegerCloud[nisnRow]['Nilai Harian'] = row[4] ?? '';
-                                    dataLegerCloud[nisnRow]['Nilai Tugas']  = row[5] ?? '';
-                                    dataLegerCloud[nisnRow]['Nilai UTS']    = row[6] ?? '';
-                                    dataLegerCloud[nisnRow]['Nilai UAS']    = row[7] ?? '';
-                                }
+                                dataLegerCloud[nisnRaw] = {
+                                    'harian': (row[2] !== undefined && row[2] !== null && row[2] !== '') ? row[2] : '',
+                                    'tugas':  (row[3] !== undefined && row[3] !== null && row[3] !== '') ? row[3] : '',
+                                    'uts':    (row[4] !== undefined && row[4] !== null && row[4] !== '') ? row[4] : '',
+                                    'uas':    (row[5] !== undefined && row[5] !== null && row[5] !== '') ? row[5] : ''
+                                };
                             }
+                            if (Object.keys(dataLegerCloud).length > 0) break; // Berhasil dapat data
                         }
                     }
-                } catch (e) { console.warn("Gagal membaca eRapor_Mentah:", e); }
+                } catch (e) {
+                    console.warn("Gagal membaca sheet:", cleanSheetName, e);
+                }
             }
         }
 
-        // REBUILD HEADER TABEL
+        // REBUILD HEADER
         const headerRow = document.getElementById('headerEraporKolom');
         if (headerRow) {
             let hHtml = '<th style="width:60px;text-align:center;">No</th>'
@@ -6608,14 +6578,10 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         fSiswa.forEach((siswa, i) => {
             const nisnSiswa = String(siswa[0] || '').replace(/['\s]/g, '').trim();
 
-            // SINKRONISASI NILAI DARI GOOGLE SHEETS
             let savedNilai = {};
             if (dataLegerCloud[nisnSiswa]) {
                 kolom.forEach(k => {
-                    // Cari berdasarkan nama kolom ("Nilai Harian") atau ID ("harian")
-                    if (dataLegerCloud[nisnSiswa][k.nama] !== undefined && dataLegerCloud[nisnSiswa][k.nama] !== '') {
-                        savedNilai[k.id] = dataLegerCloud[nisnSiswa][k.nama];
-                    } else if (dataLegerCloud[nisnSiswa][k.id] !== undefined && dataLegerCloud[nisnSiswa][k.id] !== '') {
+                    if (dataLegerCloud[nisnSiswa][k.id] !== undefined) {
                         savedNilai[k.id] = dataLegerCloud[nisnSiswa][k.id];
                     }
                 });
@@ -6631,7 +6597,6 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
             });
             let cloudVal = totalBobotCloud > 0 ? (totalCloud / totalBobotCloud) * 100 : 0;
 
-            // KETERANGAN SEMESTER LALU
             let smtLaluTarget = 0;
             if (typeof dapatkanInfoSemesterSiswa === 'function') {
                 const infoSmt = dapatkanInfoSemesterSiswa(kelas, smt);
@@ -6671,7 +6636,6 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
                 + '</tr>';
         });
 
-        // Tampilkan Container Lembar Kerja
         const sectionEl = document.getElementById('sectionLembarKerjaErapor');
         if (sectionEl) { 
             sectionEl.style.display = 'block'; 
