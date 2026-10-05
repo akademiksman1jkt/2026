@@ -6903,6 +6903,15 @@ function hitungLabelTrend(nilaiSekarang, nilaiLalu) {
     // ============================================================
     // ERAPOR — RAPOR & LEGER GENERATOR
     // ============================================================
+    function syncDropdownRaporLeger() {
+        const el = document.getElementById('rlSelectKelas');
+        if (!el) return;
+        el.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+        [...new Set(dataSiswaGlobal.map(r=>r[3]))].filter(k=>k).sort().forEach(k=>{
+            el.innerHTML += '<option value="'+k+'">'+k+'</option>';
+        });
+        updateReleaseDaftarUI();
+    }
     async function generateRaporLeger() {
         const kelas = document.getElementById('rlSelectKelas')?.value;
         const smt   = parseInt(document.getElementById('rlSelectSemester')?.value || '1');
