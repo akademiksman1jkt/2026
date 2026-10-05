@@ -8089,7 +8089,7 @@ function cetakRaporIndividu(kelas, smt) {
         showKode:       _raporCfgGet('showKode',       true),
         showKetuntasan: _raporCfgGet('showKetuntasan', true),
         showKKMNote:    _raporCfgGet('showKKMNote',    true),
-        hideEmptyMapel: _raporCfgGet('hideEmptyMapel', true), // DIKEMBALIKAN KE TRUE SESUAI KEINGINAN
+        hideEmptyMapel: _raporCfgGet('hideEmptyMapel', true),
         showNisn:       _raporCfgGet('showNisn',       true),
         showNis:        _raporCfgGet('showNis',        false),
         ttdWali:        _raporCfgGet('ttdWali',        true),
@@ -8118,109 +8118,66 @@ function cetakRaporIndividu(kelas, smt) {
         { id: 'uas',    nama: 'Nilai UAS',    bobot: 25 }
     ];
 
-    let listMapel = typeof daftarMapel !== 'undefined' && Array.isArray(daftarMapel) && daftarMapel.length > 0 
-        ? daftarMapel 
-        : [{ kode: 'PCSL', nama: 'Pendidikan Pancasila', namaLengkap: 'Pendidikan Pancasila' }];
-
+    let listMapel = typeof daftarMapel !== 'undefined' ? daftarMapel : [];
     let mapelPilihanAdmin = typeof getMapelAktifPerKelas === 'function' 
-        ? (getMapelAktifPerKelas(kelas) || []) 
+        ? getMapelAktifPerKelas(kelas) 
         : listMapel.map(m => m.kode);
-        
-    let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode) || mapelPilihanAdmin.includes(m.nama));
+    let mapelAktif = listMapel.filter(m => mapelPilihanAdmin.includes(m.kode));
     if (mapelAktif.length === 0) mapelAktif = listMapel;
 
-    // Helper Normalisasi NISN (menghilangkan petik, spasi, dan zero-padding)
-    function cleanNisnStr(val) {
-        if (!val) return '';
-        let s = String(val).replace(/['\s]/g, '').trim();
-        return s.replace(/^0+/, ''); // normalisasi agar 0094646300 dan 94646300 dianggap sama
-    }
-
-    // HELPER AKURAT PENARIK NILAI DARI GOOGLE SHEETS CLOUD & LOCALSTORAGE
+    // Helper Ringan Pembaca Nilai dari Cache Cloud & LocalStorage
     function getNilaiKomponenSiswa(nisn, mapelKode, semester) {
         let res = {};
-        kolomConfig.forEach((k) => res[k.id] = '');
-        let targetNisn = cleanNisnStr(nisn);
-        if (!targetNisn) return res;
+        kolomConfig.forEach(k => res[k.id] = '');
+        let cNisn = String(nisn || '').replace(/['\s]/g, '').trim();
 
-        // A. Cek LocalStorage Draf Guru Pertama Kali
-        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + String(nisn).trim();
+        // Check LocalStorage
+        let keyUnik = 'ep_draft_' + mapelKode + '_' + kelas + '_' + semester + '_' + cNisn;
         try {
             let draftStr = localStorage.getItem(keyUnik);
             if (draftStr) {
                 let draftObj = JSON.parse(draftStr);
-                let adaIsi = false;
-                kolomConfig.forEach((k) => {
+                let ada = false;
+                kolomConfig.forEach(k => {
                     let v = draftObj[k.id] !== undefined ? draftObj[k.id] : draftObj[k.nama];
-                    if (v !== undefined && v !== '') {
-                        res[k.id] = v;
-                        adaIsi = true;
-                    }
+                    if (v !== undefined && v !== '') { res[k.id] = v; ada = true; }
                 });
-                if (adaIsi) return res;
+                if (ada) return res;
             }
         } catch (e) {}
 
-        // B. Ambil dari Variabel Cloud Data Hasil Fetch
-        let poolNilai = null;
-        if (typeof cloudData !== 'undefined' && cloudData.nilai) poolNilai = cloudData.nilai;
-        else if (typeof dbCloud !== 'undefined' && dbCloud.nilai) poolNilai = dbCloud.nilai;
-        else if (typeof responCloud !== 'undefined' && responCloud.nilai) poolNilai = responCloud.nilai;
-        else if (typeof dataLegerGlobal !== 'undefined') poolNilai = dataLegerGlobal;
+        // Direct Lookup dari Objek Cloud yang Ter-load di Memori
+        let poolNilai = (typeof cloudData !== 'undefined' && cloudData.nilai) ? cloudData.nilai :
+                        (typeof dbCloud !== 'undefined' && dbCloud.nilai) ? dbCloud.nilai :
+                        (typeof responCloud !== 'undefined' && responCloud.nilai) ? responCloud.nilai : null;
 
-        if (!poolNilai) return res;
+        if (poolNilai && typeof poolNilai === 'object') {
+            let sheetKey = `Leger_${mapelKode}_${kelas}_S${semester}`;
+            let rows = poolNilai[sheetKey] || poolNilai[Object.keys(poolNilai).find(k => k.toLowerCase().includes(mapelKode.toLowerCase()))];
+            
+            if (Array.isArray(rows)) {
+                let sRow = rows.find((r, idx) => idx >= 2 && r && String(r[0] || '').replace(/['\s]/g, '').trim() === cNisn);
+                if (sRow) {
+                    kolomConfig.forEach(k => {
+                        let kName = k.nama.toLowerCase();
+                        let cIdx = -1;
+                        if (k.id === 'harian' || kName.includes('harian')) cIdx = 2;
+                        else if (k.id === 'tugas' || kName.includes('tugas')) cIdx = 3;
+                        else if (k.id === 'uts' || kName.includes('uts')) cIdx = 4;
+                        else if (k.id === 'uas' || kName.includes('uas')) cIdx = 5;
 
-        let rowsTarget = null;
-
-        // Jika poolNilai Objek Sheet { "Leger_PCSL_XII-1_S1": [[...]], ... }
-        if (typeof poolNilai === 'object' && !Array.isArray(poolNilai)) {
-            let keys = Object.keys(poolNilai);
-            // Cari nama sheet yang mengandung kode mapel (PCSL)
-            let matchKey = keys.find(k => {
-                let kLower = k.toLowerCase();
-                let codeLower = mapelKode.toLowerCase();
-                return kLower.includes(codeLower) || (codeLower === 'pcsl' && (kLower.includes('pcsl') || kLower.includes('pancasila')));
-            });
-            if (matchKey) rowsTarget = poolNilai[matchKey];
-        } 
-        // Jika poolNilai berupa Array 147 Matriks Sheet
-        else if (Array.isArray(poolNilai)) {
-            for (let sh of poolNilai) {
-                if (Array.isArray(sh)) {
-                    let isMatch = sh.some((r, idx) => {
-                        if (idx < 2 || !r) return false;
-                        return cleanNisnStr(r[0]) === targetNisn;
+                        if (cIdx !== -1 && sRow[cIdx] !== undefined && sRow[cIdx] !== '' && sRow[cIdx] !== '-') {
+                            res[k.id] = sRow[cIdx];
+                        }
                     });
-                    if (isMatch) {
-                        rowsTarget = sh;
-                        break;
-                    }
                 }
             }
         }
 
-        // Ekstraksi Kolom Nilai Harian, Tugas, UTS, UAS dari Sheet
-        if (rowsTarget && Array.isArray(rowsTarget)) {
-            let studentRow = rowsTarget.find((r, idx) => idx >= 2 && r && cleanNisnStr(r[0]) === targetNisn);
-            if (studentRow) {
-                kolomConfig.forEach((k) => {
-                    let kName = k.nama.toLowerCase();
-                    let colIdx = -1;
-                    if (k.id === 'harian' || kName.includes('harian')) colIdx = 2; // Kolom C
-                    else if (k.id === 'tugas' || kName.includes('tugas')) colIdx = 3; // Kolom D
-                    else if (k.id === 'uts' || kName.includes('uts')) colIdx = 4; // Kolom E
-                    else if (k.id === 'uas' || kName.includes('uas')) colIdx = 5; // Kolom F
-
-                    if (colIdx !== -1 && studentRow[colIdx] !== undefined && studentRow[colIdx] !== '' && studentRow[colIdx] !== '-') {
-                        res[k.id] = studentRow[colIdx];
-                    }
-                });
-            }
-        }
         return res;
     }
 
-    // 3. Hitung Peringkat & Rata-Rata
+    // 3. Hitung Peringkat (Rank) & Rata-Rata
     let rankData = fSiswa.map(siswa => {
         let nisnSiswa = siswa[0];
         let totalNilaiRerataMapel = 0;
@@ -8325,9 +8282,6 @@ function cetakRaporIndividu(kelas, smt) {
             });
 
             let nilaiAkhirMurni = totalBobot > 0 ? (total / (totalBobot / 100)) : 0;
-
-            // KONTROL SEMBUNYIKAN MAPEL KOSONG:
-            // Jika hideEmptyMapel true DAN tidak ada nilai yang terisi (nilaiAkhirMurni == 0), lewati mapel ini
             if (cfg.hideEmptyMapel && nilaiAkhirMurni === 0) return;
 
             let warnaVal = nilaiAkhirMurni > 0 && nilaiAkhirMurni < 75 ? '#dc2626' : '#0f172a';
