@@ -6458,46 +6458,47 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         return;
     }
 
-    // Cari elemen tbody tempat input nilai secara fleksibel
+    // 1. Cari elemen tbody tempat menampung baris input
     let bodyEl = document.getElementById('epTbodyInput') 
               || document.getElementById('tableBodyErapor') 
               || document.querySelector('#epSection_inputNilai tbody')
               || document.querySelector('tbody');
 
     if (!bodyEl) {
-        alert("Elemen tabel input tidak ditemukan pada HTML!");
+        alert("Elemen tbody tempat menampung tabel tidak ditemukan pada HTML!");
         return;
     }
 
     bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-indigo-600 font-semibold"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data siswa & nilai...</td></tr>`;
 
-    // 1. Cek Data Siswa Global
+    // 2. Ambil Master Data Siswa Global
     const masterSiswa = (typeof dataSiswaGlobal !== 'undefined' && Array.isArray(dataSiswaGlobal)) 
         ? dataSiswaGlobal 
         : (window.dataSiswaGlobal || []);
 
     if (masterSiswa.length === 0) {
-        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-rose-500 font-medium">Data siswa belum dimuat/kosong. Pastikan data sudah ditarik dari Spreadsheet.</td></tr>`;
+        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-rose-500 font-medium">Data siswa belum dimuat di memori. Silakan refresh halaman.</td></tr>`;
         return;
     }
 
-    // 2. Filter Siswa Berdasarkan Kelas Target (Mendukung Struktur Indeks dari Console: s[2] = Kelas)
+    // 3. Filter Siswa Sesuai Indeks Portal (s[2] = Kelas, s[1] = Nama, s[3] = NISN)
     const listSiswa = masterSiswa.filter(s => {
         if (!s) return false;
-        const kSiswa = String(s[2] || s[3] || s.kelas || '').trim().toLowerCase();
+        // Ambil Kelas dari Indeks 2 (atau properti .kelas)
+        const kSiswa = String(s[2] || s.kelas || s[3] || '').trim().toLowerCase();
         return kSiswa === String(kelas).trim().toLowerCase();
     }).sort((a, b) => {
-        const namaA = String(a[1] || a[2] || a.nama || '');
-        const namaB = String(b[1] || b[2] || b.nama || '');
+        const namaA = String(a[1] || a.nama || a[2] || '');
+        const namaB = String(b[1] || b.nama || b[2] || '');
         return namaA.localeCompare(namaB);
     });
 
     if (listSiswa.length === 0) {
-        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-amber-600 font-medium">Tidak ada siswa ditemukan untuk kelas "<b>${kelas}</b>". (Total siswa di memori: ${masterSiswa.length})</td></tr>`;
+        bodyEl.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-amber-600 font-medium">Siswa tidak ditemukan untuk kelas "<b>${kelas}</b>". (Total siswa di memori: ${masterSiswa.length})</td></tr>`;
         return;
     }
 
-    // 3. Konfigurasi Kolom Nilai (Aman dari pembagian/pembacaan localStorage yang terblokir)
+    // 4. Ambil Konfigurasi Kolom Nilai (Aman dari error localStorage)
     let kolomConfig = [
         {id:'harian', nama:'Nilai Harian', bobot:25},
         {id:'tugas',  nama:'Nilai Tugas',  bobot:25},
@@ -6509,9 +6510,9 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
             const cfg = getKolomErapor();
             if (Array.isArray(cfg) && cfg.length > 0) kolomConfig = cfg;
         }
-    } catch(e) { console.warn("Penyimpanan lokal terblokir, menggunakan default kolom:", e); }
+    } catch(e) { console.warn("Menggunakan konfigurasi kolom default:", e); }
 
-    // 4. Tarik Data Dari Cloud Google Sheets (Tab Leger Spesifik / eRapor_Mentah)
+    // 5. Tarik Data Cloud dari Spreadsheet (Membaca Tab Leger_PCSL_XII-1_S1 atau eRapor_Mentah)
     let dataLegerCloud = {};
     const namaSheetLeger = `Leger_${mapel}_${kelas}_S${smt}`.replace(/[^a-zA-Z0-9_\-]/g, '_');
     const urlScript = typeof URL_GOOGLE_APPS_SCRIPT !== 'undefined' ? URL_GOOGLE_APPS_SCRIPT : (typeof scriptUrl !== 'undefined' ? scriptUrl : '');
@@ -6535,9 +6536,9 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
                     }
                 }
             }
-        } catch (e) { console.warn("Beralih mencari data dari eRapor_Mentah:", e); }
+        } catch (e) { console.warn("Fallback membaca eRapor_Mentah:", e); }
 
-        // Fallback eRapor_Mentah jika sheet Leger belum ada
+        // Fallback jika tab Leger khusus mapel belum ada
         if (Object.keys(dataLegerCloud).length === 0) {
             try {
                 const respM = await fetch(`${urlScript}?sheet=eRapor_Mentah`);
@@ -6564,14 +6565,14 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
         }
     }
 
-    // 5. Render Tabel Baris Siswa & Kolom Input Nilai
+    // 6. Render Tabel Baris Siswa & Kolom Input Nilai
     let htmlRows = '';
     listSiswa.forEach((siswa, index) => {
-        // Ambil NISN dan Nama sesuai Indeks terdeteksi (s[3]=NISN, s[1]=Nama)
+        // Ambil NISN dari s[3] dan Nama dari s[1] sesuai data portal
         const nisn = String(siswa[3] || siswa[0] || siswa.nisn || '').replace(/['\s]/g, '').trim();
         const nama = String(siswa[1] || siswa[2] || siswa.nama || '').toUpperCase();
 
-        // Safe Read LocalStorage
+        // Ambil Draf LocalStorage secara aman
         const localKey = `ep_draft_${mapel}_${kelas}_${smt}_${nisn}`;
         let localData = {};
         try {
@@ -6621,7 +6622,7 @@ function submitSuaraRapat(nisn, pilihanOpsi) {
 
     bodyEl.innerHTML = htmlRows;
 
-    // Trigger Hitung
+    // Hitung Nilai Akhir Otomatis
     listSiswa.forEach(siswa => {
         const nisn = String(siswa[3] || siswa[0] || siswa.nisn || '').replace(/['\s]/g, '').trim();
         if (typeof hitungNilaiAkhirErapor === 'function') {
